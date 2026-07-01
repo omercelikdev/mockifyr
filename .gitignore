@@ -1,0 +1,61 @@
+## .NET / build
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+build/
+artifacts/
+*.dll
+*.exe
+*.pdb
+project.lock.json
+project.fragment.lock.json
+
+## Test / coverage
+[Tt]est[Rr]esult*/
+coverage*
+*.coverage
+*.coveragexml
+*.trx
+BenchmarkDotNet.Artifacts/
+
+## NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+!**/packages/build/
+
+## IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userprefs
+*_i.c
+*_p.c
+
+## OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+## Rider
+.idea/
+*.sln.iml
+
+## Local env / secrets
+*.env
+.env.local
+appsettings.*.local.json
+secrets.json
+
+## Node (gelecekteki UI/dashboard)
+node_modules/
+dist/
+.next/
