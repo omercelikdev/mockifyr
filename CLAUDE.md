@@ -144,11 +144,12 @@ the unit tests on every PR.
 
 ## 7. Current status
 
-G0 complete (`feat/g0-harness`): the differential harness runs the real WireMock oracle via
-Testcontainers, and a trivial stub (exact URL + static response) diffs green against it.
-`StubEngine.Handle` is implemented (exact matching, priority/recency selection, scenario
-hooks, journaling); in-memory stores, `UrlEqualToMatcher`/`UrlPathEqualToMatcher`/
-`MethodMatcher`, `StaticResponseRenderer`, the WireMock JSON import adapter, and the
-`MockifyrServer` library facade are in place. Builds clean (0 warnings); unit tests 8/8;
-differential 2/2. Next: broaden G1 matchers (headers/query/body, equalToJson, ...), each
-validated against the oracle, and implement the fuzzing generator.
+G0 done and G1 in progress. The engine serves via exact/standard matching (URL/method plus
+the `equalTo`/`equalToIgnoreCase`/`contains`/`matches`/`doesNotMatch`/`absent` value matchers on
+headers/query/cookies/body), static responses, in-memory tenant-scoped stores, and the WireMock
+JSON import adapter. The differential harness runs the real WireMock oracle via Testcontainers.
+The **fuzzing generator** (`MatcherScenarios`) emits hundreds of seed-driven corpus probes and
+the property suite asserts every match decision agrees with the oracle — it has already caught a
+real divergence (empty request body is "absent" for body matching). Builds clean (0 warnings);
+unit 16/16; differential 18/18 (incl. property tests). Next: finish G1 (cookie/doesNotMatch/
+multi-value/binaryEqualTo), then G1e `equalToJson` (fuzz-validated), then G1f `matchesJsonPath`.

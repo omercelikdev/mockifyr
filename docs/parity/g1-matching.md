@@ -33,6 +33,22 @@ Verified WireMock behaviors discovered while building the matching vertical agai
   multi-value header/query (`havingExactly`/`including`), `binaryEqualTo`. Implemented but pending
   a differential case.
 
+### Empty request body is "absent" for body matching
+
+- **Group / item:** G1d (body) — **found by the fuzzing generator**, not by hand.
+- **Input:** stub `bodyPatterns: [{ "equalTo": "" }]`, request with an empty body.
+- **WireMock behavior:** does **not** match (404). WireMock treats an empty request body as absent
+  for body-pattern evaluation, so `equalTo ""` fails against it.
+- **Our handling:** `BodyMatcher` reports the target as absent when the body is empty, so the
+  value matcher sees `present: false`.
+- **Regression case:** `G1GeneratedMatcherTests.EqualTo_Body` (corpus value `""`).
+
+### Corpus exclusions (transport ambiguity, not yet validated)
+
+Header/query fuzzing currently skips empty and whitespace-only values and non-ASCII/control
+characters, which carry transport-level encoding/trimming ambiguity to be validated separately.
+Tracked in `TextCorpus`.
+
 ### Header masking (current harness limitation)
 
 - WireMock injects transport/server headers (`Matched-Stub-Id`, `Vary`, `Transfer-Encoding`,

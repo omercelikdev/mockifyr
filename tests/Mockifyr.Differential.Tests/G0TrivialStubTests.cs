@@ -1,3 +1,4 @@
+using Mockifyr.Differential.Generator;
 using Mockifyr.Differential.Harness;
 
 namespace Mockifyr.Differential.Tests;
