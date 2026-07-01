@@ -1,4 +1,5 @@
 using Mockifyr.Core;
+using Mockifyr.Differential.Generator;
 using Mockifyr.Facade.Library;
 
 namespace Mockifyr.Differential.Harness;

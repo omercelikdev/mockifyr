@@ -17,10 +17,14 @@ Detailed rationale and per-group contents:
 - [ ] **G1 — Matching**
   - [ ] G1a URL basic (urlEqualTo, urlPathEqualTo, method + ANY)
   - [ ] G1b URL advanced (urlMatching, urlPathMatching, urlPathTemplate + named path vars)
-  - [ ] G1c header/query/cookie matchers (+ multi-value) — header/query `equalTo`+`absent`
-    oracle-validated; cookie, `doesNotMatch`, `equalToIgnoreCase`, multi-value still pending
+  - [ ] G1c header/query/cookie matchers (+ multi-value) — header/query `equalTo`/`contains`/
+    `absent` fuzz-validated across the corpus; cookie, `doesNotMatch`, `equalToIgnoreCase`,
+    multi-value still pending
   - [ ] G1d body basic (equalTo, binaryEqualTo, contains, matches) — `equalTo`/`contains`/
-    `matches` oracle-validated; `binaryEqualTo` pending
+    `matches` fuzz-validated across the corpus; `binaryEqualTo` pending
+  - [x] **Fuzzing generator** (brief §5) — deterministic seed-driven `MatcherScenarios` emit
+    hundreds of corpus-spanning probes; the property suite asserts the match decision agrees
+    with the oracle. It already caught the empty-body divergence above.
   - [ ] G1e equalToJson (ignoreArrayOrder × ignoreExtraElements)
   - [ ] G1f matchesJsonPath
   - [ ] G1g equalToXml / matchesXPath

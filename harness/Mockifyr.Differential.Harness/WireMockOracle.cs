@@ -2,6 +2,7 @@ using System.Net.Http;
 using System.Text;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
+using Mockifyr.Differential.Generator;
 
 namespace Mockifyr.Differential.Harness;
 

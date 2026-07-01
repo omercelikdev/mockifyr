@@ -38,12 +38,22 @@ public sealed class CookieMatcher(string name, IValueMatcher value) : IMatcher
     }
 }
 
-/// <summary>Applies a value matcher to the request body (always present, as a single value).</summary>
+/// <summary>Applies a value matcher to the request body.</summary>
+/// <remarks>
+/// WireMock treats an empty request body as absent for body matching (verified against the
+/// oracle: <c>bodyPatterns equalTo ""</c> does not match an empty body). See
+/// docs/parity/g1-matching.md.
+/// </remarks>
 public sealed class BodyMatcher(IValueMatcher value) : IMatcher
 {
     /// <inheritdoc />
     public MatchResult Match(MatchInput input)
     {
+        if (input.Request.Body.Length == 0)
+        {
+            return value.Match(present: false, Array.Empty<string>());
+        }
+
         var text = System.Text.Encoding.UTF8.GetString(input.Request.Body);
         return value.Match(present: true, [text]);
     }
