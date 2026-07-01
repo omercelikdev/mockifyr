@@ -72,11 +72,99 @@ public static class WireMockMappingReader
         {
             Url = url,
             Method = new MethodMatcher(method),
-            Headers = [],
-            Query = [],
-            Cookies = [],
-            Body = [],
+            Headers = ReadNamedMatchers(request, "headers", static (name, vm) => new HeaderMatcher(name, vm)),
+            Query = ReadNamedMatchers(request, "queryParameters", static (name, vm) => new QueryMatcher(name, vm)),
+            Cookies = ReadNamedMatchers(request, "cookies", static (name, vm) => new CookieMatcher(name, vm)),
+            Body = ReadBodyMatchers(request),
         };
+    }
+
+    private static IReadOnlyList<IMatcher> ReadNamedMatchers(
+        JsonElement request,
+        string property,
+        Func<string, IValueMatcher, IMatcher> factory)
+    {
+        if (request.ValueKind != JsonValueKind.Object ||
+            !request.TryGetProperty(property, out var container) ||
+            container.ValueKind != JsonValueKind.Object)
+        {
+            return [];
+        }
+
+        var matchers = new List<IMatcher>();
+        foreach (var entry in container.EnumerateObject())
+        {
+            if (BuildValueMatcher(entry.Value) is { } value)
+            {
+                matchers.Add(factory(entry.Name, value));
+            }
+        }
+
+        return matchers;
+    }
+
+    private static IReadOnlyList<IMatcher> ReadBodyMatchers(JsonElement request)
+    {
+        if (request.ValueKind != JsonValueKind.Object ||
+            !request.TryGetProperty("bodyPatterns", out var patterns) ||
+            patterns.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        var matchers = new List<IMatcher>();
+        foreach (var pattern in patterns.EnumerateArray())
+        {
+            if (BuildValueMatcher(pattern) is { } value)
+            {
+                matchers.Add(new BodyMatcher(value));
+            }
+        }
+
+        return matchers;
+    }
+
+    private static IValueMatcher? BuildValueMatcher(JsonElement spec)
+    {
+        if (spec.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        var caseInsensitive = spec.TryGetProperty("caseInsensitive", out var ci) &&
+                              ci.ValueKind == JsonValueKind.True;
+
+        if (spec.TryGetProperty("equalTo", out var eq) && eq.ValueKind == JsonValueKind.String)
+        {
+            return new EqualToValueMatcher(eq.GetString()!, caseInsensitive);
+        }
+
+        if (spec.TryGetProperty("equalToIgnoreCase", out var eqi) && eqi.ValueKind == JsonValueKind.String)
+        {
+            return new EqualToIgnoreCaseValueMatcher(eqi.GetString()!);
+        }
+
+        if (spec.TryGetProperty("contains", out var c) && c.ValueKind == JsonValueKind.String)
+        {
+            return new ContainsValueMatcher(c.GetString()!);
+        }
+
+        if (spec.TryGetProperty("matches", out var mt) && mt.ValueKind == JsonValueKind.String)
+        {
+            return new MatchesValueMatcher(mt.GetString()!);
+        }
+
+        if (spec.TryGetProperty("doesNotMatch", out var dnm) && dnm.ValueKind == JsonValueKind.String)
+        {
+            return new DoesNotMatchValueMatcher(dnm.GetString()!);
+        }
+
+        if (spec.TryGetProperty("absent", out var absent) && absent.ValueKind == JsonValueKind.True)
+        {
+            return new AbsentValueMatcher();
+        }
+
+        return null;
     }
 
     private static ResponseDefinition ReadResponse(JsonElement response)

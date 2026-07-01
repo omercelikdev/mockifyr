@@ -19,6 +19,20 @@ Verified WireMock behaviors discovered while building the matching vertical agai
 - **Our handling:** `StubResolution.Matched == false` maps to a bare `404`.
 - **Regression case:** `G0TrivialStubTests.UnknownPath_YieldsNotFoundOnBothSides`.
 
+### Standard matchers on headers / query / body
+
+- **Group / item:** G1c (header/query), G1d (body)
+- **Verified against the oracle:** `equalTo` (header, query, body), `absent` (header), `contains`
+  (body), `matches` (body). A present-and-matching target is served; a wrong value or a failing
+  matcher yields 404 on both sides.
+- **`matches` is a full match.** WireMock uses Java `String.matches` semantics — the whole value
+  must match. `matches: "[a-z]+[0-9]+"` matched `abc123` but not `abc123x` on the oracle; we
+  reproduce this by anchoring the pattern with `\A(?:...)\z` in `MatchesValueMatcher`.
+- **Regression cases:** `G1StandardMatcherTests` (8 cases).
+- **Not yet validated against the oracle:** cookie matchers, `doesNotMatch`, `equalToIgnoreCase`,
+  multi-value header/query (`havingExactly`/`including`), `binaryEqualTo`. Implemented but pending
+  a differential case.
+
 ### Header masking (current harness limitation)
 
 - WireMock injects transport/server headers (`Matched-Stub-Id`, `Vary`, `Transfer-Encoding`,
