@@ -87,6 +87,21 @@ Tracked in `TextCorpus`.
 - **Still not covered:** duplicate keys (undefined `System.Text.Json` behavior) and equalToJson on
   non-body targets.
 
+### matchesJsonPath (G1f)
+
+- **Group / item:** G1f — fuzz-validated across the common JSONPath subset.
+- **Library:** WireMock uses Jayway JsonPath; we use **Newtonsoft.Json**'s JSONPath, the closest
+  .NET proxy (it accepts Jayway-style syntax; `JsonPath.Net`'s RFC-9535 dialect would reject
+  `[?(@.x=='y')]`). Confined to `Mockifyr.Matching`.
+- **Verified against the oracle:** the presence form (property access `$.a.b`, array index
+  `$.items[0]`, wildcard `$.store.book[*].author`, recursive descent `$..id`) matches when the
+  path selects ≥1 node; the expression + sub-matcher form (`{ "expression": "...", "equalTo": ...}`)
+  applies the sub-matcher to the extracted value (a number `30` extracts as `"30"`). Invalid body
+  or invalid path expression → no match.
+- **Not yet validated (deferred, likely Jayway-vs-Newtonsoft divergence):** filter expressions
+  `[?(@.price > 10)]`, functions (`.length()`), and multi-value sub-matcher semantics on
+  indefinite paths.
+
 ### Header masking (current harness limitation)
 
 - WireMock injects transport/server headers (`Matched-Stub-Id`, `Vary`, `Transfer-Encoding`,
