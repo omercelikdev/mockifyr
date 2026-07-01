@@ -2,6 +2,7 @@ using System.Net.Http;
 using System.Text;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
+using Mockifyr.Differential.Generator;
 
 namespace Mockifyr.Differential.Harness;
 
@@ -24,7 +25,9 @@ public sealed class WireMockOracle : IAsyncDisposable
 
     private HttpClient? _client;
 
-    private HttpClient Client => _client ??= new HttpClient
+    // UseCookies is disabled so an explicit Cookie request header passes through unmodified
+    // (otherwise the handler's cookie container would manage it).
+    private HttpClient Client => _client ??= new HttpClient(new SocketsHttpHandler { UseCookies = false })
     {
         BaseAddress = new Uri($"http://{_container.Hostname}:{_container.GetMappedPublicPort(WireMockPort)}"),
     };

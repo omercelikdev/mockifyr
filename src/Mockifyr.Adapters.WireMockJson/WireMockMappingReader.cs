@@ -139,10 +139,8 @@ public static class WireMockMappingReader
             return new EqualToValueMatcher(eq.GetString()!, caseInsensitive);
         }
 
-        if (spec.TryGetProperty("equalToIgnoreCase", out var eqi) && eqi.ValueKind == JsonValueKind.String)
-        {
-            return new EqualToIgnoreCaseValueMatcher(eqi.GetString()!);
-        }
+        // Note: WireMock JSON has no `equalToIgnoreCase` key; case-insensitive equality is
+        // `equalTo` with `caseInsensitive: true` (handled above). Verified against the oracle.
 
         if (spec.TryGetProperty("contains", out var c) && c.ValueKind == JsonValueKind.String)
         {
