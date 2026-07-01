@@ -144,8 +144,11 @@ the unit tests on every PR.
 
 ## 7. Current status
 
-Skeleton in place (`feat/g0-skeleton`): 16 projects, dependency graph wired, Core contracts
-and the `StubEngine` coordinator present as skeletons (no behavior yet — `Handle` throws
-`NotImplementedException`), solution builds clean with 0 warnings. No engine behavior is
-implemented yet. Next: implement the G0 differential harness (bring up WireMock via
-Testcontainers, diff a trivial stub), then the first vertical from **G1a** via TDD.
+G0 complete (`feat/g0-harness`): the differential harness runs the real WireMock oracle via
+Testcontainers, and a trivial stub (exact URL + static response) diffs green against it.
+`StubEngine.Handle` is implemented (exact matching, priority/recency selection, scenario
+hooks, journaling); in-memory stores, `UrlEqualToMatcher`/`UrlPathEqualToMatcher`/
+`MethodMatcher`, `StaticResponseRenderer`, the WireMock JSON import adapter, and the
+`MockifyrServer` library facade are in place. Builds clean (0 warnings); unit tests 8/8;
+differential 2/2. Next: broaden G1 matchers (headers/query/body, equalToJson, ...), each
+validated against the oracle, and implement the fuzzing generator.

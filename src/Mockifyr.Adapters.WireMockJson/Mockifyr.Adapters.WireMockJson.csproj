@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Mockifyr.Core\Mockifyr.Core.csproj" />
+    <ProjectReference Include="..\Mockifyr.Matching\Mockifyr.Matching.csproj" />
   </ItemGroup>
 
 </Project>

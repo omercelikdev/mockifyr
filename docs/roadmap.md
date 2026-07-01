@@ -9,9 +9,11 @@ Detailed rationale and per-group contents:
 
 ## Phase A — Narrow vertical (first working, proven core)
 
-- [ ] **G0** — Foundation + differential harness (solution layout, engine interfaces, tenant
-  model, in-memory store, Java WireMock container + generator + canonical diff).
-      *Gate: the harness diffs a trivial stub across both sides.*
+- [x] **G0** — Foundation + differential harness (solution layout, engine interfaces, tenant
+  model, in-memory store, Java WireMock container + canonical diff). Gate met: the harness
+  diffs a trivial stub (exact URL + static response) against the `wiremock/wiremock:3.10.0`
+  oracle, green. Also lands the first slice of G1a (urlEqualTo/urlPathEqualTo/method/ANY) and
+  G2a (static response). The generator is still a stub.
 - [ ] **G1 — Matching**
   - [ ] G1a URL basic (urlEqualTo, urlPathEqualTo, method + ANY)
   - [ ] G1b URL advanced (urlMatching, urlPathMatching, urlPathTemplate + named path vars)

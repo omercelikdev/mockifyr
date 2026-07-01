@@ -2,6 +2,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Mockifyr.Core\Mockifyr.Core.csproj" />
+    <ProjectReference Include="..\Mockifyr.Stores.InMemory\Mockifyr.Stores.InMemory.csproj" />
+    <ProjectReference Include="..\Mockifyr.Matching\Mockifyr.Matching.csproj" />
+    <ProjectReference Include="..\Mockifyr.Templating\Mockifyr.Templating.csproj" />
+    <ProjectReference Include="..\Mockifyr.Adapters.WireMockJson\Mockifyr.Adapters.WireMockJson.csproj" />
   </ItemGroup>
 
 </Project>
