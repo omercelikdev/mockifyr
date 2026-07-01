@@ -143,6 +143,24 @@ public static class WireMockMappingReader
             return new EqualToJsonValueMatcher(expectedJson, ignoreArrayOrder, ignoreExtraElements);
         }
 
+        if (spec.TryGetProperty("matchesJsonPath", out var jsonPath))
+        {
+            // String form is presence; object form is `{ "expression": "...", <sub-matcher> }`.
+            if (jsonPath.ValueKind == JsonValueKind.String)
+            {
+                return new MatchesJsonPathValueMatcher(jsonPath.GetString()!);
+            }
+
+            if (jsonPath.ValueKind == JsonValueKind.Object &&
+                jsonPath.TryGetProperty("expression", out var expression) &&
+                expression.ValueKind == JsonValueKind.String)
+            {
+                return new MatchesJsonPathValueMatcher(expression.GetString()!, BuildValueMatcher(jsonPath));
+            }
+
+            return null;
+        }
+
         if (spec.TryGetProperty("equalTo", out var eq) && eq.ValueKind == JsonValueKind.String)
         {
             return new EqualToValueMatcher(eq.GetString()!, caseInsensitive);

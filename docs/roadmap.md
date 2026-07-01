@@ -29,7 +29,9 @@ Detailed rationale and per-group contents:
     fuzz-validated across all 4 flag combinations plus edges (number precision, null,
     nested-in-array reorder, extra trailing array items). Only duplicate keys and non-body
     targets remain unfuzzed
-  - [ ] G1f matchesJsonPath
+  - [x] G1f matchesJsonPath — presence + expression/sub-matcher forms fuzz-validated over the
+    common subset (property/index/wildcard/recursive-descent) via Newtonsoft as the Jayway proxy;
+    filters `[?(...)]`, functions, and indefinite-path sub-matchers deferred
   - [ ] G1g equalToXml / matchesXPath
   - [ ] G1h matchesJsonSchema
   - [ ] G1i date/time matchers

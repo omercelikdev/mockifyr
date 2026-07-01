@@ -74,6 +74,12 @@ public sealed class G1GeneratedMatcherTests : IAsyncLifetime
     [Fact]
     public Task EqualToJson_Edges() => Verify(JsonScenarios.Edges());
 
+    [Fact]
+    public Task MatchesJsonPath_Presence() => Verify(JsonPathScenarios.Presence());
+
+    [Fact]
+    public Task MatchesJsonPath_SubMatcher() => Verify(JsonPathScenarios.SubMatcher());
+
     private async Task Verify(IEnumerable<MatcherScenario> scenarios)
     {
         var failures = new List<string>();
