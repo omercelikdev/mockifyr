@@ -25,7 +25,9 @@ Detailed rationale and per-group contents:
   - [x] **Fuzzing generator** (brief §5) — deterministic seed-driven `MatcherScenarios` emit
     hundreds of corpus-spanning probes; the property suite asserts the match decision agrees
     with the oracle. It already caught the empty-body divergence above.
-  - [ ] G1e equalToJson (ignoreArrayOrder × ignoreExtraElements)
+  - [x] G1e equalToJson (ignoreArrayOrder × ignoreExtraElements) — semantic JSON comparator
+    fuzz-validated across all 4 flag combinations; deeper edges (nested-in-array reorder,
+    number precision, null, duplicate keys) still to fuzz
   - [ ] G1f matchesJsonPath
   - [ ] G1g equalToXml / matchesXPath
   - [ ] G1h matchesJsonSchema

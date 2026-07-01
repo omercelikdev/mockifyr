@@ -59,6 +59,18 @@ public sealed class G1GeneratedMatcherTests : IAsyncLifetime
     [Fact]
     public Task EqualToIgnoreCase_Body() => Verify(MatcherScenarios.EqualToIgnoreCase(Target.Body));
 
+    [Fact]
+    public Task EqualToJson_Strict() => Verify(JsonScenarios.EqualToJson(ignoreArrayOrder: false, ignoreExtraElements: false));
+
+    [Fact]
+    public Task EqualToJson_IgnoreArrayOrder() => Verify(JsonScenarios.EqualToJson(ignoreArrayOrder: true, ignoreExtraElements: false));
+
+    [Fact]
+    public Task EqualToJson_IgnoreExtraElements() => Verify(JsonScenarios.EqualToJson(ignoreArrayOrder: false, ignoreExtraElements: true));
+
+    [Fact]
+    public Task EqualToJson_IgnoreBoth() => Verify(JsonScenarios.EqualToJson(ignoreArrayOrder: true, ignoreExtraElements: true));
+
     private async Task Verify(IEnumerable<MatcherScenario> scenarios)
     {
         var failures = new List<string>();
