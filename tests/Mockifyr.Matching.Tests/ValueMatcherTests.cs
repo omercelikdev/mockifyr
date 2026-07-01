@@ -71,4 +71,18 @@ public class ValueMatcherTests
         Assert.True(new QueryMatcher("q", new EqualToValueMatcher("cats")).Match(input).IsExactMatch);
         Assert.False(new QueryMatcher("q", new EqualToValueMatcher("dogs")).Match(input).IsExactMatch);
     }
+
+    [Fact]
+    public void CookieMatcher_reads_the_named_cookie_from_the_Cookie_header()
+    {
+        var input = new MatchInput
+        {
+            Request = CanonicalRequestBuilder.Build("GET", "/x", [new("Cookie", "sid=abc; theme=dark")]),
+        };
+
+        Assert.True(new CookieMatcher("sid", new EqualToValueMatcher("abc")).Match(input).IsExactMatch);
+        Assert.True(new CookieMatcher("theme", new EqualToValueMatcher("dark")).Match(input).IsExactMatch);
+        Assert.False(new CookieMatcher("sid", new EqualToValueMatcher("xyz")).Match(input).IsExactMatch);
+        Assert.True(new CookieMatcher("missing", new AbsentValueMatcher()).Match(input).IsExactMatch);
+    }
 }

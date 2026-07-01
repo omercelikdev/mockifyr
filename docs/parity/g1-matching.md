@@ -29,9 +29,28 @@ Verified WireMock behaviors discovered while building the matching vertical agai
   must match. `matches: "[a-z]+[0-9]+"` matched `abc123` but not `abc123x` on the oracle; we
   reproduce this by anchoring the pattern with `\A(?:...)\z` in `MatchesValueMatcher`.
 - **Regression cases:** `G1StandardMatcherTests` (8 cases).
-- **Not yet validated against the oracle:** cookie matchers, `doesNotMatch`, `equalToIgnoreCase`,
-  multi-value header/query (`havingExactly`/`including`), `binaryEqualTo`. Implemented but pending
-  a differential case.
+- **Also fuzz-validated:** `doesNotMatch` (header/body); case-insensitive equality (header/body).
+- **Not yet validated against the oracle:** cookie **value** matching (see below), multi-value
+  header/query (`havingExactly`/`including`), `binaryEqualTo`.
+
+### `equalToIgnoreCase` is `equalTo` + `caseInsensitive: true`
+
+- **Group / item:** G1c/G1d — **found by the fuzzing generator**.
+- **Behavior:** WireMock JSON has **no** `equalToIgnoreCase` key; a stub using it does not match
+  (the oracle returned 404 for every case-variant). Case-insensitive equality is
+  `{ "equalTo": "X", "caseInsensitive": true }`, and it works on header, query, **and body**.
+- **Our handling:** the adapter maps `caseInsensitive: true` to a case-insensitive
+  `EqualToValueMatcher`; the standalone `equalToIgnoreCase` key was removed for parity.
+- **Regression cases:** `G1GeneratedMatcherTests.EqualToIgnoreCase_{Header,Body}`.
+
+### Cookie value matching diverges (deferred)
+
+- **Group / item:** G1c (cookies) — **found by the fuzzing generator**.
+- **Observation:** cookie **presence** (`absent`) matches the oracle, but cookie **value**
+  matching (`equalTo`/`contains`) diverges in a way consistent with WireMock normalizing cookie
+  value case. Needs a focused investigation (WireMock cookie parsing + client transport).
+- **Status:** `CookieMatcher` and cookie parsing are implemented and unit-tested
+  (`ValueMatcherTests.CookieMatcher_*`); only `Absent_Cookie` is validated against the oracle.
 
 ### Empty request body is "absent" for body matching
 

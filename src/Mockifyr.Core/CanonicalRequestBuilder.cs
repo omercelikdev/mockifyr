@@ -17,6 +17,7 @@ public static class CanonicalRequestBuilder
         var queryIndex = url.IndexOf('?', StringComparison.Ordinal);
         var path = queryIndex >= 0 ? url[..queryIndex] : url;
         var queryString = queryIndex >= 0 ? url[(queryIndex + 1)..] : string.Empty;
+        var headerLookup = (headers ?? []).ToLookup(h => h.Key, h => h.Value, StringComparer.OrdinalIgnoreCase);
 
         return new CanonicalRequest
         {
@@ -26,12 +27,30 @@ public static class CanonicalRequestBuilder
             PathSegments = path.Split('/', StringSplitOptions.RemoveEmptyEntries),
             PathVariables = new Dictionary<string, string>(),
             Query = ParseQuery(queryString),
-            Headers = (headers ?? []).ToLookup(h => h.Key, h => h.Value, StringComparer.OrdinalIgnoreCase),
-            Cookies = new Dictionary<string, string>(),
+            Headers = headerLookup,
+            Cookies = ParseCookies(headerLookup),
             Body = body ?? [],
             Parts = [],
             ClientIp = null,
         };
+    }
+
+    private static IReadOnlyDictionary<string, string> ParseCookies(ILookup<string, string> headers)
+    {
+        var cookies = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var header in headers["Cookie"])
+        {
+            foreach (var pair in header.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var eq = pair.IndexOf('=', StringComparison.Ordinal);
+                if (eq >= 0)
+                {
+                    cookies[pair[..eq].Trim()] = pair[(eq + 1)..].Trim();
+                }
+            }
+        }
+
+        return cookies;
     }
 
     private static ILookup<string, string> ParseQuery(string queryString)

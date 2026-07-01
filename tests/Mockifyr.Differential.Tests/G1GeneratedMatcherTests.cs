@@ -41,6 +41,24 @@ public sealed class G1GeneratedMatcherTests : IAsyncLifetime
     [Fact]
     public Task Absent_Query() => Verify(MatcherScenarios.Absent(Target.Query));
 
+    // Cookie presence (absent) matches the oracle; cookie VALUE matching (equalTo/contains)
+    // shows a normalization divergence that is deferred to a focused pass — see
+    // docs/parity/g1-matching.md.
+    [Fact]
+    public Task Absent_Cookie() => Verify(MatcherScenarios.Absent(Target.Cookie));
+
+    [Fact]
+    public Task DoesNotMatch_Header() => Verify(MatcherScenarios.DoesNotMatch(Target.Header));
+
+    [Fact]
+    public Task DoesNotMatch_Body() => Verify(MatcherScenarios.DoesNotMatch(Target.Body));
+
+    [Fact]
+    public Task EqualToIgnoreCase_Header() => Verify(MatcherScenarios.EqualToIgnoreCase(Target.Header));
+
+    [Fact]
+    public Task EqualToIgnoreCase_Body() => Verify(MatcherScenarios.EqualToIgnoreCase(Target.Body));
+
     private async Task Verify(IEnumerable<MatcherScenario> scenarios)
     {
         var failures = new List<string>();

@@ -14,6 +14,9 @@ public enum Target
 
     /// <summary>The request body.</summary>
     Body,
+
+    /// <summary>A request cookie (sent via the Cookie header).</summary>
+    Cookie,
 }
 
 /// <summary>A single request probe against a scenario's stub, with the expected match decision.</summary>
@@ -32,6 +35,11 @@ public static class MatcherScenarios
 {
     private const string ProbeHeader = "X-Probe";
     private const string ProbeQuery = "p";
+    private const string ProbeCookie = "probe";
+
+    // Cookie names/values cannot contain separators, so cookies fuzz over a restricted corpus.
+    private static readonly IReadOnlyList<string> CookieSafe =
+        [.. TextCorpus.HeaderSafe.Where(v => v.All(c => char.IsLetterOrDigit(c) || c is '-' or '.' or '_'))];
 
     /// <summary>equalTo across the corpus for a target: one matching probe, a few non-matching.</summary>
     public static IEnumerable<MatcherScenario> EqualTo(Target target, int seed)
@@ -116,8 +124,65 @@ public static class MatcherScenarios
         yield return new MatcherScenario($"absent[{target}]", AbsentStub(target), probes);
     }
 
-    private static IReadOnlyList<string> CorpusFor(Target target) =>
-        target == Target.Body ? TextCorpus.Body : TextCorpus.HeaderSafe;
+    /// <summary>doesNotMatch: the stub matches when the value does NOT fully match the pattern.</summary>
+    public static IEnumerable<MatcherScenario> DoesNotMatch(Target target)
+    {
+        (string Pattern, string[] RegexMatches, string[] RegexMisses)[] cases =
+        [
+            ("[0-9]+", ["0", "123"], ["abc", "12a", "a12"]),
+            ("[a-z]+", ["abc", "z"], ["ABC", "123", "a1"]),
+        ];
+
+        foreach (var (pattern, regexMatches, regexMisses) in cases)
+        {
+            var probes = new List<ProbeRequest>();
+            probes.AddRange(regexMisses.Select(v => new ProbeRequest(Request(target, v), ExpectedMatch: true)));
+            probes.AddRange(regexMatches.Select(v => new ProbeRequest(Request(target, v), ExpectedMatch: false)));
+
+            yield return new MatcherScenario(
+                $"doesNotMatch[{target}] pattern={Describe(pattern)}",
+                Stub(target, "doesNotMatch", pattern),
+                probes);
+        }
+    }
+
+    /// <summary>
+    /// Case-insensitive equality. WireMock JSON has no <c>equalToIgnoreCase</c> key — it is
+    /// <c>equalTo</c> with <c>caseInsensitive: true</c> (verified against the oracle).
+    /// </summary>
+    public static IEnumerable<MatcherScenario> EqualToIgnoreCase(Target target)
+    {
+        string[] tokens = ["abc", "XYZ", "Hello", "World-9", "mixed.Case"];
+
+        foreach (var token in tokens)
+        {
+            var probes = new List<ProbeRequest>
+            {
+                new(Request(target, SwapCase(token)), ExpectedMatch: true),
+                new(Request(target, token), ExpectedMatch: true),
+            };
+            foreach (var other in tokens.Where(t => !string.Equals(t, token, StringComparison.OrdinalIgnoreCase)).Take(2))
+            {
+                probes.Add(new(Request(target, other), ExpectedMatch: false));
+            }
+
+            var spec = new Dictionary<string, object> { ["equalTo"] = token, ["caseInsensitive"] = true };
+            yield return new MatcherScenario(
+                $"equalTo+caseInsensitive[{target}] token={Describe(token)}",
+                SerializeStub(target, spec),
+                probes);
+        }
+    }
+
+    private static string SwapCase(string value) =>
+        new([.. value.Select(c => char.IsUpper(c) ? char.ToLowerInvariant(c) : char.ToUpperInvariant(c))]);
+
+    private static IReadOnlyList<string> CorpusFor(Target target) => target switch
+    {
+        Target.Body => TextCorpus.Body,
+        Target.Cookie => CookieSafe,
+        _ => TextCorpus.HeaderSafe,
+    };
 
     private static IEnumerable<string> PickDistinct(IReadOnlyList<string> corpus, string exclude, int count, Random rng)
     {
@@ -161,6 +226,9 @@ public static class MatcherScenarios
             case Target.Body:
                 request["bodyPatterns"] = new object[] { matcherSpec };
                 break;
+            case Target.Cookie:
+                request["cookies"] = new Dictionary<string, object> { [ProbeCookie] = matcherSpec };
+                break;
         }
 
         var mapping = new Dictionary<string, object>
@@ -177,6 +245,7 @@ public static class MatcherScenarios
         Target.Header => new RequestSpec { Method = "GET", Url = "/p", Headers = [new(ProbeHeader, value)] },
         Target.Query => new RequestSpec { Method = "GET", Url = $"/p?{ProbeQuery}={Uri.EscapeDataString(value)}" },
         Target.Body => new RequestSpec { Method = "POST", Url = "/p", Body = Encoding.UTF8.GetBytes(value) },
+        Target.Cookie => new RequestSpec { Method = "GET", Url = "/p", Headers = [new("Cookie", $"{ProbeCookie}={value}")] },
         _ => throw new ArgumentOutOfRangeException(nameof(target)),
     };
 
@@ -184,6 +253,7 @@ public static class MatcherScenarios
     {
         Target.Header => new RequestSpec { Method = "GET", Url = "/p" },
         Target.Query => new RequestSpec { Method = "GET", Url = "/p" },
+        Target.Cookie => new RequestSpec { Method = "GET", Url = "/p" },
         _ => throw new ArgumentOutOfRangeException(nameof(target)),
     };
 
