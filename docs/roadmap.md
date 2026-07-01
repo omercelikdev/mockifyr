@@ -26,8 +26,9 @@ Detailed rationale and per-group contents:
     hundreds of corpus-spanning probes; the property suite asserts the match decision agrees
     with the oracle. It already caught the empty-body divergence above.
   - [x] G1e equalToJson (ignoreArrayOrder × ignoreExtraElements) — semantic JSON comparator
-    fuzz-validated across all 4 flag combinations; deeper edges (nested-in-array reorder,
-    number precision, null, duplicate keys) still to fuzz
+    fuzz-validated across all 4 flag combinations plus edges (number precision, null,
+    nested-in-array reorder, extra trailing array items). Only duplicate keys and non-body
+    targets remain unfuzzed
   - [ ] G1f matchesJsonPath
   - [ ] G1g equalToXml / matchesXPath
   - [ ] G1h matchesJsonSchema
