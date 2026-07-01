@@ -102,6 +102,24 @@ Tracked in `TextCorpus`.
   `[?(@.price > 10)]`, functions (`.length()`), and multi-value sub-matcher semantics on
   indefinite paths.
 
+### equalToXml / matchesXPath (G1g)
+
+- **Group / item:** G1g — fuzz-validated over the common XML subset (`System.Xml.Linq`, no
+  external dependency).
+- **equalToXml verified:** insignificant whitespace and attribute order are ignored; leaf text is
+  whitespace-normalized; text and attribute *values* are significant.
+- **Sibling element order is NOT significant — found by the generator.** WireMock matched
+  `<order><qty/><item/></order>` against `<order><item/><qty/></order>` (200), i.e. XMLUnit treats a
+  reorder as "similar". `EqualToXmlValueMatcher` now matches children as a multiset (was positional).
+- **matchesXPath verified:** the presence form (element `/order/item`, descendant `//qty`, attribute
+  `/order/@id`) matches when the expression selects ≥ 1 node.
+- **Sub-matcher extraction needs the text node — found by the generator.** `/order/item` (element)
+  did NOT equal `"book"` on the oracle; the text node `/order/item/text()` does. We extract the
+  value of text nodes/attributes; **element-node sub-matcher extraction is deferred** (WireMock
+  serializes the node differently).
+- **Deferred:** placeholders, `exemptedComparisons`, `namespaceAwareness` modes, namespaced XPath,
+  XPath functions, and mixed content.
+
 ### Header masking (current harness limitation)
 
 - WireMock injects transport/server headers (`Matched-Stub-Id`, `Vary`, `Transfer-Encoding`,

@@ -161,6 +161,28 @@ public static class WireMockMappingReader
             return null;
         }
 
+        if (spec.TryGetProperty("equalToXml", out var equalToXml) && equalToXml.ValueKind == JsonValueKind.String)
+        {
+            return new EqualToXmlValueMatcher(equalToXml.GetString()!);
+        }
+
+        if (spec.TryGetProperty("matchesXPath", out var xPath))
+        {
+            if (xPath.ValueKind == JsonValueKind.String)
+            {
+                return new MatchesXPathValueMatcher(xPath.GetString()!);
+            }
+
+            if (xPath.ValueKind == JsonValueKind.Object &&
+                xPath.TryGetProperty("expression", out var xPathExpression) &&
+                xPathExpression.ValueKind == JsonValueKind.String)
+            {
+                return new MatchesXPathValueMatcher(xPathExpression.GetString()!, BuildValueMatcher(xPath));
+            }
+
+            return null;
+        }
+
         if (spec.TryGetProperty("equalTo", out var eq) && eq.ValueKind == JsonValueKind.String)
         {
             return new EqualToValueMatcher(eq.GetString()!, caseInsensitive);

@@ -32,7 +32,10 @@ Detailed rationale and per-group contents:
   - [x] G1f matchesJsonPath — presence + expression/sub-matcher forms fuzz-validated over the
     common subset (property/index/wildcard/recursive-descent) via Newtonsoft as the Jayway proxy;
     filters `[?(...)]`, functions, and indefinite-path sub-matchers deferred
-  - [ ] G1g equalToXml / matchesXPath
+  - [x] G1g equalToXml / matchesXPath — semantic XML equality (whitespace/attr-order/**sibling
+    order** insensitive) and XPath presence + text/attribute sub-matcher, fuzz-validated via
+    System.Xml; placeholders, namespaceAwareness, namespaced XPath, functions, element-node
+    sub-matcher deferred
   - [ ] G1h matchesJsonSchema
   - [ ] G1i date/time matchers
   - [ ] G1j number matchers
