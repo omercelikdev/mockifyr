@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Mockifyr.Core\Mockifyr.Core.csproj" />
+    <ProjectReference Include="..\..\src\Mockifyr.Adapters.WireMockJson\Mockifyr.Adapters.WireMockJson.csproj" />
+    <ProjectReference Include="..\..\src\Mockifyr.Facade.Http\Mockifyr.Facade.Http.csproj" />
+    <ProjectReference Include="..\Mockifyr.Differential.Generator\Mockifyr.Differential.Generator.csproj" />
+  </ItemGroup>
+
+</Project>

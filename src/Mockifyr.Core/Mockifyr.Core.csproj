@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The engine core: zero external dependencies, transport-agnostic. See docs/decisions/0001. -->
+
+</Project>

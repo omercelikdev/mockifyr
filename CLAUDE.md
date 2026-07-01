@@ -124,16 +124,28 @@ only at the edges. Mediant appears **only** in `Mockifyr.Application`.
 
 ---
 
-## 6. Build & test (placeholder)
+## 6. Build & test
 
-The solution is not scaffolded yet. Once it is, this section documents the exact commands
-(`dotnet build`, `dotnet test`, running the differential harness with Docker available).
-Update it in the same commit that adds the solution skeleton.
+Requires the .NET 10 SDK (pinned in `global.json`). NuGet restores from nuget.org only
+(`nuget.config`); versions are centralized in `Directory.Packages.props`; shared MSBuild
+settings live in `Directory.Build.props` (net10.0, nullable, warnings-as-errors).
+
+```bash
+dotnet build Mockifyr.sln -c Debug          # build all 16 projects
+dotnet test  Mockifyr.sln -c Debug          # run unit tests
+dotnet run   --project src/Mockifyr.Server  # run the standalone host (placeholder)
+```
+
+Differential tests (`tests/Mockifyr.Differential.Tests`) require Docker to run the Java
+WireMock oracle; they are added from G0/G1a. CI (`.github/workflows/ci.yml`) builds and runs
+the unit tests on every PR.
 
 ---
 
 ## 7. Current status
 
-Design phase. `ARCHITECTURE.md` is drafted and awaiting final approval. No code yet. Next
-steps: solution skeleton (empty interfaces, no implementation) → differential harness
-skeleton → first vertical from **G1a** via TDD.
+Skeleton in place (`feat/g0-skeleton`): 16 projects, dependency graph wired, Core contracts
+and the `StubEngine` coordinator present as skeletons (no behavior yet — `Handle` throws
+`NotImplementedException`), solution builds clean with 0 warnings. No engine behavior is
+implemented yet. Next: implement the G0 differential harness (bring up WireMock via
+Testcontainers, diff a trivial stub), then the first vertical from **G1a** via TDD.
