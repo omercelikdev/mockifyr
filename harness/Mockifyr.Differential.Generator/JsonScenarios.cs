@@ -61,6 +61,43 @@ public static class JsonScenarios
         }
     }
 
+    /// <summary>
+    /// Hand-crafted edge cases that generic mutation does not reach: number precision, explicit
+    /// null, objects nested inside arrays under ignoreArrayOrder, and extra array elements/fields
+    /// under ignoreExtraElements (where WireMock's exact semantics are being pinned).
+    /// </summary>
+    public static IEnumerable<MatcherScenario> Edges()
+    {
+        // Number precision: value equality regardless of representation.
+        yield return Edge("""{"n":1.0}""", false, false,
+            ("""{"n":1}""", true), ("""{"n":1.00}""", true), ("""{"n":1.0000}""", true), ("""{"n":2}""", false));
+        yield return Edge("""{"n":100}""", false, false,
+            ("""{"n":1e2}""", true), ("""{"n":100.0}""", true), ("""{"n":10}""", false));
+
+        // Explicit null: distinct from a missing key and from other types.
+        yield return Edge("""{"a":null}""", false, false,
+            ("""{"a":null}""", true), ("""{"a":1}""", false), ("""{"a":"null"}""", false), ("{}", false));
+        yield return Edge("""{"a":null}""", false, true,
+            ("""{"a":null,"b":2}""", true), ("{}", false));
+
+        // Objects nested inside an array, reordered under ignoreArrayOrder.
+        yield return Edge("""[{"id":1},{"id":2}]""", true, false,
+            ("""[{"id":2},{"id":1}]""", true), ("""[{"id":1},{"id":3}]""", false));
+
+        // Extra array elements / extra fields inside array elements under ignoreExtraElements
+        // (expected decision is a hypothesis; the oracle is the source of truth).
+        yield return Edge("[1,2]", false, true,
+            ("[1,2,3]", true), ("[1,2]", true), ("[2,1]", false), ("[1]", false));
+        yield return Edge("""[{"a":1}]""", false, true,
+            ("""[{"a":1,"b":2}]""", true), ("""[{"a":1}]""", true), ("""[{"a":2}]""", false));
+    }
+
+    private static MatcherScenario Edge(string expected, bool ignoreArrayOrder, bool ignoreExtraElements, params (string Actual, bool Match)[] actuals) =>
+        new(
+            $"equalToJson-edge[iao={ignoreArrayOrder},iee={ignoreExtraElements}] {Summarize(expected)}",
+            Stub(expected, ignoreArrayOrder, ignoreExtraElements),
+            [.. actuals.Select(a => Probe(a.Actual, a.Match))]);
+
     private static ProbeRequest Probe(string bodyJson, bool expectedMatch) =>
         new(new RequestSpec { Method = "POST", Url = "/p", Body = Encoding.UTF8.GetBytes(bodyJson) }, expectedMatch);
 

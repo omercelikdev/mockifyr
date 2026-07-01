@@ -77,9 +77,15 @@ Tracked in `TextCorpus`.
   reordered arrays; `ignoreExtraElements` allows extra object fields (but not missing ones);
   `ignoreArrayOrder` treats arrays as multisets. Our `EqualToJsonValueMatcher` agreed with the
   oracle on every generated case (`G1GeneratedMatcherTests.EqualToJson_*`).
-- **Not yet covered (deeper edges to fuzz next):** reordering objects nested inside arrays,
-  `ignoreExtraElements` semantics inside arrays, number precision (`1.0` vs `1.00`), explicit
-  `null`, duplicate keys, and equalToJson on non-body targets.
+- **Edge behaviors verified (`EqualToJson_Edges`):** number precision (`1.0` == `1.00` == `1e2`);
+  explicit `null` is distinct from a missing key and from `"null"`; objects nested in arrays
+  reorder under `ignoreArrayOrder`.
+- **`ignoreExtraElements` allows extra *array* items too — found by the generator.** For an ordered
+  array, WireMock matched `[1,2]` against `[1,2,3]` (200), i.e. the expected array must match a
+  **prefix** and extra trailing items are ignored; reordering is still rejected (`[2,1]` no-match).
+  Our `EqualToJsonValueMatcher` was fixed to match this (was requiring equal array length).
+- **Still not covered:** duplicate keys (undefined `System.Text.Json` behavior) and equalToJson on
+  non-body targets.
 
 ### Header masking (current harness limitation)
 

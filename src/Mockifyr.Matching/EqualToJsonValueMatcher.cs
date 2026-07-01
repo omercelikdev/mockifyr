@@ -140,7 +140,16 @@ public sealed class EqualToJsonValueMatcher : IValueMatcher
             return ignoreExtra || consumed.All(c => c);
         }
 
-        if (actualItems.Count != expectedItems.Count)
+        // Ordered comparison. Under ignoreExtraElements, WireMock allows extra trailing array
+        // items (verified against the oracle), so the expected array must match a prefix.
+        if (ignoreExtra)
+        {
+            if (actualItems.Count < expectedItems.Count)
+            {
+                return false;
+            }
+        }
+        else if (actualItems.Count != expectedItems.Count)
         {
             return false;
         }

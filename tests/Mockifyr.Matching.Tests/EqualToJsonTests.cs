@@ -49,6 +49,14 @@ public class EqualToJsonTests
     }
 
     [Fact]
+    public void IgnoreExtraElements_allows_extra_trailing_array_items_positionally()
+    {
+        Assert.True(Matches("[1,2]", "[1,2,3]", ignoreExtraElements: true));
+        Assert.False(Matches("[1,2]", "[2,1]", ignoreExtraElements: true)); // positional, not reordered
+        Assert.False(Matches("[1,2]", "[1]", ignoreExtraElements: true));
+    }
+
+    [Fact]
     public void Invalid_actual_json_does_not_match()
     {
         Assert.False(Matches("""{"a":1}""", "not json"));

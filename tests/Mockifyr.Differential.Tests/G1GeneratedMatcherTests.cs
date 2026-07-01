@@ -71,6 +71,9 @@ public sealed class G1GeneratedMatcherTests : IAsyncLifetime
     [Fact]
     public Task EqualToJson_IgnoreBoth() => Verify(JsonScenarios.EqualToJson(ignoreArrayOrder: true, ignoreExtraElements: true));
 
+    [Fact]
+    public Task EqualToJson_Edges() => Verify(JsonScenarios.Edges());
+
     private async Task Verify(IEnumerable<MatcherScenario> scenarios)
     {
         var failures = new List<string>();
