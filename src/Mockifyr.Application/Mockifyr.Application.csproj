@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mockifyr.Core\Mockifyr.Core.csproj" />
+    <!-- CQRS mediator — management path only. See docs/decisions/0005. -->
+    <PackageReference Include="Mediant" />
+  </ItemGroup>
+
+</Project>
