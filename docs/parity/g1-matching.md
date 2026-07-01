@@ -68,6 +68,19 @@ Header/query fuzzing currently skips empty and whitespace-only values and non-AS
 characters, which carry transport-level encoding/trimming ambiguity to be validated separately.
 Tracked in `TextCorpus`.
 
+### equalToJson (G1e)
+
+- **Group / item:** G1e — fuzz-validated across all four `ignoreArrayOrder` × `ignoreExtraElements`
+  combinations.
+- **Verified against the oracle:** key order and whitespace are irrelevant; numbers compare by
+  value (`1` == `1.0`); types are significant (`1` != `"1"`); strict mode rejects extra fields and
+  reordered arrays; `ignoreExtraElements` allows extra object fields (but not missing ones);
+  `ignoreArrayOrder` treats arrays as multisets. Our `EqualToJsonValueMatcher` agreed with the
+  oracle on every generated case (`G1GeneratedMatcherTests.EqualToJson_*`).
+- **Not yet covered (deeper edges to fuzz next):** reordering objects nested inside arrays,
+  `ignoreExtraElements` semantics inside arrays, number precision (`1.0` vs `1.00`), explicit
+  `null`, duplicate keys, and equalToJson on non-body targets.
+
 ### Header masking (current harness limitation)
 
 - WireMock injects transport/server headers (`Matched-Stub-Id`, `Vary`, `Transfer-Encoding`,

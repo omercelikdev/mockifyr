@@ -134,6 +134,15 @@ public static class WireMockMappingReader
         var caseInsensitive = spec.TryGetProperty("caseInsensitive", out var ci) &&
                               ci.ValueKind == JsonValueKind.True;
 
+        if (spec.TryGetProperty("equalToJson", out var ej))
+        {
+            // equalToJson accepts either a JSON string or inline JSON.
+            var expectedJson = ej.ValueKind == JsonValueKind.String ? ej.GetString()! : ej.GetRawText();
+            var ignoreArrayOrder = spec.TryGetProperty("ignoreArrayOrder", out var iao) && iao.ValueKind == JsonValueKind.True;
+            var ignoreExtraElements = spec.TryGetProperty("ignoreExtraElements", out var iee) && iee.ValueKind == JsonValueKind.True;
+            return new EqualToJsonValueMatcher(expectedJson, ignoreArrayOrder, ignoreExtraElements);
+        }
+
         if (spec.TryGetProperty("equalTo", out var eq) && eq.ValueKind == JsonValueKind.String)
         {
             return new EqualToValueMatcher(eq.GetString()!, caseInsensitive);
