@@ -57,9 +57,21 @@ public static class WireMockMappingReader
             {
                 url = new UrlEqualToMatcher(u.GetString()!);
             }
+            else if (request.TryGetProperty("urlPattern", out var upat) && upat.ValueKind == JsonValueKind.String)
+            {
+                url = new UrlPatternMatcher(upat.GetString()!);
+            }
             else if (request.TryGetProperty("urlPath", out var up) && up.ValueKind == JsonValueKind.String)
             {
                 url = new UrlPathEqualToMatcher(up.GetString()!);
+            }
+            else if (request.TryGetProperty("urlPathPattern", out var uppat) && uppat.ValueKind == JsonValueKind.String)
+            {
+                url = new UrlPathPatternMatcher(uppat.GetString()!);
+            }
+            else if (request.TryGetProperty("urlPathTemplate", out var upt) && upt.ValueKind == JsonValueKind.String)
+            {
+                url = new UrlPathTemplateMatcher(upt.GetString()!);
             }
         }
 
@@ -68,15 +80,84 @@ public static class WireMockMappingReader
             ? m.GetString()!
             : "ANY";
 
+        var headers = new List<IMatcher>(
+            ReadNamedMatchers(request, "headers", static (name, vm) => new HeaderMatcher(name, vm)));
+        if (ReadBasicAuth(request) is { } basicAuth)
+        {
+            headers.Add(basicAuth);
+        }
+
         return new RequestPattern
         {
             Url = url,
             Method = new MethodMatcher(method),
-            Headers = ReadNamedMatchers(request, "headers", static (name, vm) => new HeaderMatcher(name, vm)),
+            Headers = headers,
             Query = ReadNamedMatchers(request, "queryParameters", static (name, vm) => new QueryMatcher(name, vm)),
             Cookies = ReadNamedMatchers(request, "cookies", static (name, vm) => new CookieMatcher(name, vm)),
             Body = ReadBodyMatchers(request),
         };
+    }
+
+    private static IReadOnlyList<IMatcher> ReadBodyMatchers(JsonElement request)
+    {
+        var matchers = new List<IMatcher>(ReadBodyPatterns(request));
+        matchers.AddRange(ReadMultipartMatchers(request));
+        return matchers;
+    }
+
+    private static IEnumerable<IMatcher> ReadMultipartMatchers(JsonElement request)
+    {
+        if (request.ValueKind != JsonValueKind.Object ||
+            !request.TryGetProperty("multipartPatterns", out var patterns) ||
+            patterns.ValueKind != JsonValueKind.Array)
+        {
+            yield break;
+        }
+
+        foreach (var pattern in patterns.EnumerateArray())
+        {
+            if (pattern.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            var bodyPatterns = new List<IValueMatcher>();
+            if (pattern.TryGetProperty("bodyPatterns", out var bps) && bps.ValueKind == JsonValueKind.Array)
+            {
+                bodyPatterns.AddRange(BuildValueMatchers(bps));
+            }
+
+            // WireMock's default matchingType is ANY; the per-pattern `name` is a no-op (see parity doc).
+            var matchingType =
+                pattern.TryGetProperty("matchingType", out var mt) && mt.ValueKind == JsonValueKind.String &&
+                string.Equals(mt.GetString(), "ALL", StringComparison.OrdinalIgnoreCase)
+                    ? MultipartMatchingType.All
+                    : MultipartMatchingType.Any;
+
+            if (bodyPatterns.Count > 0)
+            {
+                yield return new MultipartMatcher(bodyPatterns, matchingType);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Reads <c>basicAuthCredentials</c> into an <c>Authorization: Basic &lt;base64(user:pass)&gt;</c>
+    /// header matcher. Verified against the oracle: it is exact-equality on the computed token.
+    /// </summary>
+    private static HeaderMatcher? ReadBasicAuth(JsonElement request)
+    {
+        if (request.ValueKind != JsonValueKind.Object ||
+            !request.TryGetProperty("basicAuthCredentials", out var creds) ||
+            creds.ValueKind != JsonValueKind.Object ||
+            !creds.TryGetProperty("username", out var u) || u.ValueKind != JsonValueKind.String ||
+            !creds.TryGetProperty("password", out var p) || p.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
+        var token = "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes($"{u.GetString()}:{p.GetString()}"));
+        return new HeaderMatcher("Authorization", new EqualToValueMatcher(token));
     }
 
     private static IReadOnlyList<IMatcher> ReadNamedMatchers(
@@ -103,7 +184,7 @@ public static class WireMockMappingReader
         return matchers;
     }
 
-    private static IReadOnlyList<IMatcher> ReadBodyMatchers(JsonElement request)
+    private static IReadOnlyList<IMatcher> ReadBodyPatterns(JsonElement request)
     {
         if (request.ValueKind != JsonValueKind.Object ||
             !request.TryGetProperty("bodyPatterns", out var patterns) ||
@@ -115,6 +196,15 @@ public static class WireMockMappingReader
         var matchers = new List<IMatcher>();
         foreach (var pattern in patterns.EnumerateArray())
         {
+            // binaryEqualTo is a byte-level comparison, not a text value matcher.
+            if (pattern.ValueKind == JsonValueKind.Object &&
+                pattern.TryGetProperty("binaryEqualTo", out var bin) && bin.ValueKind == JsonValueKind.String &&
+                TryFromBase64(bin.GetString()!, out var expected))
+            {
+                matchers.Add(new BinaryEqualToBodyMatcher(expected));
+                continue;
+            }
+
             if (BuildValueMatcher(pattern) is { } value)
             {
                 matchers.Add(new BodyMatcher(value));
@@ -122,6 +212,20 @@ public static class WireMockMappingReader
         }
 
         return matchers;
+    }
+
+    private static bool TryFromBase64(string value, out byte[] bytes)
+    {
+        try
+        {
+            bytes = Convert.FromBase64String(value);
+            return true;
+        }
+        catch (FormatException)
+        {
+            bytes = [];
+            return false;
+        }
     }
 
     private static IValueMatcher? BuildValueMatcher(JsonElement spec)
@@ -133,6 +237,37 @@ public static class WireMockMappingReader
 
         var caseInsensitive = spec.TryGetProperty("caseInsensitive", out var ci) &&
                               ci.ValueKind == JsonValueKind.True;
+
+        // Logical combinators (and/or/not) wrap other content patterns on the same target value.
+        if (spec.TryGetProperty("and", out var andArr) && andArr.ValueKind == JsonValueKind.Array)
+        {
+            var subs = BuildValueMatchers(andArr);
+            return subs.Count > 0 ? new AndValueMatcher(subs) : null;
+        }
+
+        if (spec.TryGetProperty("or", out var orArr) && orArr.ValueKind == JsonValueKind.Array)
+        {
+            var subs = BuildValueMatchers(orArr);
+            return subs.Count > 0 ? new OrValueMatcher(subs) : null;
+        }
+
+        if (spec.TryGetProperty("not", out var notSpec) && notSpec.ValueKind == JsonValueKind.Object)
+        {
+            return BuildValueMatcher(notSpec) is { } inner ? new NotValueMatcher(inner) : null;
+        }
+
+        // Multi-value matchers (hasExactly/includes) apply a list of sub-matchers to a multi-valued target.
+        if (spec.TryGetProperty("hasExactly", out var hasExactly) && hasExactly.ValueKind == JsonValueKind.Array)
+        {
+            var subs = BuildValueMatchers(hasExactly);
+            return subs.Count > 0 ? new HasExactlyValueMatcher(subs) : null;
+        }
+
+        if (spec.TryGetProperty("includes", out var includes) && includes.ValueKind == JsonValueKind.Array)
+        {
+            var subs = BuildValueMatchers(includes);
+            return subs.Count > 0 ? new IncludesValueMatcher(subs) : null;
+        }
 
         if (spec.TryGetProperty("equalToJson", out var ej))
         {
@@ -161,6 +296,17 @@ public static class WireMockMappingReader
             return null;
         }
 
+        if (spec.TryGetProperty("matchesJsonSchema", out var schema) &&
+            schema.ValueKind is JsonValueKind.String or JsonValueKind.Object or JsonValueKind.Array)
+        {
+            // The schema is either an escaped JSON string or inline JSON (object/array).
+            var schemaJson = schema.ValueKind == JsonValueKind.String ? schema.GetString()! : schema.GetRawText();
+            var schemaVersion = spec.TryGetProperty("schemaVersion", out var sv) && sv.ValueKind == JsonValueKind.String
+                ? sv.GetString()
+                : null;
+            return new MatchesJsonSchemaValueMatcher(schemaJson, schemaVersion);
+        }
+
         if (spec.TryGetProperty("equalToXml", out var equalToXml) && equalToXml.ValueKind == JsonValueKind.String)
         {
             return new EqualToXmlValueMatcher(equalToXml.GetString()!);
@@ -181,6 +327,21 @@ public static class WireMockMappingReader
             }
 
             return null;
+        }
+
+        if (spec.TryGetProperty("before", out var before) && before.ValueKind == JsonValueKind.String)
+        {
+            return new DateTimeValueMatcher(DateTimeComparison.Before, before.GetString()!, ActualFormat(spec));
+        }
+
+        if (spec.TryGetProperty("after", out var after) && after.ValueKind == JsonValueKind.String)
+        {
+            return new DateTimeValueMatcher(DateTimeComparison.After, after.GetString()!, ActualFormat(spec));
+        }
+
+        if (spec.TryGetProperty("equalToDateTime", out var edt) && edt.ValueKind == JsonValueKind.String)
+        {
+            return new DateTimeValueMatcher(DateTimeComparison.Equal, edt.GetString()!, ActualFormat(spec));
         }
 
         if (spec.TryGetProperty("equalTo", out var eq) && eq.ValueKind == JsonValueKind.String)
@@ -213,6 +374,27 @@ public static class WireMockMappingReader
 
         return null;
     }
+
+    /// <summary>Builds the value matchers from an array of matcher specs, skipping unreadable entries.</summary>
+    private static List<IValueMatcher> BuildValueMatchers(JsonElement array)
+    {
+        var matchers = new List<IValueMatcher>();
+        foreach (var element in array.EnumerateArray())
+        {
+            if (BuildValueMatcher(element) is { } matcher)
+            {
+                matchers.Add(matcher);
+            }
+        }
+
+        return matchers;
+    }
+
+    /// <summary>Reads the optional <c>actualFormat</c> parse pattern shared by the date/time matchers.</summary>
+    private static string? ActualFormat(JsonElement spec) =>
+        spec.TryGetProperty("actualFormat", out var af) && af.ValueKind == JsonValueKind.String
+            ? af.GetString()
+            : null;
 
     private static ResponseDefinition ReadResponse(JsonElement response)
     {

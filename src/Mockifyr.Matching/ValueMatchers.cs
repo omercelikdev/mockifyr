@@ -74,6 +74,64 @@ public sealed class DoesNotMatchValueMatcher(string pattern) : IValueMatcher
             : MatchResult.NoMatch(1d);
 }
 
+/// <summary>Matches when every inner matcher matches the same target value(s) (WireMock <c>and</c>).</summary>
+public sealed class AndValueMatcher(IReadOnlyList<IValueMatcher> matchers) : IValueMatcher
+{
+    /// <inheritdoc />
+    public MatchResult Match(bool present, IReadOnlyList<string> values) =>
+        matchers.All(m => m.Match(present, values).IsExactMatch) ? MatchResult.Exact : MatchResult.NoMatch(1d);
+}
+
+/// <summary>Matches when at least one inner matcher matches the target value(s) (WireMock <c>or</c>).</summary>
+public sealed class OrValueMatcher(IReadOnlyList<IValueMatcher> matchers) : IValueMatcher
+{
+    /// <inheritdoc />
+    public MatchResult Match(bool present, IReadOnlyList<string> values) =>
+        matchers.Any(m => m.Match(present, values).IsExactMatch) ? MatchResult.Exact : MatchResult.NoMatch(1d);
+}
+
+/// <summary>Matches when the inner matcher does not match the target value(s) (WireMock <c>not</c>).</summary>
+public sealed class NotValueMatcher(IValueMatcher inner) : IValueMatcher
+{
+    /// <inheritdoc />
+    public MatchResult Match(bool present, IReadOnlyList<string> values) =>
+        inner.Match(present, values).IsExactMatch ? MatchResult.NoMatch(1d) : MatchResult.Exact;
+}
+
+/// <summary>
+/// Matches a multi-valued target when its values correspond exactly to the given matchers, in any
+/// order (WireMock's <c>hasExactly</c>): the counts are equal, every matcher matches some value, and
+/// every value is matched by some matcher.
+/// </summary>
+public sealed class HasExactlyValueMatcher(IReadOnlyList<IValueMatcher> matchers) : IValueMatcher
+{
+    /// <inheritdoc />
+    public MatchResult Match(bool present, IReadOnlyList<string> values)
+    {
+        if (!present || values.Count != matchers.Count)
+        {
+            return MatchResult.NoMatch(1d);
+        }
+
+        var everyMatcherHits = matchers.All(m => values.Any(v => m.Match(true, [v]).IsExactMatch));
+        var everyValueHit = values.All(v => matchers.Any(m => m.Match(true, [v]).IsExactMatch));
+        return everyMatcherHits && everyValueHit ? MatchResult.Exact : MatchResult.NoMatch(1d);
+    }
+}
+
+/// <summary>
+/// Matches a multi-valued target when every matcher matches at least one value, in any order and
+/// allowing extra values (WireMock's <c>includes</c>).
+/// </summary>
+public sealed class IncludesValueMatcher(IReadOnlyList<IValueMatcher> matchers) : IValueMatcher
+{
+    /// <inheritdoc />
+    public MatchResult Match(bool present, IReadOnlyList<string> values) =>
+        present && matchers.All(m => values.Any(v => m.Match(true, [v]).IsExactMatch))
+            ? MatchResult.Exact
+            : MatchResult.NoMatch(1d);
+}
+
 /// <summary>Matches when the target is absent.</summary>
 public sealed class AbsentValueMatcher : IValueMatcher
 {

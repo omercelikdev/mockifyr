@@ -38,6 +38,17 @@ public sealed class CookieMatcher(string name, IValueMatcher value) : IMatcher
     }
 }
 
+/// <summary>
+/// Matches the request body against an exact byte sequence (WireMock's <c>binaryEqualTo</c>).
+/// Comparison is byte-for-byte, so it is correct for non-text payloads.
+/// </summary>
+public sealed class BinaryEqualToBodyMatcher(byte[] expected) : IMatcher
+{
+    /// <inheritdoc />
+    public MatchResult Match(MatchInput input) =>
+        input.Request.Body.AsSpan().SequenceEqual(expected) ? MatchResult.Exact : MatchResult.NoMatch(1d);
+}
+
 /// <summary>Applies a value matcher to the request body.</summary>
 /// <remarks>
 /// WireMock treats an empty request body as absent for body matching (verified against the

@@ -1,5 +1,6 @@
 using System.Net.Http;
 using System.Text;
+using System.Text.Json;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using Mockifyr.Differential.Generator;
@@ -42,12 +43,25 @@ public sealed class WireMockOracle : IAsyncDisposable
         response.EnsureSuccessStatusCode();
     }
 
-    /// <summary>Loads a single WireMock stub mapping.</summary>
+    /// <summary>
+    /// Loads WireMock stub mapping JSON. A single mapping goes to <c>/__admin/mappings</c>; a
+    /// <c>{"mappings":[...]}</c> wrapper is loaded via <c>/__admin/mappings/import</c>, which
+    /// preserves array order (array-first wins on equal priority).
+    /// </summary>
     public async Task LoadMappingAsync(string wireMockJson)
     {
+        var path = IsMappingsWrapper(wireMockJson) ? "/__admin/mappings/import" : "/__admin/mappings";
         using var content = new StringContent(wireMockJson, Encoding.UTF8, "application/json");
-        using var response = await Client.PostAsync("/__admin/mappings", content);
+        using var response = await Client.PostAsync(path, content);
         response.EnsureSuccessStatusCode();
+    }
+
+    private static bool IsMappingsWrapper(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        return doc.RootElement.ValueKind == JsonValueKind.Object &&
+               doc.RootElement.TryGetProperty("mappings", out var mappings) &&
+               mappings.ValueKind == JsonValueKind.Array;
     }
 
     /// <summary>Replays a request against the oracle and snapshots the response.</summary>

@@ -18,6 +18,15 @@ public sealed class G1GeneratedMatcherTests : IAsyncLifetime
     public async Task DisposeAsync() => await _runner.DisposeAsync();
 
     [Fact]
+    public Task Url_Pattern() => Verify(UrlScenarios.UrlPattern());
+
+    [Fact]
+    public Task Url_PathPattern() => Verify(UrlScenarios.UrlPathPattern());
+
+    [Fact]
+    public Task Url_PathTemplate() => Verify(UrlScenarios.UrlPathTemplate());
+
+    [Fact]
     public Task EqualTo_Header() => Verify(MatcherScenarios.EqualTo(Target.Header, seed: 11));
 
     [Fact]
@@ -36,6 +45,9 @@ public sealed class G1GeneratedMatcherTests : IAsyncLifetime
     public Task Matches_Body() => Verify(MatcherScenarios.Matches(seed: 31));
 
     [Fact]
+    public Task Body_BinaryEqualTo() => Verify(BinaryScenarios.BinaryEqualTo());
+
+    [Fact]
     public Task Absent_Header() => Verify(MatcherScenarios.Absent(Target.Header));
 
     [Fact]
@@ -46,6 +58,12 @@ public sealed class G1GeneratedMatcherTests : IAsyncLifetime
     // docs/parity/g1-matching.md.
     [Fact]
     public Task Absent_Cookie() => Verify(MatcherScenarios.Absent(Target.Cookie));
+
+    [Fact]
+    public Task MultiValue_HasExactly() => Verify(MultiValueScenarios.HasExactly());
+
+    [Fact]
+    public Task MultiValue_Includes() => Verify(MultiValueScenarios.Includes());
 
     [Fact]
     public Task DoesNotMatch_Header() => Verify(MatcherScenarios.DoesNotMatch(Target.Header));
@@ -81,10 +99,37 @@ public sealed class G1GeneratedMatcherTests : IAsyncLifetime
     public Task MatchesJsonPath_SubMatcher() => Verify(JsonPathScenarios.SubMatcher());
 
     [Fact]
+    public Task MatchesJsonPath_NumericFilters() => Verify(JsonPathScenarios.NumericFilters());
+
+    [Fact]
+    public Task MatchesJsonSchema_InlineObject() => Verify(JsonSchemaScenarios.InlineObject());
+
+    [Fact]
+    public Task MatchesJsonSchema_StringFormAndVersion() => Verify(JsonSchemaScenarios.StringFormAndVersion());
+
+    [Fact]
     public Task EqualToXml() => Verify(XmlScenarios.EqualToXml());
 
     [Fact]
     public Task MatchesXPath() => Verify(XmlScenarios.MatchesXPath());
+
+    [Fact]
+    public Task Logic_AndOrNot() => Verify(LogicScenarios.AndOrNot());
+
+    [Fact]
+    public Task BasicAuth() => Verify(AuthScenarios.BasicAuth());
+
+    [Fact]
+    public Task Selection_Priority() => Verify(SelectionScenarios.Priority());
+
+    [Fact]
+    public Task Multipart() => Verify(MultipartScenarios.Multipart());
+
+    [Fact]
+    public Task DateTime_Comparisons() => Verify(DateTimeScenarios.Comparisons());
+
+    [Fact]
+    public Task DateTime_ActualFormat() => Verify(DateTimeScenarios.ActualFormat());
 
     private async Task Verify(IEnumerable<MatcherScenario> scenarios)
     {

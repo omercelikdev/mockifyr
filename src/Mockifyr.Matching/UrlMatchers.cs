@@ -1,3 +1,5 @@
+using System.Text;
+using System.Text.RegularExpressions;
 using Mockifyr.Core;
 
 namespace Mockifyr.Matching;
@@ -30,4 +32,61 @@ public sealed class UrlPathEqualToMatcher(string expected) : IMatcher
         string.Equals(input.Request.Path, _expected, StringComparison.Ordinal)
             ? MatchResult.Exact
             : MatchResult.NoMatch(1d);
+}
+
+/// <summary>
+/// Matches the full request URL (path plus query string) against a regular expression. WireMock's
+/// <c>request.urlPattern</c> (urlMatching) uses Java <c>matches</c> semantics, so the pattern is
+/// anchored to the whole URL.
+/// </summary>
+public sealed class UrlPatternMatcher(string pattern) : IMatcher
+{
+    private readonly Regex _regex = new($@"\A(?:{pattern})\z", RegexOptions.None);
+
+    /// <inheritdoc />
+    public MatchResult Match(MatchInput input) =>
+        _regex.IsMatch(input.Request.Url) ? MatchResult.Exact : MatchResult.NoMatch(1d);
+}
+
+/// <summary>
+/// Matches the request path (ignoring the query string) against a regular expression. WireMock's
+/// <c>request.urlPathPattern</c> (urlPathMatching) is a whole-path match, so the pattern is anchored.
+/// </summary>
+public sealed class UrlPathPatternMatcher(string pattern) : IMatcher
+{
+    private readonly Regex _regex = new($@"\A(?:{pattern})\z", RegexOptions.None);
+
+    /// <inheritdoc />
+    public MatchResult Match(MatchInput input) =>
+        _regex.IsMatch(input.Request.Path) ? MatchResult.Exact : MatchResult.NoMatch(1d);
+}
+
+/// <summary>
+/// Matches the request path against a URI template (WireMock's <c>request.urlPathTemplate</c>). Each
+/// <c>{var}</c> placeholder matches exactly one path segment; the query string is ignored. Named
+/// path-variable extraction (for templating) arrives with G2b; here only the match decision is used.
+/// </summary>
+public sealed class UrlPathTemplateMatcher : IMatcher
+{
+    private readonly Regex _regex;
+
+    /// <summary>Compiles the template into an anchored path regex.</summary>
+    public UrlPathTemplateMatcher(string template)
+    {
+        var builder = new StringBuilder();
+        var last = 0;
+        foreach (Match token in Regex.Matches(template, @"\{[^/{}]+\}"))
+        {
+            builder.Append(Regex.Escape(template[last..token.Index]));
+            builder.Append("[^/]+"); // a single non-empty path segment
+            last = token.Index + token.Length;
+        }
+
+        builder.Append(Regex.Escape(template[last..]));
+        _regex = new Regex($@"\A(?:{builder})\z", RegexOptions.None);
+    }
+
+    /// <inheritdoc />
+    public MatchResult Match(MatchInput input) =>
+        _regex.IsMatch(input.Request.Path) ? MatchResult.Exact : MatchResult.NoMatch(1d);
 }

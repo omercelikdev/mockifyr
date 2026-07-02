@@ -37,6 +37,50 @@ public static class JsonPathScenarios
             ("""{"a":{"b":"deep"}}""", true), ("""{"a":{"b":"shallow"}}""", false));
     }
 
+    /// <summary>
+    /// Numeric filter form (G1j): <c>[?(@.field &gt; n)]</c> selects array elements by numeric
+    /// comparison, and the stub matches when at least one element passes the filter. This is the
+    /// oracle-validatable route to numeric matching in open-source WireMock (there is no standalone
+    /// <c>equalToNumber</c> matcher — see docs/parity/g1-matching.md).
+    /// </summary>
+    public static IEnumerable<MatcherScenario> NumericFilters()
+    {
+        yield return Presence("$.items[?(@.price > 10)]",
+            ("""{"items":[{"price":20}]}""", true),
+            ("""{"items":[{"price":5},{"price":15}]}""", true),
+            ("""{"items":[{"price":10}]}""", false),   // strict >
+            ("""{"items":[{"price":5}]}""", false),
+            ("""{"items":[]}""", false),
+            ("not json", false));
+
+        yield return Presence("$.items[?(@.price >= 10)]",
+            ("""{"items":[{"price":10}]}""", true),
+            ("""{"items":[{"price":11}]}""", true),
+            ("""{"items":[{"price":9}]}""", false));
+
+        yield return Presence("$.items[?(@.price < 10)]",
+            ("""{"items":[{"price":5}]}""", true),
+            ("""{"items":[{"price":10}]}""", false),
+            ("""{"items":[{"price":11}]}""", false));
+
+        yield return Presence("$.items[?(@.price <= 10)]",
+            ("""{"items":[{"price":10}]}""", true),
+            ("""{"items":[{"price":9}]}""", true),
+            ("""{"items":[{"price":11}]}""", false));
+
+        yield return Presence("$.items[?(@.qty == 3)]",
+            ("""{"items":[{"qty":3}]}""", true),
+            ("""{"items":[{"qty":3.0}]}""", true),      // numeric equality ignores scale
+            ("""{"items":[{"qty":4}]}""", false),
+            ("""{"items":[{"qty":2},{"qty":3}]}""", true));
+
+        // Decimal comparison.
+        yield return Presence("$.items[?(@.rate > 1.5)]",
+            ("""{"items":[{"rate":1.6}]}""", true),
+            ("""{"items":[{"rate":1.5}]}""", false),
+            ("""{"items":[{"rate":1.4}]}""", false));
+    }
+
     private static MatcherScenario Presence(string path, params (string Body, bool Match)[] bodies) =>
         Build($"matchesJsonPath[presence] {path}", new Dictionary<string, object> { ["matchesJsonPath"] = path }, bodies);
 

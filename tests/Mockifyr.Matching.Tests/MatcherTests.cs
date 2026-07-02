@@ -36,6 +36,46 @@ public class MatcherTests
     }
 
     [Fact]
+    public void UrlPattern_is_an_anchored_regex_over_the_full_url()
+    {
+        var matcher = new UrlPatternMatcher(@"/things/[0-9]+\?ok=true");
+        Assert.True(matcher.Match(Request("GET", "/things/12?ok=true")).IsExactMatch);
+        Assert.False(matcher.Match(Request("GET", "/things/12?ok=false")).IsExactMatch);
+        Assert.False(matcher.Match(Request("GET", "/things/12")).IsExactMatch); // anchored
+    }
+
+    [Fact]
+    public void UrlPathPattern_is_an_anchored_regex_over_the_path()
+    {
+        var matcher = new UrlPathPatternMatcher("/u/[a-z]+");
+        Assert.True(matcher.Match(Request("GET", "/u/abc?x=1")).IsExactMatch); // query ignored
+        Assert.False(matcher.Match(Request("GET", "/u/123")).IsExactMatch);
+        Assert.False(matcher.Match(Request("GET", "/u/abc/def")).IsExactMatch); // whole-path anchored
+    }
+
+    [Fact]
+    public void UrlPathTemplate_matches_one_segment_per_variable()
+    {
+        var matcher = new UrlPathTemplateMatcher("/users/{id}/orders/{oid}");
+        Assert.True(matcher.Match(Request("GET", "/users/1/orders/9")).IsExactMatch);
+        Assert.True(matcher.Match(Request("GET", "/users/1/orders/9?x=1")).IsExactMatch); // query ignored
+        Assert.False(matcher.Match(Request("GET", "/users/1/orders")).IsExactMatch); // missing segment
+        Assert.False(matcher.Match(Request("GET", "/users/1/orders/9/extra")).IsExactMatch); // extra segment
+    }
+
+    [Fact]
+    public void BinaryEqualTo_compares_bytes_exactly()
+    {
+        var matcher = new BinaryEqualToBodyMatcher([0x00, 0x01, 0xFF]);
+        Assert.True(matcher.Match(Body([0x00, 0x01, 0xFF])).IsExactMatch);
+        Assert.False(matcher.Match(Body([0x00, 0x01, 0xFE])).IsExactMatch);
+        Assert.False(matcher.Match(Body([0x00, 0x01])).IsExactMatch);
+    }
+
+    private static MatchInput Body(byte[] body) =>
+        new() { Request = CanonicalRequestBuilder.Build("POST", "/b", null, body) };
+
+    [Fact]
     public void Method_matches_case_insensitively()
     {
         var result = new MethodMatcher("get").Match(Request("GET", "/x"));

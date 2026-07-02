@@ -16,12 +16,17 @@ Detailed rationale and per-group contents:
   G2a (static response). The generator is still a stub.
 - [ ] **G1 — Matching**
   - [ ] G1a URL basic (urlEqualTo, urlPathEqualTo, method + ANY)
-  - [ ] G1b URL advanced (urlMatching, urlPathMatching, urlPathTemplate + named path vars)
+  - [x] G1b URL advanced — `urlPattern` (anchored full-URL regex), `urlPathPattern` (anchored
+    path regex), `urlPathTemplate` (one segment per `{var}`), fuzz-validated. Named path-variable
+    **extraction** is deferred to G2b (only the match decision is observable now)
   - [ ] G1c header/query/cookie matchers (+ multi-value) — header/query `equalTo`/`contains`/
-    `absent`/`doesNotMatch`/`caseInsensitive` fuzz-validated; cookie **value** matching and
-    multi-value (`havingExactly`/`including`) still pending
-  - [ ] G1d body basic (equalTo, binaryEqualTo, contains, matches) — `equalTo`/`contains`/
-    `matches`/`doesNotMatch`/`caseInsensitive` fuzz-validated; `binaryEqualTo` pending
+    `absent`/`doesNotMatch`/`caseInsensitive` and multi-value `hasExactly`/`includes` (validated on
+    query — the real keys, not `havingExactly`/`including`) fuzz-validated. **Cookie value** matching
+    remains the only open piece (a documented parsing divergence); header multi-value awaits a
+    harness that sends discrete header lines
+  - [x] G1d body basic (equalTo, binaryEqualTo, contains, matches) — `equalTo`/`contains`/
+    `matches`/`doesNotMatch`/`caseInsensitive` and now `binaryEqualTo` (exact byte comparison)
+    fuzz-validated
   - [x] **Fuzzing generator** (brief §5) — deterministic seed-driven `MatcherScenarios` emit
     hundreds of corpus-spanning probes; the property suite asserts the match decision agrees
     with the oracle. It already caught the empty-body divergence above.
@@ -36,10 +41,21 @@ Detailed rationale and per-group contents:
     order** insensitive) and XPath presence + text/attribute sub-matcher, fuzz-validated via
     System.Xml; placeholders, namespaceAwareness, namespaced XPath, functions, element-node
     sub-matcher deferred
-  - [ ] G1h matchesJsonSchema
-  - [ ] G1i date/time matchers
-  - [ ] G1j number matchers
-  - [ ] G1k logic + basicAuth + form/multipart + clientIp + stub priority/selection
+  - [x] G1h matchesJsonSchema — JSON Schema validation via json-everything's JsonSchema.Net
+    (default Draft 2020-12); inline + string schema forms and `schemaVersion` fuzz-validated over the
+    common keyword subset (type/required/properties/bounds/enum/items). Draft 4, `format` assertions,
+    and `$ref` resolution deferred
+  - [x] G1i date/time matchers — `before`/`after`/`equalToDateTime` on absolute ISO-8601 instants
+    (+ `actualFormat`) fuzz-validated; `now`-relative/offset/truncation deferred (racy vs a second
+    clock)
+  - [x] G1j number matchers — delivered as **JSONPath numeric filters** (`[?(@.x > n)]`),
+    fuzz-validated against the oracle for `>`/`>=`/`<`/`<=`/`==` on int & decimal. The standalone
+    `equalToNumber`/`greaterThanNumber`/… keys are **not in open-source WireMock** (Cloud-only, no
+    oracle) — see docs/parity/g1-matching.md
+  - [x] G1k logic (`and`/`or`/`not`) + basicAuth + multipart + stub priority/selection, each
+    fuzz-validated. **clientIp is not in open-source WireMock** (rejected `422`, no oracle) — deferred
+    like the standalone number matchers. The equal-priority tie-break (load-path dependent) and
+    per-part multipart headers are deferred; see docs/parity/g1-matching.md
 - [ ] **G2 — Response + templating**
   - [ ] G2a static response (+ bodyFileName templating, gzip)
   - [ ] G2b templating engine (Handlebars.Net + request model + named path vars)
