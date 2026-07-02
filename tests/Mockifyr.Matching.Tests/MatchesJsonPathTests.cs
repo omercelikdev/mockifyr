@@ -31,6 +31,17 @@ public class MatchesJsonPathTests
     }
 
     [Fact]
+    public void Numeric_filter_selects_elements_by_value()
+    {
+        // G1j: numeric matching in WireMock is reached through JSONPath filter expressions.
+        Assert.True(Presence("$.items[?(@.price > 10)]", """{"items":[{"price":20}]}"""));
+        Assert.False(Presence("$.items[?(@.price > 10)]", """{"items":[{"price":10}]}""")); // strict
+        Assert.True(Presence("$.items[?(@.price <= 10)]", """{"items":[{"price":10}]}"""));
+        Assert.True(Presence("$.items[?(@.qty == 3)]", """{"items":[{"qty":3.0}]}""")); // scale-insensitive
+        Assert.False(Presence("$.items[?(@.rate > 1.5)]", """{"items":[{"rate":1.5}]}"""));
+    }
+
+    [Fact]
     public void SubMatcher_applies_to_the_extracted_value()
     {
         Assert.True(WithSub("$.name", new EqualToValueMatcher("tom"), """{"name":"tom"}"""));

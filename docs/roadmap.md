@@ -40,7 +40,10 @@ Detailed rationale and per-group contents:
   - [x] G1i date/time matchers — `before`/`after`/`equalToDateTime` on absolute ISO-8601 instants
     (+ `actualFormat`) fuzz-validated; `now`-relative/offset/truncation deferred (racy vs a second
     clock)
-  - [ ] G1j number matchers
+  - [x] G1j number matchers — delivered as **JSONPath numeric filters** (`[?(@.x > n)]`),
+    fuzz-validated against the oracle for `>`/`>=`/`<`/`<=`/`==` on int & decimal. The standalone
+    `equalToNumber`/`greaterThanNumber`/… keys are **not in open-source WireMock** (Cloud-only, no
+    oracle) — see docs/parity/g1-matching.md
   - [ ] G1k logic + basicAuth + form/multipart + clientIp + stub priority/selection
 - [ ] **G2 — Response + templating**
   - [ ] G2a static response (+ bodyFileName templating, gzip)

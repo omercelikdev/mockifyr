@@ -98,9 +98,14 @@ Tracked in `TextCorpus`.
   path selects ≥1 node; the expression + sub-matcher form (`{ "expression": "...", "equalTo": ...}`)
   applies the sub-matcher to the extracted value (a number `30` extracts as `"30"`). Invalid body
   or invalid path expression → no match.
-- **Not yet validated (deferred, likely Jayway-vs-Newtonsoft divergence):** filter expressions
-  `[?(@.price > 10)]`, functions (`.length()`), and multi-value sub-matcher semantics on
-  indefinite paths.
+- **Numeric filter expressions `[?(@.field <op> n)]` verified (G1j).** WireMock's Jayway engine and
+  Newtonsoft agree across `>`, `>=`, `<`, `<=`, and `==` on integer and decimal fields: the filter
+  selects the array elements passing the comparison, and the stub matches when ≥ 1 element passes.
+  Comparisons are strict where written (`> 10` rejects `10`) and numeric equality is scale-insensitive
+  (`== 3` matches `3.0`). Validated in `G1GeneratedMatcherTests.MatchesJsonPath_NumericFilters`.
+- **Still not validated (deferred, likely Jayway-vs-Newtonsoft divergence):** functions
+  (`.length()`), type-coercion edges in filters (comparing a numeric filter against string values),
+  and multi-value sub-matcher semantics on indefinite paths.
 
 ### equalToXml / matchesXPath (G1g)
 
@@ -158,10 +163,11 @@ Tracked in `TextCorpus`.
   (docs.wiremock.io / mocklab.io), not the OSS engine that the differential harness runs. Numeric
   *comparison* in OSS WireMock is only reachable inside **JSONPath filter expressions**
   (`[?(@.price > 10)]`), which is the deferred part of G1f.
-- **Consequence:** G1j cannot be built to this project's definition of done — there is no oracle to
-  diff against, and golden rules #2/#3 forbid a self-validated matcher. **Left unchecked pending a
-  maintainer decision** (skip as Cloud-only / reframe as JSONPath numeric filters under G1f /
-  build as an independent non-parity extension).
+- **Consequence:** G1j cannot be built as a standalone matcher to this project's definition of done —
+  there is no oracle to diff against, and golden rules #2/#3 forbid a self-validated matcher.
+- **Resolution (maintainer decision):** G1j is delivered as **JSONPath numeric filters** — the
+  oracle-validatable route to numeric matching in open-source WireMock. See the numeric-filter entry
+  under *matchesJsonPath (G1f)* above; the standalone `*Number` keys remain unimplemented (Cloud-only).
 
 ### Header masking (current harness limitation)
 
