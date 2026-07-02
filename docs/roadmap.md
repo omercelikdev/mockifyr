@@ -22,8 +22,9 @@ Detailed rationale and per-group contents:
   - [ ] G1c header/query/cookie matchers (+ multi-value) — header/query `equalTo`/`contains`/
     `absent`/`doesNotMatch`/`caseInsensitive` fuzz-validated; cookie **value** matching and
     multi-value (`havingExactly`/`including`) still pending
-  - [ ] G1d body basic (equalTo, binaryEqualTo, contains, matches) — `equalTo`/`contains`/
-    `matches`/`doesNotMatch`/`caseInsensitive` fuzz-validated; `binaryEqualTo` pending
+  - [x] G1d body basic (equalTo, binaryEqualTo, contains, matches) — `equalTo`/`contains`/
+    `matches`/`doesNotMatch`/`caseInsensitive` and now `binaryEqualTo` (exact byte comparison)
+    fuzz-validated
   - [x] **Fuzzing generator** (brief §5) — deterministic seed-driven `MatcherScenarios` emit
     hundreds of corpus-spanning probes; the property suite asserts the match decision agrees
     with the oracle. It already caught the empty-body divergence above.

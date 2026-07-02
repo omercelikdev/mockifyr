@@ -45,6 +45,9 @@ public sealed class G1GeneratedMatcherTests : IAsyncLifetime
     public Task Matches_Body() => Verify(MatcherScenarios.Matches(seed: 31));
 
     [Fact]
+    public Task Body_BinaryEqualTo() => Verify(BinaryScenarios.BinaryEqualTo());
+
+    [Fact]
     public Task Absent_Header() => Verify(MatcherScenarios.Absent(Target.Header));
 
     [Fact]

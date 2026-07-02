@@ -64,6 +64,18 @@ public class MatcherTests
     }
 
     [Fact]
+    public void BinaryEqualTo_compares_bytes_exactly()
+    {
+        var matcher = new BinaryEqualToBodyMatcher([0x00, 0x01, 0xFF]);
+        Assert.True(matcher.Match(Body([0x00, 0x01, 0xFF])).IsExactMatch);
+        Assert.False(matcher.Match(Body([0x00, 0x01, 0xFE])).IsExactMatch);
+        Assert.False(matcher.Match(Body([0x00, 0x01])).IsExactMatch);
+    }
+
+    private static MatchInput Body(byte[] body) =>
+        new() { Request = CanonicalRequestBuilder.Build("POST", "/b", null, body) };
+
+    [Fact]
     public void Method_matches_case_insensitively()
     {
         var result = new MethodMatcher("get").Match(Request("GET", "/x"));

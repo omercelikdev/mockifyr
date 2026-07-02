@@ -196,6 +196,15 @@ public static class WireMockMappingReader
         var matchers = new List<IMatcher>();
         foreach (var pattern in patterns.EnumerateArray())
         {
+            // binaryEqualTo is a byte-level comparison, not a text value matcher.
+            if (pattern.ValueKind == JsonValueKind.Object &&
+                pattern.TryGetProperty("binaryEqualTo", out var bin) && bin.ValueKind == JsonValueKind.String &&
+                TryFromBase64(bin.GetString()!, out var expected))
+            {
+                matchers.Add(new BinaryEqualToBodyMatcher(expected));
+                continue;
+            }
+
             if (BuildValueMatcher(pattern) is { } value)
             {
                 matchers.Add(new BodyMatcher(value));
@@ -203,6 +212,20 @@ public static class WireMockMappingReader
         }
 
         return matchers;
+    }
+
+    private static bool TryFromBase64(string value, out byte[] bytes)
+    {
+        try
+        {
+            bytes = Convert.FromBase64String(value);
+            return true;
+        }
+        catch (FormatException)
+        {
+            bytes = [];
+            return false;
+        }
     }
 
     private static IValueMatcher? BuildValueMatcher(JsonElement spec)

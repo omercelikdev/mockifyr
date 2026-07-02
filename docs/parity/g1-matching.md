@@ -45,8 +45,12 @@ Verified WireMock behaviors discovered while building the matching vertical agai
   reproduce this by anchoring the pattern with `\A(?:...)\z` in `MatchesValueMatcher`.
 - **Regression cases:** `G1StandardMatcherTests` (8 cases).
 - **Also fuzz-validated:** `doesNotMatch` (header/body); case-insensitive equality (header/body).
+- **`binaryEqualTo` verified.** An exact byte-for-byte body comparison against the base64-decoded
+  expected value, correct for non-text payloads (validated with raw bytes `00 01 FF 10`). Handled by
+  a dedicated `BinaryEqualToBodyMatcher` (bytes, not the text value-matcher path);
+  `G1GeneratedMatcherTests.Body_BinaryEqualTo`.
 - **Not yet validated against the oracle:** cookie **value** matching (see below), multi-value
-  header/query (`havingExactly`/`including`), `binaryEqualTo`.
+  header/query (`havingExactly`/`including`).
 
 ### `equalToIgnoreCase` is `equalTo` + `caseInsensitive: true`
 
