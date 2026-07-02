@@ -96,6 +96,9 @@ public sealed class G1GeneratedMatcherTests : IAsyncLifetime
     public Task MatchesXPath() => Verify(XmlScenarios.MatchesXPath());
 
     [Fact]
+    public Task Logic_AndOrNot() => Verify(LogicScenarios.AndOrNot());
+
+    [Fact]
     public Task DateTime_Comparisons() => Verify(DateTimeScenarios.Comparisons());
 
     [Fact]

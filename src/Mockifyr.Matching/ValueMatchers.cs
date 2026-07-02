@@ -74,6 +74,30 @@ public sealed class DoesNotMatchValueMatcher(string pattern) : IValueMatcher
             : MatchResult.NoMatch(1d);
 }
 
+/// <summary>Matches when every inner matcher matches the same target value(s) (WireMock <c>and</c>).</summary>
+public sealed class AndValueMatcher(IReadOnlyList<IValueMatcher> matchers) : IValueMatcher
+{
+    /// <inheritdoc />
+    public MatchResult Match(bool present, IReadOnlyList<string> values) =>
+        matchers.All(m => m.Match(present, values).IsExactMatch) ? MatchResult.Exact : MatchResult.NoMatch(1d);
+}
+
+/// <summary>Matches when at least one inner matcher matches the target value(s) (WireMock <c>or</c>).</summary>
+public sealed class OrValueMatcher(IReadOnlyList<IValueMatcher> matchers) : IValueMatcher
+{
+    /// <inheritdoc />
+    public MatchResult Match(bool present, IReadOnlyList<string> values) =>
+        matchers.Any(m => m.Match(present, values).IsExactMatch) ? MatchResult.Exact : MatchResult.NoMatch(1d);
+}
+
+/// <summary>Matches when the inner matcher does not match the target value(s) (WireMock <c>not</c>).</summary>
+public sealed class NotValueMatcher(IValueMatcher inner) : IValueMatcher
+{
+    /// <inheritdoc />
+    public MatchResult Match(bool present, IReadOnlyList<string> values) =>
+        inner.Match(present, values).IsExactMatch ? MatchResult.NoMatch(1d) : MatchResult.Exact;
+}
+
 /// <summary>Matches when the target is absent.</summary>
 public sealed class AbsentValueMatcher : IValueMatcher
 {

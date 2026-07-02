@@ -134,6 +134,24 @@ public static class WireMockMappingReader
         var caseInsensitive = spec.TryGetProperty("caseInsensitive", out var ci) &&
                               ci.ValueKind == JsonValueKind.True;
 
+        // Logical combinators (and/or/not) wrap other content patterns on the same target value.
+        if (spec.TryGetProperty("and", out var andArr) && andArr.ValueKind == JsonValueKind.Array)
+        {
+            var subs = BuildValueMatchers(andArr);
+            return subs.Count > 0 ? new AndValueMatcher(subs) : null;
+        }
+
+        if (spec.TryGetProperty("or", out var orArr) && orArr.ValueKind == JsonValueKind.Array)
+        {
+            var subs = BuildValueMatchers(orArr);
+            return subs.Count > 0 ? new OrValueMatcher(subs) : null;
+        }
+
+        if (spec.TryGetProperty("not", out var notSpec) && notSpec.ValueKind == JsonValueKind.Object)
+        {
+            return BuildValueMatcher(notSpec) is { } inner ? new NotValueMatcher(inner) : null;
+        }
+
         if (spec.TryGetProperty("equalToJson", out var ej))
         {
             // equalToJson accepts either a JSON string or inline JSON.
@@ -238,6 +256,21 @@ public static class WireMockMappingReader
         }
 
         return null;
+    }
+
+    /// <summary>Builds the value matchers from an array of matcher specs, skipping unreadable entries.</summary>
+    private static List<IValueMatcher> BuildValueMatchers(JsonElement array)
+    {
+        var matchers = new List<IValueMatcher>();
+        foreach (var element in array.EnumerateArray())
+        {
+            if (BuildValueMatcher(element) is { } matcher)
+            {
+                matchers.Add(matcher);
+            }
+        }
+
+        return matchers;
     }
 
     /// <summary>Reads the optional <c>actualFormat</c> parse pattern shared by the date/time matchers.</summary>

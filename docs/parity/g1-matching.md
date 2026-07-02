@@ -125,6 +125,19 @@ Tracked in `TextCorpus`.
 - **Deferred:** placeholders, `exemptedComparisons`, `namespaceAwareness` modes, namespaced XPath,
   XPath functions, and mixed content.
 
+### logical matchers and / or / not (G1k)
+
+- **Group / item:** G1k — fuzz-validated on a query parameter.
+- **Shapes verified against the oracle:** `and` and `or` take an **array** of content patterns that
+  apply to the same target value; `not` takes a **single** matcher object. `and` requires all, `or`
+  requires at least one, `not` negates. They nest (`not(or(...))` verified).
+- **`not` matches an absent target — verified.** For `{ "not": { "equalTo": "x" } }` on a query
+  parameter that is not sent, the oracle matches (200): the inner matcher fails on the absent value,
+  so `not` succeeds. Our combinators pass the same `present`/`values` down, so `NotValueMatcher`
+  reproduces this.
+- **Regression cases:** `G1GeneratedMatcherTests.Logic_AndOrNot` (differential),
+  `ValueMatcherTests.{And,Or,Not}_*` (pure logic).
+
 ### matchesJsonSchema (G1h)
 
 - **Group / item:** G1h — fuzz-validated over the common JSON Schema subset.

@@ -20,6 +20,31 @@ public class ValueMatcherTests
     }
 
     [Fact]
+    public void And_requires_every_inner_matcher()
+    {
+        var matcher = new AndValueMatcher([new ContainsValueMatcher("a"), new ContainsValueMatcher("b")]);
+        Assert.True(matcher.Match(true, ["cab"]).IsExactMatch);
+        Assert.False(matcher.Match(true, ["a"]).IsExactMatch);
+    }
+
+    [Fact]
+    public void Or_requires_any_inner_matcher()
+    {
+        var matcher = new OrValueMatcher([new EqualToValueMatcher("x"), new EqualToValueMatcher("y")]);
+        Assert.True(matcher.Match(true, ["y"]).IsExactMatch);
+        Assert.False(matcher.Match(true, ["z"]).IsExactMatch);
+    }
+
+    [Fact]
+    public void Not_negates_the_inner_matcher_including_absence()
+    {
+        var matcher = new NotValueMatcher(new EqualToValueMatcher("x"));
+        Assert.True(matcher.Match(true, ["y"]).IsExactMatch);
+        Assert.False(matcher.Match(true, ["x"]).IsExactMatch);
+        Assert.True(matcher.Match(false, []).IsExactMatch); // absent target: inner fails, so not matches
+    }
+
+    [Fact]
     public void DateTime_before_after_equal_compare_the_instant()
     {
         const string expected = "2021-06-15T12:00:00Z";
