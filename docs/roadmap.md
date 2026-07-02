@@ -36,7 +36,10 @@ Detailed rationale and per-group contents:
     order** insensitive) and XPath presence + text/attribute sub-matcher, fuzz-validated via
     System.Xml; placeholders, namespaceAwareness, namespaced XPath, functions, element-node
     sub-matcher deferred
-  - [ ] G1h matchesJsonSchema
+  - [x] G1h matchesJsonSchema — JSON Schema validation via json-everything's JsonSchema.Net
+    (default Draft 2020-12); inline + string schema forms and `schemaVersion` fuzz-validated over the
+    common keyword subset (type/required/properties/bounds/enum/items). Draft 4, `format` assertions,
+    and `$ref` resolution deferred
   - [x] G1i date/time matchers — `before`/`after`/`equalToDateTime` on absolute ISO-8601 instants
     (+ `actualFormat`) fuzz-validated; `now`-relative/offset/truncation deferred (racy vs a second
     clock)

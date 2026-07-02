@@ -161,6 +161,17 @@ public static class WireMockMappingReader
             return null;
         }
 
+        if (spec.TryGetProperty("matchesJsonSchema", out var schema) &&
+            schema.ValueKind is JsonValueKind.String or JsonValueKind.Object or JsonValueKind.Array)
+        {
+            // The schema is either an escaped JSON string or inline JSON (object/array).
+            var schemaJson = schema.ValueKind == JsonValueKind.String ? schema.GetString()! : schema.GetRawText();
+            var schemaVersion = spec.TryGetProperty("schemaVersion", out var sv) && sv.ValueKind == JsonValueKind.String
+                ? sv.GetString()
+                : null;
+            return new MatchesJsonSchemaValueMatcher(schemaJson, schemaVersion);
+        }
+
         if (spec.TryGetProperty("equalToXml", out var equalToXml) && equalToXml.ValueKind == JsonValueKind.String)
         {
             return new EqualToXmlValueMatcher(equalToXml.GetString()!);

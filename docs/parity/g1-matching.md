@@ -125,6 +125,29 @@ Tracked in `TextCorpus`.
 - **Deferred:** placeholders, `exemptedComparisons`, `namespaceAwareness` modes, namespaced XPath,
   XPath functions, and mixed content.
 
+### matchesJsonSchema (G1h)
+
+- **Group / item:** G1h — fuzz-validated over the common JSON Schema subset.
+- **Library:** WireMock uses `networknt/json-schema-validator`; we use **json-everything's
+  JsonSchema.Net** (MIT), confined to `Mockifyr.Matching`. Default dialect is **Draft 2020-12**,
+  matching WireMock's default.
+- **JSON shape verified against the oracle:** `matchesJsonSchema` accepts the schema as **either** an
+  inline JSON object/array **or** an escaped JSON string, with an optional sibling `schemaVersion`.
+  Both forms were loaded and diffed green.
+- **Validation behaviour verified:** the two validators agree across `type`, `required`,
+  `properties`, numeric bounds (`minimum`/`maximum`, inclusive), `enum`, and array `items`/`minItems`.
+  A body that fails validation, is missing a required field, has a wrong-typed value, or is not JSON
+  at all → no match (404 on both sides). `additionalProperties` is allowed by default (extra fields
+  match).
+- **Dialect selection.** A schema declaring `$schema` self-selects its draft; when a `schemaVersion`
+  is supplied and the schema omits `$schema`, we inject the corresponding meta-schema id
+  (`V6`→Draft 6, `V7`→Draft 7, `V201909`→2019-09, `V202012`→2020-12).
+- **Deferred:** WireMock's `V4` (Draft 4 — unsupported by JsonSchema.Net), `format` assertion
+  differences, `$ref`/remote-ref resolution, and draft-specific keyword edges beyond the common
+  subset above.
+- **Regression cases:** `G1GeneratedMatcherTests.MatchesJsonSchema_{InlineObject,StringFormAndVersion}`
+  (differential), `MatchesJsonSchemaTests` (pure logic).
+
 ### date/time matchers (G1i)
 
 - **Group / item:** G1i — fuzz-validated over the deterministic subset (`System.DateTimeOffset`, no

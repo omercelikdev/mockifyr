@@ -10,6 +10,10 @@
     <!-- JSONPath: Newtonsoft's dialect is the closest .NET proxy for WireMock's Jayway JsonPath
          (accepts `[?(@.x=='y')]`-style filters). Used only inside Mockifyr.Matching. -->
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
+    <!-- JSON Schema validation for matchesJsonSchema (G1h). json-everything's JsonSchema.Net is the
+         MIT-licensed .NET validator with Draft 6/7/2019-09/2020-12 support. Used only inside
+         Mockifyr.Matching. -->
+    <PackageVersion Include="JsonSchema.Net" Version="9.2.2" />
   </ItemGroup>
 
   <ItemGroup Label="Testing / harness">
