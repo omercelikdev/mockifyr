@@ -18,6 +18,15 @@ public sealed class G1GeneratedMatcherTests : IAsyncLifetime
     public async Task DisposeAsync() => await _runner.DisposeAsync();
 
     [Fact]
+    public Task Url_Pattern() => Verify(UrlScenarios.UrlPattern());
+
+    [Fact]
+    public Task Url_PathPattern() => Verify(UrlScenarios.UrlPathPattern());
+
+    [Fact]
+    public Task Url_PathTemplate() => Verify(UrlScenarios.UrlPathTemplate());
+
+    [Fact]
     public Task EqualTo_Header() => Verify(MatcherScenarios.EqualTo(Target.Header, seed: 11));
 
     [Fact]

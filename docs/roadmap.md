@@ -16,7 +16,9 @@ Detailed rationale and per-group contents:
   G2a (static response). The generator is still a stub.
 - [ ] **G1 — Matching**
   - [ ] G1a URL basic (urlEqualTo, urlPathEqualTo, method + ANY)
-  - [ ] G1b URL advanced (urlMatching, urlPathMatching, urlPathTemplate + named path vars)
+  - [x] G1b URL advanced — `urlPattern` (anchored full-URL regex), `urlPathPattern` (anchored
+    path regex), `urlPathTemplate` (one segment per `{var}`), fuzz-validated. Named path-variable
+    **extraction** is deferred to G2b (only the match decision is observable now)
   - [ ] G1c header/query/cookie matchers (+ multi-value) — header/query `equalTo`/`contains`/
     `absent`/`doesNotMatch`/`caseInsensitive` fuzz-validated; cookie **value** matching and
     multi-value (`havingExactly`/`including`) still pending

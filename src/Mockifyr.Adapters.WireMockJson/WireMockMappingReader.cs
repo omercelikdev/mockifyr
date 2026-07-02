@@ -57,9 +57,21 @@ public static class WireMockMappingReader
             {
                 url = new UrlEqualToMatcher(u.GetString()!);
             }
+            else if (request.TryGetProperty("urlPattern", out var upat) && upat.ValueKind == JsonValueKind.String)
+            {
+                url = new UrlPatternMatcher(upat.GetString()!);
+            }
             else if (request.TryGetProperty("urlPath", out var up) && up.ValueKind == JsonValueKind.String)
             {
                 url = new UrlPathEqualToMatcher(up.GetString()!);
+            }
+            else if (request.TryGetProperty("urlPathPattern", out var uppat) && uppat.ValueKind == JsonValueKind.String)
+            {
+                url = new UrlPathPatternMatcher(uppat.GetString()!);
+            }
+            else if (request.TryGetProperty("urlPathTemplate", out var upt) && upt.ValueKind == JsonValueKind.String)
+            {
+                url = new UrlPathTemplateMatcher(upt.GetString()!);
             }
         }
 

@@ -19,6 +19,21 @@ Verified WireMock behaviors discovered while building the matching vertical agai
 - **Our handling:** `StubResolution.Matched == false` maps to a bare `404`.
 - **Regression case:** `G0TrivialStubTests.UnknownPath_YieldsNotFoundOnBothSides`.
 
+### Advanced URL matchers (G1b)
+
+- **Group / item:** G1b — fuzz-validated against the oracle.
+- **`urlPattern` (urlMatching)** is a regex over the **full URL** (path + query) and is **anchored**
+  (Java `matches`): `/things/[0-9]+\?ok=true` matched `/things/12?ok=true` but not `/things/12`.
+- **`urlPathPattern` (urlPathMatching)** is a regex over the **path only** (query ignored) and is
+  anchored to the whole path: `/u/[a-z]+` matched `/u/abc?x=1` but not `/u/abc/def`.
+- **`urlPathTemplate`** matches the path structurally — each `{var}` consumes exactly one non-empty
+  segment, the query is ignored, and both a missing and an extra segment fail. We compile the
+  template to an anchored `[^/]+`-per-variable regex.
+- **Named path-variable extraction** (exposing `{id}` to response templating) is **deferred to G2b**;
+  only the match decision is observable through the oracle here.
+- **Regression cases:** `G1GeneratedMatcherTests.Url_{Pattern,PathPattern,PathTemplate}`
+  (differential), `MatcherTests.Url*` (pure logic).
+
 ### Standard matchers on headers / query / body
 
 - **Group / item:** G1c (header/query), G1d (body)
