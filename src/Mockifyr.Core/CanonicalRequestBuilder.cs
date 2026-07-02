@@ -30,7 +30,7 @@ public static class CanonicalRequestBuilder
             Headers = headerLookup,
             Cookies = ParseCookies(headerLookup),
             Body = body ?? [],
-            Parts = [],
+            Parts = MultipartBodyParser.Parse(body ?? [], headerLookup["Content-Type"].FirstOrDefault()),
             ClientIp = null,
         };
     }

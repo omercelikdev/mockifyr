@@ -86,6 +86,49 @@ public static class WireMockMappingReader
         };
     }
 
+    private static IReadOnlyList<IMatcher> ReadBodyMatchers(JsonElement request)
+    {
+        var matchers = new List<IMatcher>(ReadBodyPatterns(request));
+        matchers.AddRange(ReadMultipartMatchers(request));
+        return matchers;
+    }
+
+    private static IEnumerable<IMatcher> ReadMultipartMatchers(JsonElement request)
+    {
+        if (request.ValueKind != JsonValueKind.Object ||
+            !request.TryGetProperty("multipartPatterns", out var patterns) ||
+            patterns.ValueKind != JsonValueKind.Array)
+        {
+            yield break;
+        }
+
+        foreach (var pattern in patterns.EnumerateArray())
+        {
+            if (pattern.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            var bodyPatterns = new List<IValueMatcher>();
+            if (pattern.TryGetProperty("bodyPatterns", out var bps) && bps.ValueKind == JsonValueKind.Array)
+            {
+                bodyPatterns.AddRange(BuildValueMatchers(bps));
+            }
+
+            // WireMock's default matchingType is ANY; the per-pattern `name` is a no-op (see parity doc).
+            var matchingType =
+                pattern.TryGetProperty("matchingType", out var mt) && mt.ValueKind == JsonValueKind.String &&
+                string.Equals(mt.GetString(), "ALL", StringComparison.OrdinalIgnoreCase)
+                    ? MultipartMatchingType.All
+                    : MultipartMatchingType.Any;
+
+            if (bodyPatterns.Count > 0)
+            {
+                yield return new MultipartMatcher(bodyPatterns, matchingType);
+            }
+        }
+    }
+
     /// <summary>
     /// Reads <c>basicAuthCredentials</c> into an <c>Authorization: Basic &lt;base64(user:pass)&gt;</c>
     /// header matcher. Verified against the oracle: it is exact-equality on the computed token.
@@ -129,7 +172,7 @@ public static class WireMockMappingReader
         return matchers;
     }
 
-    private static IReadOnlyList<IMatcher> ReadBodyMatchers(JsonElement request)
+    private static IReadOnlyList<IMatcher> ReadBodyPatterns(JsonElement request)
     {
         if (request.ValueKind != JsonValueKind.Object ||
             !request.TryGetProperty("bodyPatterns", out var patterns) ||

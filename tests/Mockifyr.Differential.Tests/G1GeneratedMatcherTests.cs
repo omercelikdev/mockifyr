@@ -105,6 +105,9 @@ public sealed class G1GeneratedMatcherTests : IAsyncLifetime
     public Task Selection_Priority() => Verify(SelectionScenarios.Priority());
 
     [Fact]
+    public Task Multipart() => Verify(MultipartScenarios.Multipart());
+
+    [Fact]
     public Task DateTime_Comparisons() => Verify(DateTimeScenarios.Comparisons());
 
     [Fact]

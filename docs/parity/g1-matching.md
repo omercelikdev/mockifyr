@@ -134,16 +134,26 @@ Tracked in `TextCorpus`.
   container's). Like the standalone number matchers, there is no oracle for it — **left unchecked**;
   revisit only if a maintainer wants it as a non-parity extension.
 
-### multipartPatterns (G1k) — pending a focused pass
+### multipartPatterns (G1k)
 
-- **Group / item:** G1k — accepted by the oracle (`201`) but the matching semantics are non-obvious
-  and need dedicated investigation before implementation.
-- **Observed so far:** with a single pattern `{ "name": "field1", "bodyPatterns": [{ "contains":
-  "hello" }] }` and no explicit `matchingType`, the oracle matched whenever **any** part's body
-  contained `hello` **regardless of the part `name`** — i.e. the default behaves as `ANY` and `name`
-  did not filter parts in this configuration. This contradicts the intuitive "match the part named
-  field1" reading and must be pinned (ALL vs ANY, the role of `name`, and per-part `headers`) before
-  building the body parser. Deferred to its own vertical.
+- **Group / item:** G1k — fuzz-validated against the oracle.
+- **Semantics verified (WireMock 3.10.0):**
+  - **`matchingType` defaults to `ANY`.** With no explicit type, a stub matched when *any* part
+    satisfied the pattern; `ALL` requires *every* part to satisfy it.
+  - **Body patterns are same-part AND.** A part *satisfies* a pattern only when **all** of the
+    pattern's `bodyPatterns` match **that same part** — `[contains a, contains b]` matched a part
+    `"ab"` but not two parts `"a"` and `"b"`.
+  - **`name` is a no-op.** A pattern `name` that matches no part still matched under `ANY`, and a
+    non-matching-`name` part still counted — so the oracle ignores `name` entirely. We ignore it too
+    for parity (rather than replicate an intuitive-but-absent filter).
+  - **A non-multipart request never matches** a `multipartPatterns` stub (verified with a
+    `text/plain` body → 404).
+- **Our handling:** `MultipartBodyParser` (pure, in Core) splits the body into parts when building
+  the canonical request; `MultipartMatcher` applies the ANY/ALL logic over `part.Body`.
+- **Deferred:** per-part `headers` matchers, binary (non-UTF-8) parts, quoted/edge boundaries, and
+  whether multiple `multipartPatterns` entries AND together (assumed, lightly covered).
+- **Regression cases:** `G1GeneratedMatcherTests.Multipart` (differential),
+  `MultipartBodyParserTests` (pure logic).
 
 ### stub priority & selection (G1k)
 

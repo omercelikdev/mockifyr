@@ -47,7 +47,10 @@ Detailed rationale and per-group contents:
     fuzz-validated against the oracle for `>`/`>=`/`<`/`<=`/`==` on int & decimal. The standalone
     `equalToNumber`/`greaterThanNumber`/… keys are **not in open-source WireMock** (Cloud-only, no
     oracle) — see docs/parity/g1-matching.md
-  - [ ] G1k logic + basicAuth + form/multipart + clientIp + stub priority/selection
+  - [x] G1k logic (`and`/`or`/`not`) + basicAuth + multipart + stub priority/selection, each
+    fuzz-validated. **clientIp is not in open-source WireMock** (rejected `422`, no oracle) — deferred
+    like the standalone number matchers. The equal-priority tie-break (load-path dependent) and
+    per-part multipart headers are deferred; see docs/parity/g1-matching.md
 - [ ] **G2 — Response + templating**
   - [ ] G2a static response (+ bodyFileName templating, gzip)
   - [ ] G2b templating engine (Handlebars.Net + request model + named path vars)
