@@ -20,6 +20,25 @@ public class ValueMatcherTests
     }
 
     [Fact]
+    public void HasExactly_requires_an_exact_order_insensitive_correspondence()
+    {
+        var matcher = new HasExactlyValueMatcher([new EqualToValueMatcher("a"), new EqualToValueMatcher("b")]);
+        Assert.True(matcher.Match(true, ["a", "b"]).IsExactMatch);
+        Assert.True(matcher.Match(true, ["b", "a"]).IsExactMatch); // order-insensitive
+        Assert.False(matcher.Match(true, ["a"]).IsExactMatch);      // missing
+        Assert.False(matcher.Match(true, ["a", "b", "c"]).IsExactMatch); // extra
+    }
+
+    [Fact]
+    public void Includes_is_a_subset_allowing_extras()
+    {
+        var matcher = new IncludesValueMatcher([new EqualToValueMatcher("a"), new EqualToValueMatcher("b")]);
+        Assert.True(matcher.Match(true, ["a", "b", "c"]).IsExactMatch); // extras allowed
+        Assert.True(matcher.Match(true, ["b", "a"]).IsExactMatch);
+        Assert.False(matcher.Match(true, ["a"]).IsExactMatch); // missing b
+    }
+
+    [Fact]
     public void And_requires_every_inner_matcher()
     {
         var matcher = new AndValueMatcher([new ContainsValueMatcher("a"), new ContainsValueMatcher("b")]);

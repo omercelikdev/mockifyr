@@ -256,6 +256,19 @@ public static class WireMockMappingReader
             return BuildValueMatcher(notSpec) is { } inner ? new NotValueMatcher(inner) : null;
         }
 
+        // Multi-value matchers (hasExactly/includes) apply a list of sub-matchers to a multi-valued target.
+        if (spec.TryGetProperty("hasExactly", out var hasExactly) && hasExactly.ValueKind == JsonValueKind.Array)
+        {
+            var subs = BuildValueMatchers(hasExactly);
+            return subs.Count > 0 ? new HasExactlyValueMatcher(subs) : null;
+        }
+
+        if (spec.TryGetProperty("includes", out var includes) && includes.ValueKind == JsonValueKind.Array)
+        {
+            var subs = BuildValueMatchers(includes);
+            return subs.Count > 0 ? new IncludesValueMatcher(subs) : null;
+        }
+
         if (spec.TryGetProperty("equalToJson", out var ej))
         {
             // equalToJson accepts either a JSON string or inline JSON.

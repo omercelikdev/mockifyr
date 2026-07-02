@@ -20,8 +20,10 @@ Detailed rationale and per-group contents:
     path regex), `urlPathTemplate` (one segment per `{var}`), fuzz-validated. Named path-variable
     **extraction** is deferred to G2b (only the match decision is observable now)
   - [ ] G1c header/query/cookie matchers (+ multi-value) — header/query `equalTo`/`contains`/
-    `absent`/`doesNotMatch`/`caseInsensitive` fuzz-validated; cookie **value** matching and
-    multi-value (`havingExactly`/`including`) still pending
+    `absent`/`doesNotMatch`/`caseInsensitive` and multi-value `hasExactly`/`includes` (validated on
+    query — the real keys, not `havingExactly`/`including`) fuzz-validated. **Cookie value** matching
+    remains the only open piece (a documented parsing divergence); header multi-value awaits a
+    harness that sends discrete header lines
   - [x] G1d body basic (equalTo, binaryEqualTo, contains, matches) — `equalTo`/`contains`/
     `matches`/`doesNotMatch`/`caseInsensitive` and now `binaryEqualTo` (exact byte comparison)
     fuzz-validated

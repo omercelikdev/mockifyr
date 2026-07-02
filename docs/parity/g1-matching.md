@@ -62,6 +62,24 @@ Verified WireMock behaviors discovered while building the matching vertical agai
   `EqualToValueMatcher`; the standalone `equalToIgnoreCase` key was removed for parity.
 - **Regression cases:** `G1GeneratedMatcherTests.EqualToIgnoreCase_{Header,Body}`.
 
+### Multi-value matchers hasExactly / includes (G1c)
+
+- **Group / item:** G1c — fuzz-validated on a **query parameter**.
+- **Real key names.** The keys are `hasExactly` and `includes` — **not** the roadmap's
+  "havingExactly/including", which the oracle rejects with `422`.
+- **`hasExactly`** requires the values to correspond **exactly** to the matcher list, in any order:
+  `p=a&p=b` and `p=b&p=a` matched `[equalTo a, equalTo b]`, but `p=a` (missing) and `p=a&p=b&p=c`
+  (extra) did not.
+- **`includes`** is an order-insensitive **subset**: every matcher must match some value, extra
+  values are allowed (`p=a&p=b&p=c` matched `[equalTo a, equalTo b]`).
+- **Validated on query, not headers.** The differential harness's HTTP client folds repeated request
+  **headers** into a single comma-joined value, so a multi-value *header* can't be exercised
+  faithfully yet; query parameters carry multi-value unambiguously. The matchers
+  (`HasExactlyValueMatcher`/`IncludesValueMatcher`) operate on any multi-valued target, so header
+  multi-value follows once the harness/facade sends discrete header lines.
+- **Regression cases:** `G1GeneratedMatcherTests.MultiValue_{HasExactly,Includes}` (differential),
+  `ValueMatcherTests.{HasExactly,Includes}_*` (pure logic).
+
 ### Cookie value matching diverges (deferred)
 
 - **Group / item:** G1c (cookies) — **found by the fuzzing generator**.
