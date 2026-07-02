@@ -143,6 +143,26 @@ Tracked in `TextCorpus`.
 - **Regression cases:** `G1GeneratedMatcherTests.DateTime_{Comparisons,ActualFormat}` (differential),
   `ValueMatcherTests.DateTime_*` (pure logic).
 
+### number matchers (G1j) — NOT in open-source WireMock (blocked, no oracle)
+
+- **Group / item:** G1j — **investigated against the oracle; found to have no counterpart.**
+- **Finding:** the numeric match operations named in the roadmap/docs (`equalToNumber`,
+  `greaterThanNumber`, `greaterThanEqualNumber`, `lessThanNumber`, `lessThanEqualNumber`) are
+  **rejected by every open-source WireMock version tested** — `3.10.0` (the pinned oracle),
+  `3.12.1`, `3.13.1`, and `3.13.2` (latest). Loading a mapping returns
+  `422 { code: 10, detail: "{...} is not a valid match operation" }`.
+- **Verified across forms.** Rejected standalone on a query parameter, and as a `matchesJsonPath`
+  sub-matcher, with the expected value given as both a JSON string (`"10"`) and a JSON number
+  (`10`). None are accepted.
+- **Where they actually live:** these keys appear only in **WireMock Cloud** documentation
+  (docs.wiremock.io / mocklab.io), not the OSS engine that the differential harness runs. Numeric
+  *comparison* in OSS WireMock is only reachable inside **JSONPath filter expressions**
+  (`[?(@.price > 10)]`), which is the deferred part of G1f.
+- **Consequence:** G1j cannot be built to this project's definition of done — there is no oracle to
+  diff against, and golden rules #2/#3 forbid a self-validated matcher. **Left unchecked pending a
+  maintainer decision** (skip as Cloud-only / reframe as JSONPath numeric filters under G1f /
+  build as an independent non-parity extension).
+
 ### Header masking (current harness limitation)
 
 - WireMock injects transport/server headers (`Matched-Stub-Id`, `Vary`, `Transfer-Encoding`,
