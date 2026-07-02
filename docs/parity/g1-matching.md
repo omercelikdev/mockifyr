@@ -125,6 +125,26 @@ Tracked in `TextCorpus`.
 - **Deferred:** placeholders, `exemptedComparisons`, `namespaceAwareness` modes, namespaced XPath,
   XPath functions, and mixed content.
 
+### clientIp (G1k) — NOT in open-source WireMock (no oracle)
+
+- **Group / item:** G1k — **investigated against the oracle; no counterpart.**
+- **Finding:** a request-level `clientIp` matcher is **rejected** by WireMock 3.10.0 with
+  `422 Unrecognized field "clientIp" (class ...RequestPattern)`. It is not part of the open-source
+  mapping DSL (and would be non-deterministic to diff, since the client address is the harness
+  container's). Like the standalone number matchers, there is no oracle for it — **left unchecked**;
+  revisit only if a maintainer wants it as a non-parity extension.
+
+### multipartPatterns (G1k) — pending a focused pass
+
+- **Group / item:** G1k — accepted by the oracle (`201`) but the matching semantics are non-obvious
+  and need dedicated investigation before implementation.
+- **Observed so far:** with a single pattern `{ "name": "field1", "bodyPatterns": [{ "contains":
+  "hello" }] }` and no explicit `matchingType`, the oracle matched whenever **any** part's body
+  contained `hello` **regardless of the part `name`** — i.e. the default behaves as `ANY` and `name`
+  did not filter parts in this configuration. This contradicts the intuitive "match the part named
+  field1" reading and must be pinned (ALL vs ANY, the role of `name`, and per-part `headers`) before
+  building the body parser. Deferred to its own vertical.
+
 ### stub priority & selection (G1k)
 
 - **Group / item:** G1k — fuzz-validated with multi-stub mappings loaded via
