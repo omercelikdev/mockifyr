@@ -20,6 +20,41 @@ public class ValueMatcherTests
     }
 
     [Fact]
+    public void DateTime_before_after_equal_compare_the_instant()
+    {
+        const string expected = "2021-06-15T12:00:00Z";
+        Assert.True(new DateTimeValueMatcher(DateTimeComparison.Before, expected).Match(true, ["2021-06-15T11:00:00Z"]).IsExactMatch);
+        Assert.False(new DateTimeValueMatcher(DateTimeComparison.Before, expected).Match(true, ["2021-06-15T12:00:00Z"]).IsExactMatch);
+        Assert.True(new DateTimeValueMatcher(DateTimeComparison.After, expected).Match(true, ["2021-06-15T13:00:00Z"]).IsExactMatch);
+        Assert.True(new DateTimeValueMatcher(DateTimeComparison.Equal, expected).Match(true, ["2021-06-15T12:00:00Z"]).IsExactMatch);
+    }
+
+    [Fact]
+    public void DateTime_equality_is_zone_normalized()
+    {
+        // Same instant expressed in a different offset must compare equal.
+        var matcher = new DateTimeValueMatcher(DateTimeComparison.Equal, "2021-06-15T12:00:00Z");
+        Assert.True(matcher.Match(true, ["2021-06-15T14:00:00+02:00"]).IsExactMatch);
+    }
+
+    [Fact]
+    public void DateTime_unparseable_actual_or_expected_does_not_match()
+    {
+        Assert.False(new DateTimeValueMatcher(DateTimeComparison.Before, "2021-06-15T12:00:00Z").Match(true, ["nope"]).IsExactMatch);
+        Assert.False(new DateTimeValueMatcher(DateTimeComparison.Before, "not-a-date").Match(true, ["2021-06-15T11:00:00Z"]).IsExactMatch);
+        Assert.False(new DateTimeValueMatcher(DateTimeComparison.Before, "2021-06-15T12:00:00Z").Match(false, []).IsExactMatch);
+    }
+
+    [Fact]
+    public void DateTime_actualFormat_parses_the_incoming_value()
+    {
+        var matcher = new DateTimeValueMatcher(DateTimeComparison.After, "2021-06-15T00:00:00Z", "dd/MM/yyyy");
+        Assert.True(matcher.Match(true, ["16/06/2021"]).IsExactMatch);
+        Assert.False(matcher.Match(true, ["14/06/2021"]).IsExactMatch);
+        Assert.False(matcher.Match(true, ["2021-06-16"]).IsExactMatch); // wrong format → no parse → no match
+    }
+
+    [Fact]
     public void Contains_checks_substring()
     {
         Assert.True(new ContainsValueMatcher("ell").Match(true, ["hello"]).IsExactMatch);

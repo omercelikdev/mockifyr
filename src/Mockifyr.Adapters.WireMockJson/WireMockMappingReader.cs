@@ -183,6 +183,21 @@ public static class WireMockMappingReader
             return null;
         }
 
+        if (spec.TryGetProperty("before", out var before) && before.ValueKind == JsonValueKind.String)
+        {
+            return new DateTimeValueMatcher(DateTimeComparison.Before, before.GetString()!, ActualFormat(spec));
+        }
+
+        if (spec.TryGetProperty("after", out var after) && after.ValueKind == JsonValueKind.String)
+        {
+            return new DateTimeValueMatcher(DateTimeComparison.After, after.GetString()!, ActualFormat(spec));
+        }
+
+        if (spec.TryGetProperty("equalToDateTime", out var edt) && edt.ValueKind == JsonValueKind.String)
+        {
+            return new DateTimeValueMatcher(DateTimeComparison.Equal, edt.GetString()!, ActualFormat(spec));
+        }
+
         if (spec.TryGetProperty("equalTo", out var eq) && eq.ValueKind == JsonValueKind.String)
         {
             return new EqualToValueMatcher(eq.GetString()!, caseInsensitive);
@@ -213,6 +228,12 @@ public static class WireMockMappingReader
 
         return null;
     }
+
+    /// <summary>Reads the optional <c>actualFormat</c> parse pattern shared by the date/time matchers.</summary>
+    private static string? ActualFormat(JsonElement spec) =>
+        spec.TryGetProperty("actualFormat", out var af) && af.ValueKind == JsonValueKind.String
+            ? af.GetString()
+            : null;
 
     private static ResponseDefinition ReadResponse(JsonElement response)
     {

@@ -120,6 +120,29 @@ Tracked in `TextCorpus`.
 - **Deferred:** placeholders, `exemptedComparisons`, `namespaceAwareness` modes, namespaced XPath,
   XPath functions, and mixed content.
 
+### date/time matchers (G1i)
+
+- **Group / item:** G1i — fuzz-validated over the deterministic subset (`System.DateTimeOffset`, no
+  external dependency).
+- **Keys verified against the oracle:** `before`, `after`, and `equalToDateTime` are all real
+  WireMock JSON keys and were exercised on a query parameter. `before`/`after` are **strict**
+  (a value equal to the expected instant does not satisfy either), and `equalToDateTime` requires
+  the exact instant. An unparseable actual value → no match (404 on both sides).
+- **Comparison is on the instant.** Our `DateTimeValueMatcher` reads both sides as
+  `DateTimeOffset` in UTC (`AssumeUniversal | AdjustToUniversal`), so a value carrying an explicit
+  offset compares by absolute instant. The corpus pins expected + actual in UTC (`Z`) to keep the
+  diff unambiguous.
+- **`actualFormat` verified.** Parsing the incoming value with a custom pattern (`dd/MM/yyyy`) and
+  comparing against an ISO expected agreed with the oracle. We support the **overlapping** subset of
+  Java `DateTimeFormatter` / .NET custom format patterns (e.g. `dd/MM/yyyy`, `yyyy-MM-dd`); patterns
+  that differ between the two platforms (`X`/`Z` zone tokens, era/locale tokens) are not claimed.
+- **Deferred (documented, not yet validated):** `now`-relative expected values (`"now +3 days"`) —
+  WireMock evaluates `now` at request time, so diffing against a second clock is inherently racy;
+  `expectedOffset`/`expectedOffsetUnit`, `truncateExpected`/`truncateActual`, and
+  `applyTruncationLast`.
+- **Regression cases:** `G1GeneratedMatcherTests.DateTime_{Comparisons,ActualFormat}` (differential),
+  `ValueMatcherTests.DateTime_*` (pure logic).
+
 ### Header masking (current harness limitation)
 
 - WireMock injects transport/server headers (`Matched-Stub-Id`, `Vary`, `Transfer-Encoding`,

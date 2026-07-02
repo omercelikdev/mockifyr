@@ -37,7 +37,9 @@ Detailed rationale and per-group contents:
     System.Xml; placeholders, namespaceAwareness, namespaced XPath, functions, element-node
     sub-matcher deferred
   - [ ] G1h matchesJsonSchema
-  - [ ] G1i date/time matchers
+  - [x] G1i date/time matchers — `before`/`after`/`equalToDateTime` on absolute ISO-8601 instants
+    (+ `actualFormat`) fuzz-validated; `now`-relative/offset/truncation deferred (racy vs a second
+    clock)
   - [ ] G1j number matchers
   - [ ] G1k logic + basicAuth + form/multipart + clientIp + stub priority/selection
 - [ ] **G2 — Response + templating**
