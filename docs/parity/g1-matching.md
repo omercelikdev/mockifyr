@@ -125,6 +125,22 @@ Tracked in `TextCorpus`.
 - **Deferred:** placeholders, `exemptedComparisons`, `namespaceAwareness` modes, namespaced XPath,
   XPath functions, and mixed content.
 
+### stub priority & selection (G1k)
+
+- **Group / item:** G1k — fuzz-validated with multi-stub mappings loaded via
+  `/__admin/mappings/import`.
+- **Verified against the oracle:** when several stubs match the same request, the one with the
+  **lowest `priority` number wins**, and an **unset priority defaults to 5** (an explicit `3` beats
+  an unset stub; an explicit `8` loses to one). `StubEngine` already ordered by
+  `priority` ascending, and the adapter's default of `5` is correct.
+- **Equal-priority tie-break is load-path dependent — deferred.** WireMock resolves ties by
+  insertion order, but the direction depends on how the stub was added: via `/__admin/mappings/import`
+  the **earlier array element** wins (append/preserve order), whereas via individual
+  `POST /__admin/mappings` the **most recently posted** wins (prepend). Because Mockifyr's own
+  stub-add path (admin API) arrives at G7, the tie-break is validated then; selection scenarios here
+  use **distinct** priorities so the outcome is order-independent.
+- **Regression case:** `G1GeneratedMatcherTests.Selection_Priority`.
+
 ### logical matchers and / or / not (G1k)
 
 - **Group / item:** G1k — fuzz-validated on a query parameter.

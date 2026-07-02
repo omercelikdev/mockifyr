@@ -102,6 +102,9 @@ public sealed class G1GeneratedMatcherTests : IAsyncLifetime
     public Task BasicAuth() => Verify(AuthScenarios.BasicAuth());
 
     [Fact]
+    public Task Selection_Priority() => Verify(SelectionScenarios.Priority());
+
+    [Fact]
     public Task DateTime_Comparisons() => Verify(DateTimeScenarios.Comparisons());
 
     [Fact]
