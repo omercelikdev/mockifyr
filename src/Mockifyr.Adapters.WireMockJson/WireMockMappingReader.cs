@@ -68,15 +68,41 @@ public static class WireMockMappingReader
             ? m.GetString()!
             : "ANY";
 
+        var headers = new List<IMatcher>(
+            ReadNamedMatchers(request, "headers", static (name, vm) => new HeaderMatcher(name, vm)));
+        if (ReadBasicAuth(request) is { } basicAuth)
+        {
+            headers.Add(basicAuth);
+        }
+
         return new RequestPattern
         {
             Url = url,
             Method = new MethodMatcher(method),
-            Headers = ReadNamedMatchers(request, "headers", static (name, vm) => new HeaderMatcher(name, vm)),
+            Headers = headers,
             Query = ReadNamedMatchers(request, "queryParameters", static (name, vm) => new QueryMatcher(name, vm)),
             Cookies = ReadNamedMatchers(request, "cookies", static (name, vm) => new CookieMatcher(name, vm)),
             Body = ReadBodyMatchers(request),
         };
+    }
+
+    /// <summary>
+    /// Reads <c>basicAuthCredentials</c> into an <c>Authorization: Basic &lt;base64(user:pass)&gt;</c>
+    /// header matcher. Verified against the oracle: it is exact-equality on the computed token.
+    /// </summary>
+    private static HeaderMatcher? ReadBasicAuth(JsonElement request)
+    {
+        if (request.ValueKind != JsonValueKind.Object ||
+            !request.TryGetProperty("basicAuthCredentials", out var creds) ||
+            creds.ValueKind != JsonValueKind.Object ||
+            !creds.TryGetProperty("username", out var u) || u.ValueKind != JsonValueKind.String ||
+            !creds.TryGetProperty("password", out var p) || p.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
+        var token = "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes($"{u.GetString()}:{p.GetString()}"));
+        return new HeaderMatcher("Authorization", new EqualToValueMatcher(token));
     }
 
     private static IReadOnlyList<IMatcher> ReadNamedMatchers(

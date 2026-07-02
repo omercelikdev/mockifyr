@@ -99,6 +99,9 @@ public sealed class G1GeneratedMatcherTests : IAsyncLifetime
     public Task Logic_AndOrNot() => Verify(LogicScenarios.AndOrNot());
 
     [Fact]
+    public Task BasicAuth() => Verify(AuthScenarios.BasicAuth());
+
+    [Fact]
     public Task DateTime_Comparisons() => Verify(DateTimeScenarios.Comparisons());
 
     [Fact]

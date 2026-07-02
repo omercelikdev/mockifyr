@@ -138,6 +138,18 @@ Tracked in `TextCorpus`.
 - **Regression cases:** `G1GeneratedMatcherTests.Logic_AndOrNot` (differential),
   `ValueMatcherTests.{And,Or,Not}_*` (pure logic).
 
+### basicAuthCredentials (G1k)
+
+- **Group / item:** G1k — fuzz-validated against the oracle.
+- **Behavior verified:** `request.basicAuthCredentials: { username, password }` matches when the
+  request carries `Authorization: Basic <base64(username:":"password)>` **exactly**. A wrong
+  username or password, a non-base64 token, or a missing `Authorization` header → no match on both
+  sides. It is pure sugar for a header equal-to matcher, so it composes with any other header/query
+  constraint on the stub.
+- **Our handling:** the import adapter desugars it to a `HeaderMatcher("Authorization", equalTo
+  token)` appended to the request's header matchers.
+- **Regression case:** `G1GeneratedMatcherTests.BasicAuth`.
+
 ### matchesJsonSchema (G1h)
 
 - **Group / item:** G1h — fuzz-validated over the common JSON Schema subset.
