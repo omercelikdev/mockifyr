@@ -142,3 +142,27 @@ oracle (`wiremock/wiremock:3.10.0`). See [README](README.md) for the format.
   broad and imprecisely bounded, which would make a brittle structural assertion; and the
   distribution/format of **unbounded** `randomDecimal` (only bounded ranges are contracted).
 - **Regression case:** `G2StaticResponseTests.Templating_RandomHelpers`.
+
+### JSON-manipulation helpers (G2f)
+
+- **Group / item:** G2f — validated against the oracle.
+- **Helpers:** `jsonArrayAdd`, `jsonMerge`, `jsonRemove`, `toJson`. All four take JSON **strings**
+  (`jsonPath`/`request.body` or a literal); passing the object form of a `jsonPath` result is
+  rejected by the oracle (`Base JSON must be a string`).
+- **Output shape asymmetry.** `jsonArrayAdd`/`jsonMerge`/`jsonRemove` emit **compact** JSON, while
+  `toJson` emits **Jackson-pretty** JSON — the same serialization as a `jsonPath` object, now shared
+  via `JacksonJson.Write`. Notably `toJson` of an **array** is spaced (`[ 1, 2, 3 ]`), unlike a
+  `jsonPath` top-level array which is compact (`[1,2,3]`).
+- **`jsonArrayAdd base item`** parses `item` as JSON (`'4'` → the number `4`, `'{"k":9}'` → an
+  object) and appends it. **`maxItems=`** caps the array by dropping the **oldest** elements from the
+  front (`[1,2,3]` + `4` with `maxItems=3` → `[2,3,4]`).
+- **`jsonMerge a b`** is a **deep** merge: existing keys keep their position with the value from `b`,
+  new `b` keys are appended (`{x:1,z:0}` ⊕ `{x:9,y:2}` → `{"x":9,"z":0,"y":2}`; nested objects merge).
+  Matched by Newtonsoft's `JObject.Merge`.
+- **`jsonRemove json path`** deletes the JSONPath-selected node (top-level or nested, e.g. `$.a.b`).
+- **`toJson value`** pretty-prints a value (accepts a parsed variable from `parseJson` or a JSON
+  string).
+- **Deferred (documented):** array-valued key **merge** semantics (only object merges are pinned;
+  the Newtonsoft `MergeArrayHandling` is set to `Replace` but untested against the oracle), and
+  `jsonArrayAdd` with a non-JSON string item.
+- **Regression case:** `G2StaticResponseTests.Templating_JsonHelpers`.

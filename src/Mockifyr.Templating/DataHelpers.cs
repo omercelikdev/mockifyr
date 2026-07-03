@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
@@ -66,80 +65,10 @@ internal static class DataHelpers
         null or JTokenType.Null => string.Empty,
         JTokenType.String => token.Value<string>() ?? string.Empty,
         JTokenType.Boolean => token.Value<bool>() ? "true" : "false",
-        JTokenType.Object => WriteJacksonObject((JObject)token),
+        JTokenType.Object => JacksonJson.Write(token),
         JTokenType.Array => token.ToString(Newtonsoft.Json.Formatting.None),
         _ => token.ToString(Newtonsoft.Json.Formatting.None),
     };
-
-    // Reproduces Jackson's DefaultPrettyPrinter (WireMock's object serialization): multi-line objects
-    // with a two-space indent and a `" : "` separator, and single-line `[ a, b ]` arrays.
-    private static string WriteJacksonObject(JObject obj)
-    {
-        var sb = new StringBuilder();
-        WriteJackson(obj, sb, 0);
-        return sb.ToString();
-    }
-
-    private static void WriteJackson(JToken token, StringBuilder sb, int depth)
-    {
-        switch (token)
-        {
-            case JObject obj:
-                var props = obj.Properties().ToList();
-                if (props.Count == 0)
-                {
-                    sb.Append("{ }");
-                    break;
-                }
-
-                sb.Append('{');
-                for (var i = 0; i < props.Count; i++)
-                {
-                    sb.Append('\n');
-                    Indent(sb, depth + 1);
-                    sb.Append(JsonConvert.ToString(props[i].Name)).Append(" : ");
-                    WriteJackson(props[i].Value, sb, depth + 1);
-                    if (i < props.Count - 1)
-                    {
-                        sb.Append(',');
-                    }
-                }
-
-                sb.Append('\n');
-                Indent(sb, depth);
-                sb.Append('}');
-                break;
-
-            case JArray arr:
-                var items = arr.ToList();
-                if (items.Count == 0)
-                {
-                    sb.Append("[ ]");
-                    break;
-                }
-
-                sb.Append("[ ");
-                for (var i = 0; i < items.Count; i++)
-                {
-                    WriteJackson(items[i], sb, depth);
-                    if (i < items.Count - 1)
-                    {
-                        sb.Append(", ");
-                    }
-                }
-
-                sb.Append(" ]");
-                break;
-
-            default:
-                sb.Append(token.Type == JTokenType.String
-                    ? JsonConvert.ToString(token.Value<string>())
-                    : token.ToString(Newtonsoft.Json.Formatting.None));
-                break;
-        }
-    }
-
-    private static void Indent(StringBuilder sb, int depth) => sb.Append(' ', depth * 2);
 
     // --- xPath --------------------------------------------------------------------------------
 

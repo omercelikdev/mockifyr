@@ -81,7 +81,10 @@ Detailed rationale and per-group contents:
     byte-diffed, so the oracle and Mockifyr must each satisfy the same charset/length/range
     contract). `ALPHANUMERIC_AND_SYMBOLS` and unbounded-decimal distribution deferred. See
     docs/parity/g2-response.md
-  - [ ] G2f json manipulation helpers
+  - [x] G2f json manipulation helpers — `jsonArrayAdd` (parsed item + `maxItems` front-drop),
+    `jsonMerge` (deep merge, B over A), `jsonRemove` (path delete) emit compact JSON; `toJson`
+    emits Jackson-pretty (shared `JacksonJson.Write`, reused by `jsonPath`). Validated against the
+    oracle. Array-valued key merge deferred. See docs/parity/g2-response.md
   - [ ] G2g format/math/array helpers
   - [ ] G2h system helpers
 - [ ] **G3 — Webhook / correlation**
