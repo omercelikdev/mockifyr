@@ -260,6 +260,43 @@ public static class TemplatingScenarios
             request: Json("/tj", "{\"obj\":{\"k\":1},\"arr\":[1,2,3]}"));
     }
 
+    /// <summary>
+    /// G2g format/math/array/string helpers: <c>math</c>, <c>numberFormat</c>, <c>size</c>,
+    /// <c>join</c>, <c>substring</c>, <c>replace</c>, <c>upper</c>, <c>lower</c>, <c>capitalize</c>,
+    /// <c>trim</c>. Each stub echoes the helper output for a byte diff against the oracle.
+    /// </summary>
+    public static IEnumerable<MatcherScenario> FormatHelpers()
+    {
+        // math: integer results, half-up integer division, and double results for float operands.
+        yield return Get(
+            "math", "/mg",
+            "add={{math 10 '+' 3}}|sub={{math 10 '-' 3}}|mul={{math 4 '*' 3}}|" +
+            "d1={{math 10 '/' 3}}|d2={{math 7 '/' 2}}|d3={{math 9 '/' 2}}|" +
+            "mulf={{math 4 '*' 2.5}}|addf={{math 1.5 '+' 2}}",
+            unmatchedUrl: "/nope-fmt");
+
+        // numberFormat: DecimalFormat patterns plus the named currency/percent formats.
+        yield return Get(
+            "numberFormat", "/nfg",
+            "p={{numberFormat 1234.5678 '0.00'}}|g={{numberFormat 1234.5678 '#,##0.0'}}|" +
+            "c={{numberFormat 1234.5 'currency'}}|pct={{numberFormat 0.4567 'percent'}}|" +
+            "z={{numberFormat 42 '0'}}");
+
+        // string helpers.
+        yield return Get(
+            "strings", "/sg",
+            "up={{upper 'aBc'}}|low={{lower 'aBc'}}|cap={{capitalize 'hello world'}}|" +
+            "trim=[{{trim '  hi  '}}]|sub2={{substring 'Hello World' 6}}|sub3={{substring 'Hello World' 0 5}}|" +
+            "rep={{replace 'a.b.c' '.' '-'}}");
+
+        // array helpers over a jsonPath result.
+        yield return Get(
+            "arrays", "/ag",
+            "size={{size (jsonPath request.body '$.arr')}}|strsize={{size 'hello'}}|" +
+            "join={{join (jsonPath request.body '$.arr') '-'}}|joins={{join (jsonPath request.body '$.arr') ', '}}",
+            request: Json("/ag", "{\"arr\":[1,2,3,4]}"));
+    }
+
     private static MatcherScenario Get(
         string description, string url, string body, RequestSpec? request = null, string? unmatchedUrl = null)
     {

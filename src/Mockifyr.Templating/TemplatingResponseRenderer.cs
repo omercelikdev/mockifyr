@@ -13,8 +13,10 @@ namespace Mockifyr.Templating;
 /// <c>regexExtract</c>, <c>formData</c>, <c>parseJson</c>) are registered from G2c, the date helpers
 /// (<c>parseDate</c>, <c>date</c>) from G2d, the random helpers (<c>randomValue</c>,
 /// <c>pickRandom</c>, <c>randomInt</c>, <c>randomDecimal</c>) from G2e, and the JSON-manipulation
-/// helpers (<c>jsonArrayAdd</c>, <c>jsonMerge</c>, <c>jsonRemove</c>, <c>toJson</c>) from G2f; further
-/// helper families arrive with G2g–G2h. See docs/parity/g2-response.md.
+/// helpers (<c>jsonArrayAdd</c>, <c>jsonMerge</c>, <c>jsonRemove</c>, <c>toJson</c>) from G2f, and the
+/// format/math/array/string helpers (<c>math</c>, <c>numberFormat</c>, <c>size</c>, <c>join</c>,
+/// <c>substring</c>, <c>replace</c>, <c>upper</c>, <c>lower</c>, <c>capitalize</c>, <c>trim</c>) from
+/// G2g; system helpers arrive with G2h. See docs/parity/g2-response.md.
 /// </summary>
 public sealed class TemplatingResponseRenderer : IResponseRenderer
 {
@@ -30,6 +32,7 @@ public sealed class TemplatingResponseRenderer : IResponseRenderer
         DateHelpers.Register(_handlebars);
         RandomHelpers.Register(_handlebars);
         JsonHelpers.Register(_handlebars);
+        FormatHelpers.Register(_handlebars);
     }
 
     /// <inheritdoc />

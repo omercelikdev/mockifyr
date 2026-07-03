@@ -31,6 +31,9 @@ public sealed class G2StaticResponseTests : IAsyncLifetime
     [Fact]
     public Task Templating_JsonHelpers() => Verify(TemplatingScenarios.JsonHelpers());
 
+    [Fact]
+    public Task Templating_FormatHelpers() => Verify(TemplatingScenarios.FormatHelpers());
+
     /// <summary>
     /// Random helpers (G2e) can't be byte-diffed — their output is non-deterministic. Instead each
     /// case is probed many times: the oracle output must satisfy the case's structural contract
