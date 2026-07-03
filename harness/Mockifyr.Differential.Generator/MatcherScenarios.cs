@@ -38,8 +38,10 @@ public static class MatcherScenarios
     private const string ProbeCookie = "probe";
 
     // Cookie names/values cannot contain separators, so cookies fuzz over a restricted corpus.
-    private static readonly IReadOnlyList<string> CookieSafe =
-        [.. TextCorpus.HeaderSafe.Where(v => v.All(c => char.IsLetterOrDigit(c) || c is '-' or '.' or '_'))];
+    private static readonly IReadOnlyList<string> CookieSafe = [.. TextCorpus.HeaderSafe.Where(IsCookieSafe)];
+
+    private static bool IsCookieSafe(string value) =>
+        value.Length > 0 && value.All(c => char.IsLetterOrDigit(c) || c is '-' or '.' or '_');
 
     /// <summary>equalTo across the corpus for a target: one matching probe, a few non-matching.</summary>
     public static IEnumerable<MatcherScenario> EqualTo(Target target, int seed)
@@ -68,6 +70,14 @@ public static class MatcherScenarios
         _ = seed;
         string[] needles = ["a", "abc", "x y", "{}", "123", "\"", "A"];
         string[] pool = ["zzz", "different", "QWERTY", "000", "-", "path/to"];
+
+        // Cookie values cannot carry separators/quotes (RFC 6265), so the servlet drops such cookies;
+        // restrict cookie needles and pool to the cookie-safe subset to avoid invalid-input ambiguity.
+        if (target == Target.Cookie)
+        {
+            needles = [.. needles.Where(IsCookieSafe)];
+            pool = [.. pool.Where(IsCookieSafe)];
+        }
 
         foreach (var needle in needles)
         {
