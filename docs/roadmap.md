@@ -56,7 +56,7 @@ Detailed rationale and per-group contents:
     fuzz-validated. **clientIp is not in open-source WireMock** (rejected `422`, no oracle) — deferred
     like the standalone number matchers. The equal-priority tie-break (load-path dependent) and
     per-part multipart headers are deferred; see docs/parity/g1-matching.md
-- [ ] **G2 — Response + templating**
+- [x] **G2 — Response + templating** (G2a–G2h complete)
   - [x] G2a static response — status, multi-value headers, literal `body`, `jsonBody` (compact),
     `base64Body` (bytes) fuzz-validated. `statusMessage` parsed (not yet diffable); `bodyFileName`
     (needs `__files` + templating → G2b) and gzip (transport) deferred. See docs/parity/g2-response.md
@@ -90,7 +90,9 @@ Detailed rationale and per-group contents:
     percent), `size`, `join`, `substring`, `replace`, `upper`, `lower`, `capitalize`, `trim`,
     validated against the oracle. `%`/`^` and non-OSS helpers (abs/round/split/…) deferred. See
     docs/parity/g2-response.md
-  - [ ] G2h system helpers
+  - [x] G2h system helpers — `systemValue` (deny-by-default `[ERROR: Access to <key> is denied]`,
+    byte-diffed; permitted-key allowlist deferred to G12) and `hostname` (host-specific, validated
+    structurally). `systemProperty`/`env` are not in open-source WireMock. See docs/parity/g2-response.md
 - [ ] **G3 — Webhook / correlation**
   - [ ] G3a serve-event listener + async outbound
   - [ ] G3b templated webhook + originalRequest correlation + sub-events

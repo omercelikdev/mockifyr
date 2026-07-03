@@ -192,3 +192,25 @@ oracle (`wiremock/wiremock:3.10.0`). See [README](README.md) for the format.
   WireMock (`abs`/`round`/`ceil`/`floor`/`split`/`truncate`), plus the block helpers `stripes`/
   `contains`. `numberFormat` half-rounding edge cases are avoided (both engines agree on non-halves).
 - **Regression case:** `G2StaticResponseTests.Templating_FormatHelpers`.
+
+### System helpers (G2h)
+
+- **Group / item:** G2h — validated against the oracle. Two helpers exist in open-source WireMock
+  3.10: `systemValue` and `hostname` (`systemProperty`/`env` do **not** exist).
+- **`systemValue key='…' type='ENVIRONMENT'|'PROPERTY'`** is **secure by default**: with no allowlist
+  configured, WireMock denies **every** key and renders the literal `[ERROR: Access to <key> is
+  denied]` (verified for env vars, JVM properties, and missing keys; the deny happens before any
+  existence check, and `type` doesn't change it). Mockifyr matches this deny-by-default byte-for-byte;
+  configuring a permitted-key allowlist to read real values is a deploy/config concern deferred to
+  **G12** (and a permitted env/JVM value could not be diffed anyway — the oracle is a JVM, Mockifyr
+  is .NET).
+- **`hostname`** resolves the local host name (the oracle returns its container's, e.g.
+  `e7de4ebfb3f7`). It is **host-specific**, so it can't be byte-diffed — validated **structurally**
+  (both sides return a non-empty hostname-shaped string, `^[A-Za-z0-9._-]+$`) via `RandomScenarios` +
+  `Templating_RandomHelpers`.
+- **Regression cases:** `G2StaticResponseTests.Templating_SystemHelpers` (systemValue) and the
+  `hostname` case in `Templating_RandomHelpers`.
+
+> **G2 (Response + templating) is complete** with G2h. The response vertical now covers static
+> responses, the templating engine, and all built-in helper families (data, date, random, JSON,
+> format/math/array, system).

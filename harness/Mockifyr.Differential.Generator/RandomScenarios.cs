@@ -14,9 +14,9 @@ namespace Mockifyr.Differential.Generator;
 public sealed record RandomCase(string Description, string WireMockJson, RequestSpec Request, Func<string, bool> IsValid);
 
 /// <summary>
-/// Structural-parity cases for the WireMock random helpers: <c>randomValue</c> (UUID + the
-/// well-defined character types with <c>length</c>/<c>uppercase</c>), <c>pickRandom</c>,
-/// <c>randomInt</c>, and bounded <c>randomDecimal</c>. See docs/parity/g2-response.md.
+/// Structural-parity cases for the WireMock helpers whose output can't be byte-diffed: the random
+/// helpers (<c>randomValue</c> UUID + character types, <c>pickRandom</c>, <c>randomInt</c>, bounded
+/// <c>randomDecimal</c>) and the host-specific <c>hostname</c> (G2h). See docs/parity/g2-response.md.
 /// </summary>
 public static class RandomScenarios
 {
@@ -44,6 +44,10 @@ public static class RandomScenarios
         yield return Case("randomDecimal-bounded", "{{randomDecimal lower=1.5 upper=2.5}}",
             body => double.TryParse(body, NumberStyles.Float, CultureInfo.InvariantCulture, out var v)
                     && v is >= 1.5 and <= 2.5);
+
+        // G2h hostname is host-specific (the oracle sees its container's name, Mockifyr the test
+        // host's) — not byte-diffable, but both must resolve to a non-empty hostname-shaped string.
+        yield return Case("hostname", "{{hostname}}", Matches("^[A-Za-z0-9._-]+$"));
     }
 
     private static Func<string, bool> Matches(string pattern)
