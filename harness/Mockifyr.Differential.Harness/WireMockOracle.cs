@@ -67,6 +67,25 @@ public sealed class WireMockOracle : IAsyncDisposable
                mappings.ValueKind == JsonValueKind.Array;
     }
 
+    /// <summary>Counts journaled requests matching a pattern via <c>/__admin/requests/count</c> (G6).</summary>
+    public async Task<int> CountRequestsMatchingAsync(string patternJson)
+    {
+        using var content = new StringContent(patternJson, Encoding.UTF8, "application/json");
+        using var response = await Client.PostAsync("/__admin/requests/count", content);
+        response.EnsureSuccessStatusCode();
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        return doc.RootElement.GetProperty("count").GetInt32();
+    }
+
+    /// <summary>The count of unmatched journaled requests via <c>/__admin/requests/unmatched</c> (G6).</summary>
+    public async Task<int> UnmatchedCountAsync()
+    {
+        using var response = await Client.GetAsync("/__admin/requests/unmatched");
+        response.EnsureSuccessStatusCode();
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        return doc.RootElement.GetProperty("requests").GetArrayLength();
+    }
+
     /// <summary>Replays a request against the oracle and snapshots the response.</summary>
     public async Task<HttpResponseSnapshot> SendAsync(RequestSpec spec)
     {

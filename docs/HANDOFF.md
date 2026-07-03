@@ -72,15 +72,23 @@ tests, all green.
   state `Started`). Validated differentially via a multi-step state walk and per-scenario isolation
   (`StateScenarios` loads a `{"mappings":[…]}` bundle and drives an ordered request sequence).
 
-**Next item: G6 — Verify + near-miss diagnostics.** WireMock's request journal + verification:
-`GET /__admin/requests` (recorded requests), `POST /__admin/requests/count` and `/__admin/requests/
-find` (count/find by request pattern), unmatched-request retrieval, and near-miss diagnostics. The
-**engine already records** every serve into `IRequestJournal` and computes near-miss **distances**
-(`MatchResult.Distance`, `StubResolution.NearMisses`) — so G6 is largely surfacing that through an
-admin-ish query API + matching the near-miss/`count` semantics against the oracle. This is the first
-item that leans on the **admin surface**; decide with the maintainer whether to build a thin admin
-query path now or validate the journal/near-miss logic another way. Probe the oracle's
-`/__admin/requests*` responses first.
+- **G6** verify + near-miss — done. `count`/`find`/`unmatched` over the journal (reusing stub
+  matchers; `{}` matches all) exposed on `StubEngine`/`MockifyrServer` and validated **semantically**
+  against the oracle's `/__admin/requests*` (counts, since the admin JSON is volatile-field-heavy —
+  `clientIp`/`loggedDate`/…). Near-miss ranking by ascending `MatchResult.Distance` validated as pure
+  logic. Cross-engine near-miss identity + `find` byte comparison deferred. The harness gained
+  `WireMockOracle` admin-query methods + `DifferentialRunner.RunVerifyAsync`.
+
+**Next item: G7 — Admin API (full) + first-class stub metadata.** This is where the **HTTP admin
+surface** (`Mockifyr.Facade.Admin` — currently a placeholder) and the **CQRS Application layer**
+(`Mockifyr.Application`, Mediant — also a placeholder) finally get built: `/__admin/mappings` CRUD,
+`/__admin/mappings/import`, `/__admin/reset`, `/__admin/requests*` (surfacing the G6 verify logic over
+HTTP), `/__admin/scenarios*`, and stub `metadata`/`id`/`name`. Note: the differential harness drives
+Mockifyr **in-process**, not over HTTP — so decide with the maintainer how to validate the admin HTTP
+layer (spin up the Admin facade with a test host and hit it, vs. keep validating the underlying
+handlers in-process). Mediant belongs **only** in `Mockifyr.Application` (CLAUDE.md §4). Probe the
+oracle's admin responses (shapes/status codes) first. This is a larger, more architectural item than
+the last few — worth a design checkpoint before building.
 
 ## 4. Gotchas learned (save yourself the time)
 

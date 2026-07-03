@@ -33,6 +33,17 @@ public static class WireMockMappingReader
         return [ReadOne(root, tenant)];
     }
 
+    /// <summary>
+    /// Reads a bare WireMock request pattern (the body of <c>/__admin/requests/count</c> and
+    /// <c>find</c>) into a <see cref="RequestPattern"/>, reusing the same matcher parsing as stubs.
+    /// An empty object <c>{}</c> matches every request.
+    /// </summary>
+    public static RequestPattern ReadRequestPattern(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        return ReadRequest(doc.RootElement);
+    }
+
     private static StubMapping ReadOne(JsonElement mapping, TenantId tenant)
     {
         var request = mapping.TryGetProperty("request", out var r) ? r : default;

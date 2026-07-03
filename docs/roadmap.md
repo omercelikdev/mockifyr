@@ -116,7 +116,11 @@ Detailed rationale and per-group contents:
   into `ScenarioBinding` (the engine already gated eligibility + wrote transitions); default start
   state `Started`. Validated differentially with a multi-step state walk and per-scenario isolation.
   Direct state-set + scenarios admin listing → G7. See docs/parity/g5-scenarios.md
-- [ ] **G6** Verify + near-miss diagnostics
+- [x] **G6** Verify + near-miss diagnostics — `count`/`find`/`unmatched` over the request journal
+  (reusing the stub matchers; `{}` matches all) validated **semantically** against the oracle's
+  `/__admin/requests*` (counts, not the volatile-field-heavy JSON). Near-miss ranking by ascending
+  match distance validated as pure logic. Cross-engine near-miss identity deferred. See
+  docs/parity/g6-verify.md
 - [ ] **G7** Admin API (full) + first-class stub metadata
 - [ ] **G8** Proxying
 - [ ] **G9** Record & Playback

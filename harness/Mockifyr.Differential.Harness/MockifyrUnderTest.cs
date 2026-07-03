@@ -1,3 +1,4 @@
+using Mockifyr.Adapters.WireMockJson;
 using Mockifyr.Core;
 using Mockifyr.Differential.Generator;
 using Mockifyr.Facade.Library;
@@ -46,4 +47,11 @@ public sealed class MockifyrUnderTest
             Body = response.Body,
         };
     }
+
+    /// <summary>Counts journaled requests matching a WireMock request-pattern JSON (verification — G6).</summary>
+    public int CountRequestsMatching(string patternJson) =>
+        _server.CountRequestsMatching(WireMockMappingReader.ReadRequestPattern(patternJson));
+
+    /// <summary>The number of journaled requests that matched no stub (verification — G6).</summary>
+    public int UnmatchedCount() => _server.FindUnmatchedRequests().Count;
 }
