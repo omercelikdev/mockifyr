@@ -17,8 +17,11 @@ namespace Mockifyr.Adapters.WireMockJson;
 /// </remarks>
 public static class WireMockMappingReader
 {
-    /// <summary>Reads one or more mappings (a single object or a <c>{"mappings":[...]}</c> wrapper).</summary>
-    public static IReadOnlyList<StubMapping> Read(string json, TenantId tenant)
+    /// <summary>
+    /// Reads one or more mappings (a single object or a <c>{"mappings":[...]}</c> wrapper). A matcher
+    /// registry, when supplied, resolves <c>customMatcher</c> references to extension matchers (G10).
+    /// </summary>
+    public static IReadOnlyList<StubMapping> Read(string json, TenantId tenant, IMatcherRegistry? matchers = null)
     {
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
@@ -27,10 +30,10 @@ public static class WireMockMappingReader
             root.TryGetProperty("mappings", out var mappings) &&
             mappings.ValueKind == JsonValueKind.Array)
         {
-            return [.. mappings.EnumerateArray().Select(m => ReadOne(m, tenant))];
+            return [.. mappings.EnumerateArray().Select(m => ReadOne(m, tenant, matchers))];
         }
 
-        return [ReadOne(root, tenant)];
+        return [ReadOne(root, tenant, matchers)];
     }
 
     /// <summary>
@@ -44,7 +47,7 @@ public static class WireMockMappingReader
         return ReadRequest(doc.RootElement);
     }
 
-    private static StubMapping ReadOne(JsonElement mapping, TenantId tenant)
+    private static StubMapping ReadOne(JsonElement mapping, TenantId tenant, IMatcherRegistry? matchers)
     {
         var request = mapping.TryGetProperty("request", out var r) ? r : default;
         var response = mapping.TryGetProperty("response", out var rsp) ? rsp : default;
@@ -54,7 +57,7 @@ public static class WireMockMappingReader
             Id = ReadId(mapping),
             TenantId = tenant,
             Priority = mapping.TryGetProperty("priority", out var p) && p.TryGetInt32(out var pri) ? pri : 5,
-            Request = ReadRequest(request),
+            Request = ReadRequest(request, matchers),
             Response = ReadResponse(response),
             Webhooks = ReadWebhooks(mapping),
             Scenario = ReadScenario(mapping),
@@ -197,7 +200,7 @@ public static class WireMockMappingReader
         };
     }
 
-    private static RequestPattern ReadRequest(JsonElement request)
+    private static RequestPattern ReadRequest(JsonElement request, IMatcherRegistry? matchers = null)
     {
         IMatcher? url = null;
         if (request.ValueKind == JsonValueKind.Object)
@@ -244,7 +247,26 @@ public static class WireMockMappingReader
             Query = ReadNamedMatchers(request, "queryParameters", static (name, vm) => new QueryMatcher(name, vm)),
             Cookies = ReadNamedMatchers(request, "cookies", static (name, vm) => new CookieMatcher(name, vm)),
             Body = ReadBodyMatchers(request),
+            Custom = ReadCustomMatchers(request, matchers),
         };
+    }
+
+    /// <summary>
+    /// Resolves a <c>customMatcher</c> (or <c>customMatcher.name</c>) reference to an extension matcher
+    /// via the registry (G10). An unknown or unregistered name contributes no matcher.
+    /// </summary>
+    private static IReadOnlyList<IMatcher> ReadCustomMatchers(JsonElement request, IMatcherRegistry? matchers)
+    {
+        if (matchers is null ||
+            request.ValueKind != JsonValueKind.Object ||
+            !request.TryGetProperty("customMatcher", out var custom) ||
+            custom.ValueKind != JsonValueKind.Object ||
+            !custom.TryGetProperty("name", out var name) || name.ValueKind != JsonValueKind.String)
+        {
+            return [];
+        }
+
+        return matchers.Resolve(name.GetString()!) is { } matcher ? [matcher] : [];
     }
 
     private static IReadOnlyList<IMatcher> ReadBodyMatchers(JsonElement request)

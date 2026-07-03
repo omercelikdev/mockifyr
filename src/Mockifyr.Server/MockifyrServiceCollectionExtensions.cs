@@ -16,23 +16,52 @@ namespace Mockifyr.Server;
 /// </summary>
 public static class MockifyrServiceCollectionExtensions
 {
-    public static IServiceCollection AddMockifyr(this IServiceCollection services)
+    public static IServiceCollection AddMockifyr(
+        this IServiceCollection services, Action<MockifyrExtensions>? configure = null)
     {
+        var extensions = new MockifyrExtensions();
+        configure?.Invoke(extensions);
+
         // Shared singletons — the management path and the serving hot path see the same state.
         services.AddSingleton<InMemoryStubStore>();
         services.AddSingleton<IStubStore>(sp => sp.GetRequiredService<InMemoryStubStore>());
         services.AddSingleton<IScenarioStateStore, InMemoryScenarioStateStore>();
         services.AddSingleton<IRequestJournal, InMemoryRequestJournal>();
-        services.AddSingleton<IResponseRenderer, TemplatingResponseRenderer>();
+
+        // Custom matcher registry (G10), populated with the user's named matchers.
+        var registry = new InMemoryMatcherRegistry();
+        foreach (var (name, matcher) in extensions.Matchers)
+        {
+            registry.Register(name, matcher);
+        }
+
+        services.AddSingleton<IMatcherRegistry>(registry);
+
+        // The renderer gets the user's template helpers (G10).
+        services.AddSingleton<IResponseRenderer>(_ => new TemplatingResponseRenderer(extensions.TemplateHelpers));
+
+        // Serve-event listeners: the built-in webhook plus any user extensions.
         services.AddSingleton<IServeEventTemplateRenderer, WebhookTemplateRenderer>();
         services.AddSingleton<IServeEventListener>(sp =>
             new WebhookServeEventListener(client: null, sp.GetRequiredService<IServeEventTemplateRenderer>()));
+        foreach (var listener in extensions.ServeEventListeners)
+        {
+            services.AddSingleton<IServeEventListener>(listener);
+        }
+
+        // Response transformers (G10).
+        foreach (var transformer in extensions.ResponseTransformers)
+        {
+            services.AddSingleton<IResponseTransformer>(transformer);
+        }
+
         services.AddSingleton(sp => new StubEngine(
             sp.GetRequiredService<IStubStore>(),
             sp.GetRequiredService<IResponseRenderer>(),
             sp.GetRequiredService<IScenarioStateStore>(),
             sp.GetRequiredService<IRequestJournal>(),
-            sp.GetServices<IServeEventListener>()));
+            sp.GetServices<IServeEventListener>(),
+            sp.GetServices<IResponseTransformer>()));
 
         // Management path: Mediant + the Application command/query handlers (scanned by assembly).
         services.AddMediant(typeof(CreateStubCommand).Assembly);

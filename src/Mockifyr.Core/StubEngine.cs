@@ -31,6 +31,7 @@ public sealed class StubEngine
     private readonly IScenarioStateStore _scenarioStore;
     private readonly IRequestJournal _journal;
     private readonly IReadOnlyList<IServeEventListener> _serveEventListeners;
+    private readonly IReadOnlyList<IResponseTransformer> _responseTransformers;
 
     /// <summary>Creates the engine with its collaborators.</summary>
     public StubEngine(
@@ -38,13 +39,15 @@ public sealed class StubEngine
         IResponseRenderer renderer,
         IScenarioStateStore scenarioStore,
         IRequestJournal journal,
-        IEnumerable<IServeEventListener> serveEventListeners)
+        IEnumerable<IServeEventListener> serveEventListeners,
+        IEnumerable<IResponseTransformer>? responseTransformers = null)
     {
         _stubStore = stubStore;
         _renderer = renderer;
         _scenarioStore = scenarioStore;
         _journal = journal;
         _serveEventListeners = [.. serveEventListeners];
+        _responseTransformers = responseTransformers is null ? [] : [.. responseTransformers];
     }
 
     /// <summary>
@@ -74,6 +77,7 @@ public sealed class StubEngine
             // Lower priority wins; ties broken by recency (last added wins).
             var winner = exact.OrderBy(x => x.Stub.Priority).ThenByDescending(x => x.Index).First().Stub;
             var response = _renderer.Render(winner.Response, new RenderContext { Request = request });
+            response = ApplyResponseTransformers(response, tenant, request, winner);
 
             ApplyTransition(tenant, winner);
             DispatchServeEvent(tenant, request, winner, response);
@@ -227,5 +231,41 @@ public sealed class StubEngine
         {
             yield return matcher;
         }
+
+        foreach (var matcher in pattern.Custom)
+        {
+            yield return matcher;
+        }
+    }
+
+    // Applies the registered response transformers (G10): a transformer runs when it applies globally
+    // or the stub named it in its `transformers`. The built-in response-template runs in the renderer.
+    private CanonicalResponse ApplyResponseTransformers(
+        CanonicalResponse response, TenantId tenant, CanonicalRequest request, StubMapping stub)
+    {
+        if (_responseTransformers.Count == 0)
+        {
+            return response;
+        }
+
+        var serveEvent = new ServeEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenant,
+            Request = request,
+            MatchedStub = stub,
+            Response = response,
+            SubEvents = [],
+        };
+
+        foreach (var transformer in _responseTransformers)
+        {
+            if (transformer.ApplyGlobally || stub.Response.Transformers.Contains(transformer.Name))
+            {
+                response = transformer.Transform(response, serveEvent);
+            }
+        }
+
+        return response;
     }
 }
