@@ -166,3 +166,29 @@ oracle (`wiremock/wiremock:3.10.0`). See [README](README.md) for the format.
   the Newtonsoft `MergeArrayHandling` is set to `Replace` but untested against the oracle), and
   `jsonArrayAdd` with a non-JSON string item.
 - **Regression case:** `G2StaticResponseTests.Templating_JsonHelpers`.
+
+### Format / math / array / string helpers (G2g)
+
+- **Group / item:** G2g — validated against the oracle. These come from the **jknack Handlebars
+  built-ins** WireMock registers (not WireMock's own extension helpers), so the helper names are
+  `upper`/`lower`/`capitalize`/`join`/… (the camelCase `toUpperCase`/`stringJoin` do **not** exist —
+  the oracle 500s with `could not find helper`).
+- **`math a op b`.** Operators `+ - * /` only. With **two integers** the result is a **long**; for
+  division the true quotient is **rounded half-up** (Java `Math.round`): `10/3`→`3`, `7/2`→`4`,
+  `9/2`→`5`. If **either operand is a decimal** the result is a **double** rendered Java-style with a
+  trailing `.0` for integral values (`4*2.5`→`10.0`, `1.5+2`→`3.5`).
+- **`numberFormat value fmt`.** A Java `DecimalFormat` **pattern** maps directly onto a .NET custom
+  numeric format (`0.00`→`1234.57`, `#,##0.0`→`1,234.6`). The named formats **`currency`**
+  (US: `$1,234.50`) and **`percent`** (`0.4567`→`46%`, i.e. ×100 rounded, no fraction digits) are
+  special-cased.
+- **`size x`** = element count for a JSON array / property count for a JSON object, else string
+  length (`size 'hello'`→`5`). **`join arr sep`** joins a JSON array's elements. Both take the string
+  a `jsonPath` result renders to and parse it back (Mockifyr's `jsonPath` returns the string form).
+- **String helpers:** `upper`, `lower`, `trim`, `substring` (2-arg = from index; 3-arg = `[start,
+  end)`), `replace` (all literal occurrences), `capitalize` (first letter of **each** whitespace word,
+  rest unchanged — `hello world`→`Hello World`).
+- **Deferred (documented):** the modulo `%` and power `^` `math` operators (the oracle **rejects the
+  mapping at registration** — no oracle to diff against), and the helpers absent from open-source
+  WireMock (`abs`/`round`/`ceil`/`floor`/`split`/`truncate`), plus the block helpers `stripes`/
+  `contains`. `numberFormat` half-rounding edge cases are avoided (both engines agree on non-halves).
+- **Regression case:** `G2StaticResponseTests.Templating_FormatHelpers`.
