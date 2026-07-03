@@ -403,11 +403,30 @@ public static class WireMockMappingReader
             ? code
             : 200;
 
+        var statusMessage = response.ValueKind == JsonValueKind.Object &&
+                            response.TryGetProperty("statusMessage", out var sm) && sm.ValueKind == JsonValueKind.String
+            ? sm.GetString()
+            : null;
+
+        // Body forms, in WireMock's precedence: a literal string body, inline JSON (re-serialized
+        // compact, matching WireMock's output), or base64-decoded bytes.
         byte[]? body = null;
-        if (response.ValueKind == JsonValueKind.Object &&
-            response.TryGetProperty("body", out var b) && b.ValueKind == JsonValueKind.String)
+        if (response.ValueKind == JsonValueKind.Object)
         {
-            body = Encoding.UTF8.GetBytes(b.GetString()!);
+            if (response.TryGetProperty("body", out var b) && b.ValueKind == JsonValueKind.String)
+            {
+                body = Encoding.UTF8.GetBytes(b.GetString()!);
+            }
+            else if (response.TryGetProperty("jsonBody", out var jb) &&
+                     jb.ValueKind is not JsonValueKind.Undefined and not JsonValueKind.Null)
+            {
+                body = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(jb));
+            }
+            else if (response.TryGetProperty("base64Body", out var b64) && b64.ValueKind == JsonValueKind.String &&
+                     TryFromBase64(b64.GetString()!, out var decoded))
+            {
+                body = decoded;
+            }
         }
 
         var headerPairs = new List<KeyValuePair<string, string>>();
@@ -433,6 +452,7 @@ public static class WireMockMappingReader
         return new ResponseDefinition
         {
             Status = status,
+            StatusMessage = statusMessage,
             Headers = headerPairs.ToLookup(x => x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase),
             Body = body,
             Transformers = [],
