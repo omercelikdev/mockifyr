@@ -26,16 +26,7 @@ public sealed class TemplatingResponseRenderer : IResponseRenderer
     // TextEncoder = null disables HTML escaping, matching WireMock's non-escaping output.
     private readonly IHandlebars _handlebars;
 
-    public TemplatingResponseRenderer()
-    {
-        _handlebars = Handlebars.Create(new HandlebarsConfiguration { TextEncoder = null });
-        DataHelpers.Register(_handlebars);
-        DateHelpers.Register(_handlebars);
-        RandomHelpers.Register(_handlebars);
-        JsonHelpers.Register(_handlebars);
-        FormatHelpers.Register(_handlebars);
-        SystemHelpers.Register(_handlebars);
-    }
+    public TemplatingResponseRenderer() => _handlebars = HandlebarsFactory.Create();
 
     /// <inheritdoc />
     public CanonicalResponse Render(ResponseDefinition definition, RenderContext context)
@@ -73,18 +64,6 @@ public sealed class TemplatingResponseRenderer : IResponseRenderer
 
     private string RenderTemplate(string template, object model) => _handlebars.Compile(template)(model);
 
-    private static Dictionary<string, object?> BuildModel(CanonicalRequest request) => new()
-    {
-        ["request"] = new Dictionary<string, object?>
-        {
-            ["method"] = request.Method,
-            ["url"] = request.Url,
-            ["path"] = request.Path,
-            ["pathSegments"] = request.PathSegments,
-            ["query"] = request.Query.ToDictionary(group => group.Key, group => (object?)group.First()),
-            ["headers"] = request.Headers.ToDictionary(
-                group => group.Key, group => (object?)group.First(), StringComparer.OrdinalIgnoreCase),
-            ["body"] = Encoding.UTF8.GetString(request.Body),
-        },
-    };
+    private static Dictionary<string, object?> BuildModel(CanonicalRequest request) =>
+        new() { ["request"] = RequestModel.Build(request) };
 }

@@ -93,13 +93,18 @@ Detailed rationale and per-group contents:
   - [x] G2h system helpers — `systemValue` (deny-by-default `[ERROR: Access to <key> is denied]`,
     byte-diffed; permitted-key allowlist deferred to G12) and `hostname` (host-specific, validated
     structurally). `systemProperty`/`env` are not in open-source WireMock. See docs/parity/g2-response.md
-- [ ] **G3 — Webhook / correlation**
+- [x] **G3 — Webhook / correlation** (G3a–G3b; sub-event journaling → G6/G7)
   - [x] G3a serve-event listener + async outbound — `postServeActions` webhook (static
     method/url/headers/body) fired via `WebhookServeEventListener` (`IServeEventListener`), the
     engine's first outbound I/O at the facade edge. Validated differentially with a host-side
     webhook receiver (oracle reaches it via host.docker.internal). Templating/correlation → G3b.
     See docs/parity/g3-webhook.md
-  - [ ] G3b templated webhook + originalRequest correlation + sub-events
+  - [x] G3b templated webhook + originalRequest correlation — the webhook `url` (path + query),
+    header values, and body are Handlebars-templated against `originalRequest` (automatic, no
+    transformer flag), reusing the response templating engine/helpers via the shared
+    `HandlebarsFactory`/`RequestModel` and the `IServeEventTemplateRenderer` seam. Validated
+    differentially. Sub-event recording deferred to G6/G7 (no admin/verify surface yet). See
+    docs/parity/g3-webhook.md
 
 ## Phase B — Everything else, up to parity
 
