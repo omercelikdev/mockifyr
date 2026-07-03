@@ -37,6 +37,29 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      # Pre-pull the pinned oracle image (WireMockOracle.Image) with a bounded retry, so a
+      # transient Docker registry hiccup (e.g. an HTTP 500 or Docker Hub rate limit) during image
+      # acquisition is retried at the infrastructure layer instead of failing the run. This only
+      # hardens the pull — the differential test below still runs exactly once and stays the sole
+      # arbiter of parity.
+      - name: Pre-pull oracle image (retry on transient registry errors)
+        run: |
+          image=wiremock/wiremock:3.10.0
+          for attempt in 1 2 3 4 5; do
+            if docker pull "$image"; then exit 0; fi
+            wait=$((attempt * 5))
+            echo "pull attempt $attempt for $image failed; retrying in ${wait}s" >&2
+            sleep "$wait"
+          done
+          echo "oracle image pull failed after 5 attempts" >&2
+          exit 1
+
       # GitHub-hosted ubuntu runners include Docker; Testcontainers starts the oracle.
+      # TESTCONTAINERS_RYUK_DISABLED skips the Ryuk resource-reaper container: its only job is to
+      # clean up leftover containers after the run, which is moot on an ephemeral runner that is
+      # discarded anyway. Disabling it removes a second registry pull (the one that flaked) without
+      # touching what the tests validate.
       - name: Differential tests (real WireMock via Testcontainers)
         run: dotnet test tests/Mockifyr.Differential.Tests -c Release
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
