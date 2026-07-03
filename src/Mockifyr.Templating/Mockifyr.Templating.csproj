@@ -4,4 +4,8 @@
     <ProjectReference Include="..\Mockifyr.Core\Mockifyr.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Handlebars.Net" />
+  </ItemGroup>
+
 </Project>

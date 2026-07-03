@@ -449,13 +449,22 @@ public static class WireMockMappingReader
             }
         }
 
+        var transformers = new List<string>();
+        if (response.ValueKind == JsonValueKind.Object &&
+            response.TryGetProperty("transformers", out var t) && t.ValueKind == JsonValueKind.Array)
+        {
+            transformers.AddRange(t.EnumerateArray()
+                .Where(e => e.ValueKind == JsonValueKind.String)
+                .Select(e => e.GetString()!));
+        }
+
         return new ResponseDefinition
         {
             Status = status,
             StatusMessage = statusMessage,
             Headers = headerPairs.ToLookup(x => x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase),
             Body = body,
-            Transformers = [],
+            Transformers = transformers,
         };
     }
 }

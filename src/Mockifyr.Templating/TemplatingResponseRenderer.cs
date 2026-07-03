@@ -1,0 +1,71 @@
+using System.Text;
+using HandlebarsDotNet;
+using Mockifyr.Core;
+
+namespace Mockifyr.Templating;
+
+/// <summary>
+/// Renders a response definition, applying Handlebars templating when the stub declares the
+/// <c>response-template</c> transformer (WireMock's response templating). The template model exposes
+/// the request as <c>{{request.method}}</c>, <c>url</c>, <c>path</c>, <c>pathSegments.[n]</c>,
+/// <c>query.name</c>, <c>headers.Name</c>, and <c>body</c>. Escaping is disabled to match WireMock
+/// (raw <c>{{ }}</c> output). Built-in helpers arrive with G2c–G2h; see docs/parity/g2-response.md.
+/// </summary>
+public sealed class TemplatingResponseRenderer : IResponseRenderer
+{
+    private const string ResponseTemplateTransformer = "response-template";
+
+    // TextEncoder = null disables HTML escaping, matching WireMock's non-escaping output.
+    private readonly IHandlebars _handlebars = Handlebars.Create(new HandlebarsConfiguration { TextEncoder = null });
+
+    /// <inheritdoc />
+    public CanonicalResponse Render(ResponseDefinition definition, RenderContext context)
+    {
+        if (!definition.Transformers.Contains(ResponseTemplateTransformer))
+        {
+            return new CanonicalResponse
+            {
+                Status = definition.Status,
+                StatusMessage = definition.StatusMessage,
+                Headers = definition.Headers,
+                Body = definition.Body ?? [],
+            };
+        }
+
+        var model = BuildModel(context.Request);
+
+        var body = definition.Body is { } raw
+            ? Encoding.UTF8.GetBytes(RenderTemplate(Encoding.UTF8.GetString(raw), model))
+            : [];
+
+        var headers = definition.Headers
+            .SelectMany(group => group.Select(value =>
+                new KeyValuePair<string, string>(group.Key, RenderTemplate(value, model))))
+            .ToLookup(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+
+        return new CanonicalResponse
+        {
+            Status = definition.Status,
+            StatusMessage = definition.StatusMessage,
+            Headers = headers,
+            Body = body,
+        };
+    }
+
+    private string RenderTemplate(string template, object model) => _handlebars.Compile(template)(model);
+
+    private static Dictionary<string, object?> BuildModel(CanonicalRequest request) => new()
+    {
+        ["request"] = new Dictionary<string, object?>
+        {
+            ["method"] = request.Method,
+            ["url"] = request.Url,
+            ["path"] = request.Path,
+            ["pathSegments"] = request.PathSegments,
+            ["query"] = request.Query.ToDictionary(group => group.Key, group => (object?)group.First()),
+            ["headers"] = request.Headers.ToDictionary(
+                group => group.Key, group => (object?)group.First(), StringComparer.OrdinalIgnoreCase),
+            ["body"] = Encoding.UTF8.GetString(request.Body),
+        },
+    };
+}
