@@ -16,7 +16,8 @@ namespace Mockifyr.Templating;
 /// helpers (<c>jsonArrayAdd</c>, <c>jsonMerge</c>, <c>jsonRemove</c>, <c>toJson</c>) from G2f, and the
 /// format/math/array/string helpers (<c>math</c>, <c>numberFormat</c>, <c>size</c>, <c>join</c>,
 /// <c>substring</c>, <c>replace</c>, <c>upper</c>, <c>lower</c>, <c>capitalize</c>, <c>trim</c>) from
-/// G2g; system helpers arrive with G2h. See docs/parity/g2-response.md.
+/// G2g, and the system helpers (<c>systemValue</c>, <c>hostname</c>) from G2h. See
+/// docs/parity/g2-response.md.
 /// </summary>
 public sealed class TemplatingResponseRenderer : IResponseRenderer
 {
@@ -33,6 +34,7 @@ public sealed class TemplatingResponseRenderer : IResponseRenderer
         RandomHelpers.Register(_handlebars);
         JsonHelpers.Register(_handlebars);
         FormatHelpers.Register(_handlebars);
+        SystemHelpers.Register(_handlebars);
     }
 
     /// <inheritdoc />

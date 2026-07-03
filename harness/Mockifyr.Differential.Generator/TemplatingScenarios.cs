@@ -297,6 +297,21 @@ public static class TemplatingScenarios
             request: Json("/ag", "{\"arr\":[1,2,3,4]}"));
     }
 
+    /// <summary>
+    /// G2h system helpers. <c>systemValue</c> is deny-by-default (no allowlist configured), so it
+    /// renders WireMock's deterministic deny error — byte-diffable here. <c>hostname</c> is
+    /// host-specific and validated structurally in <see cref="RandomScenarios"/>.
+    /// </summary>
+    public static IEnumerable<MatcherScenario> SystemHelpers()
+    {
+        yield return Get(
+            "systemValue-deny", "/sv",
+            "env={{systemValue key='HOME' type='ENVIRONMENT'}}|" +
+            "prop={{systemValue key='user.dir' type='PROPERTY'}}|" +
+            "missing={{systemValue key='NO_SUCH_VAR'}}",
+            unmatchedUrl: "/nope-sys");
+    }
+
     private static MatcherScenario Get(
         string description, string url, string body, RequestSpec? request = null, string? unmatchedUrl = null)
     {
