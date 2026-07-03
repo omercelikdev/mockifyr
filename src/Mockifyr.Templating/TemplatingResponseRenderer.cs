@@ -9,14 +9,22 @@ namespace Mockifyr.Templating;
 /// <c>response-template</c> transformer (WireMock's response templating). The template model exposes
 /// the request as <c>{{request.method}}</c>, <c>url</c>, <c>path</c>, <c>pathSegments.[n]</c>,
 /// <c>query.name</c>, <c>headers.Name</c>, and <c>body</c>. Escaping is disabled to match WireMock
-/// (raw <c>{{ }}</c> output). Built-in helpers arrive with G2c–G2h; see docs/parity/g2-response.md.
+/// (raw <c>{{ }}</c> output). The built-in data helpers (<c>jsonPath</c>, <c>xPath</c>,
+/// <c>regexExtract</c>, <c>formData</c>, <c>parseJson</c>) are registered from G2c; further helper
+/// families arrive with G2d–G2h. See docs/parity/g2-response.md.
 /// </summary>
 public sealed class TemplatingResponseRenderer : IResponseRenderer
 {
     private const string ResponseTemplateTransformer = "response-template";
 
     // TextEncoder = null disables HTML escaping, matching WireMock's non-escaping output.
-    private readonly IHandlebars _handlebars = Handlebars.Create(new HandlebarsConfiguration { TextEncoder = null });
+    private readonly IHandlebars _handlebars;
+
+    public TemplatingResponseRenderer()
+    {
+        _handlebars = Handlebars.Create(new HandlebarsConfiguration { TextEncoder = null });
+        DataHelpers.Register(_handlebars);
+    }
 
     /// <inheritdoc />
     public CanonicalResponse Render(ResponseDefinition definition, RenderContext context)

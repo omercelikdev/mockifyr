@@ -65,7 +65,11 @@ Detailed rationale and per-group contents:
     output, and templated response headers fuzz-validated. `request.path.<name>` named path vars
     (dual string/object model) deferred to a focused follow-up; built-in helpers are G2c–G2h. See
     docs/parity/g2-response.md
-  - [ ] G2c data helpers (jsonPath, xPath, regexExtract, formData, parseJson)
+  - [x] G2c data helpers — `jsonPath` (scalar, empty-on-miss, compact array, Jackson-pretty object),
+    `xPath` (text/attr/string/count values + XML element serialization), `regexExtract`
+    (whole-match, capture-group variable, `default=` / error string), `formData` (first value +
+    `urlDecode`), `parseJson` (navigable variable), validated against the oracle. Multi-value
+    `formData` indexing and the `parseJson` block form are deferred. See docs/parity/g2-response.md
   - [ ] G2d date helpers
   - [ ] G2e random helpers
   - [ ] G2f json manipulation helpers

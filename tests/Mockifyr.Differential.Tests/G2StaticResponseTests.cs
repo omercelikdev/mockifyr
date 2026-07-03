@@ -22,6 +22,9 @@ public sealed class G2StaticResponseTests : IAsyncLifetime
     [Fact]
     public Task Templating_ResponseTemplate() => Verify(TemplatingScenarios.ResponseTemplate());
 
+    [Fact]
+    public Task Templating_DataHelpers() => Verify(TemplatingScenarios.DataHelpers());
+
     private async Task Verify(IEnumerable<MatcherScenario> scenarios)
     {
         var failures = new List<string>();
