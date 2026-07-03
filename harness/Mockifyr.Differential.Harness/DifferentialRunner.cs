@@ -1,5 +1,7 @@
 using System.Diagnostics;
+using Mockifyr.Core;
 using Mockifyr.Differential.Generator;
+using Mockifyr.Facade.Library;
 
 namespace Mockifyr.Differential.Harness;
 
@@ -33,6 +35,15 @@ public sealed record VerifyOutcome(
 
 /// <summary>The proxied response each side returned for a G8 case.</summary>
 public sealed record ProxyOutcome(HttpResponseSnapshot Oracle, HttpResponseSnapshot Mockifyr);
+
+/// <summary>
+/// The responses for a G9 record→playback case: what Mockifyr <em>captured</em> when it proxied,
+/// then what the oracle and Mockifyr each <em>replay</em> from Mockifyr's generated stubs.
+/// </summary>
+public sealed record RecordPlaybackOutcome(
+    IReadOnlyList<HttpResponseSnapshot> Captured,
+    IReadOnlyList<HttpResponseSnapshot> OracleReplay,
+    IReadOnlyList<HttpResponseSnapshot> MockifyrReplay);
 
 /// <summary>
 /// Orchestrates differential cases: load the same WireMock JSON into the oracle and Mockifyr,
@@ -135,6 +146,52 @@ public sealed class DifferentialRunner : IAsyncDisposable
 
         return new ProxyOutcome(oracle, mockifyrResponse);
     }
+
+    /// <summary>
+    /// Drives a record→playback (G9) case: Mockifyr proxies each request to the upstream, capturing
+    /// the response and generating a stub from the exchange. The generated stubs are then loaded into
+    /// <em>both</em> the oracle and a fresh Mockifyr and the requests replayed — so a stub Mockifyr
+    /// recorded is proven to be WireMock-valid and to replay the captured response on the real oracle.
+    /// </summary>
+    public async Task<RecordPlaybackOutcome> RunRecordPlaybackAsync(
+        UpstreamServer upstream, IReadOnlyList<RequestSpec> requests)
+    {
+        var recorder = new StubRecorder();
+        var stubs = new List<string>();
+        var captured = new List<HttpResponseSnapshot>();
+        foreach (var spec in requests)
+        {
+            var request = CanonicalRequestBuilder.Build(spec.Method, spec.Url, spec.Headers, spec.Body);
+            var exchange = await recorder.RecordAsync($"http://127.0.0.1:{upstream.Port}", request);
+            stubs.Add(exchange.StubJson);
+            captured.Add(ToSnapshot(exchange.CapturedResponse));
+        }
+
+        var bundle = "{\"mappings\":[" + string.Join(",", stubs) + "]}";
+
+        // The oracle replays Mockifyr's generated stubs.
+        await _oracle.ResetAsync();
+        await _oracle.LoadMappingAsync(bundle);
+        var oracleReplay = new List<HttpResponseSnapshot>();
+        foreach (var spec in requests)
+        {
+            oracleReplay.Add(await _oracle.SendAsync(spec));
+        }
+
+        // A fresh Mockifyr replays them too.
+        var mockifyr = new MockifyrUnderTest();
+        mockifyr.ImportWireMockJson(bundle);
+        var mockifyrReplay = requests.Select(mockifyr.Send).ToList();
+
+        return new RecordPlaybackOutcome(captured, oracleReplay, mockifyrReplay);
+    }
+
+    private static HttpResponseSnapshot ToSnapshot(CanonicalResponse response) => new()
+    {
+        Status = response.Status,
+        Headers = response.Headers.ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.OrdinalIgnoreCase),
+        Body = response.Body,
+    };
 
     /// <summary>Replays one request against the currently loaded stub on both sides and diffs.</summary>
     public async Task<ProbeOutcome> ProbeAsync(RequestSpec request)
