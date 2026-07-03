@@ -79,16 +79,25 @@ tests, all green.
   logic. Cross-engine near-miss identity + `find` byte comparison deferred. The harness gained
   `WireMockOracle` admin-query methods + `DifferentialRunner.RunVerifyAsync`.
 
-**Next item: G7 — Admin API (full) + first-class stub metadata.** This is where the **HTTP admin
-surface** (`Mockifyr.Facade.Admin` — currently a placeholder) and the **CQRS Application layer**
-(`Mockifyr.Application`, Mediant — also a placeholder) finally get built: `/__admin/mappings` CRUD,
-`/__admin/mappings/import`, `/__admin/reset`, `/__admin/requests*` (surfacing the G6 verify logic over
-HTTP), `/__admin/scenarios*`, and stub `metadata`/`id`/`name`. Note: the differential harness drives
-Mockifyr **in-process**, not over HTTP — so decide with the maintainer how to validate the admin HTTP
-layer (spin up the Admin facade with a test host and hit it, vs. keep validating the underlying
-handlers in-process). Mediant belongs **only** in `Mockifyr.Application` (CLAUDE.md §4). Probe the
-oracle's admin responses (shapes/status codes) first. This is a larger, more architectural item than
-the last few — worth a design checkpoint before building.
+- **G7a** Application/CQRS + metadata — done. `Mockifyr.Application` now holds the management-path
+  CQRS handlers (**Mediant 1.0.0 stable**, bumped from rc.3): Create/Delete/Import/Reset stub commands
+  + GetStubs/GetStub/CountRequests/FindUnmatched queries, `Result<T>`, dispatched via `ISender`.
+  `AddMockifyr` (in `Mockifyr.Server`) composes the **shared** stores + engine + Mediant handlers, so
+  the management path and the serving hot path see the same state (verified). The adapter parses stub
+  `id`/`uuid` + `metadata`. Validated **in-process** (`Mockifyr.Application.Tests`, 5 cases). Chosen
+  validation approach for the HTTP layer: **(A) test host + semantic differential**, split **G7a
+  (this) / G7b**.
+
+**Next item: G7b — Admin HTTP facade + semantic differential.** Build `Mockifyr.Facade.Admin` (thin
+Kestrel/minimal-API `/__admin/*` → `ISender.Send`) and the host (`Mockifyr.Server` Program) serving
+both the mock routes and admin routes. Then validate over HTTP with a **test host**
+(`WebApplicationFactory`/`TestServer`): drive the same admin ops against the oracle and Mockifyr and
+compare the **effects** semantically (create→serves, delete→404, reset→empty, import→serves,
+list→count), NOT the volatile-id admin JSON byte-for-byte (see G6/G7a). Endpoints: `/__admin/mappings`
+CRUD, `/mappings/import`, `/mappings/reset`, `/requests*` (surface the G6 verify handlers), and
+`/__admin/scenarios*`. Mediant is already wired via `AddMockifyr` — the Admin facade just maps HTTP →
+commands/queries. Oracle CRUD shapes are in docs/parity/g7-admin.md. Probe the exact admin
+status-codes/paths you touch first.
 
 ## 4. Gotchas learned (save yourself the time)
 

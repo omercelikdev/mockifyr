@@ -6,7 +6,7 @@
 
   <ItemGroup>
     <!-- CQRS mediator (management path only — see docs/decisions/0005) -->
-    <PackageVersion Include="Mediant" Version="1.0.0-rc.3" />
+    <PackageVersion Include="Mediant" Version="1.0.0" />
     <!-- JSONPath: Newtonsoft's dialect is the closest .NET proxy for WireMock's Jayway JsonPath
          (accepts `[?(@.x=='y')]`-style filters). Used only inside Mockifyr.Matching. -->
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />

@@ -27,7 +27,14 @@ custom tenant-scope guard behavior) run as Mediant pipeline behaviors.
 - (+) Future synergies: `Mediant.Behaviors/Outbox` + `IIdempotencyStore` for reliable webhook
   delivery (G3/G16); `IPublisher`/`IDomainEvent` for the future UI's live updates and the
   reload change-feed.
-- (−) Mediant is currently `1.0.0-rc.3` (pre-release); depending on it couples release
-  stability. **Mitigation:** Core is Mediant-free, so the engine is untouched if Mediant must
-  be swapped or frozen. Acceptable because both are the maintainer's IP and dogfooding is a
-  goal.
+- (−) ~~Mediant is currently `1.0.0-rc.3` (pre-release)~~ — Mediant reached **`1.0.0` stable**
+  (adopted at G7a, 2026-07-03); the pre-release coupling risk is resolved. **Mitigation still holds:**
+  Core is Mediant-free, so the engine is untouched if Mediant must ever be swapped.
+
+## G7a realization
+
+The management path is built in `Mockifyr.Application` from G7a: `ICommand<Result<T>>` /
+`IQuery<Result<T>>` handlers dispatched via `ISender`, composed by `AddMockifyr` (in
+`Mockifyr.Server`) alongside the shared in-memory stores and the serving engine — so the management
+path and the hot path operate on the same state. The thin HTTP admin facade in front of `ISender`
+follows in G7b.

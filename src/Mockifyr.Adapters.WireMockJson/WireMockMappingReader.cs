@@ -51,15 +51,59 @@ public static class WireMockMappingReader
 
         return new StubMapping
         {
-            Id = Guid.NewGuid(),
+            Id = ReadId(mapping),
             TenantId = tenant,
             Priority = mapping.TryGetProperty("priority", out var p) && p.TryGetInt32(out var pri) ? pri : 5,
             Request = ReadRequest(request),
             Response = ReadResponse(response),
             Webhooks = ReadWebhooks(mapping),
             Scenario = ReadScenario(mapping),
+            Metadata = ReadMetadata(mapping),
         };
     }
+
+    /// <summary>Reads the stub's <c>id</c>/<c>uuid</c> (WireMock uses both), or mints a new one.</summary>
+    private static Guid ReadId(JsonElement mapping)
+    {
+        if (mapping.ValueKind == JsonValueKind.Object &&
+            (mapping.TryGetProperty("id", out var id) || mapping.TryGetProperty("uuid", out id)) &&
+            id.ValueKind == JsonValueKind.String && Guid.TryParse(id.GetString(), out var parsed))
+        {
+            return parsed;
+        }
+
+        return Guid.NewGuid();
+    }
+
+    /// <summary>Reads the arbitrary <c>metadata</c> object attached to a stub.</summary>
+    private static StubMetadata? ReadMetadata(JsonElement mapping)
+    {
+        if (mapping.ValueKind != JsonValueKind.Object ||
+            !mapping.TryGetProperty("metadata", out var metadata) || metadata.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        var values = new Dictionary<string, object?>();
+        foreach (var property in metadata.EnumerateObject())
+        {
+            values[property.Name] = ConvertJson(property.Value);
+        }
+
+        return new StubMetadata(values);
+    }
+
+    private static object? ConvertJson(JsonElement element) => element.ValueKind switch
+    {
+        JsonValueKind.String => element.GetString(),
+        JsonValueKind.Number => element.TryGetInt64(out var l) ? l : element.GetDouble(),
+        JsonValueKind.True => true,
+        JsonValueKind.False => false,
+        JsonValueKind.Null => null,
+        JsonValueKind.Object => element.EnumerateObject().ToDictionary(p => p.Name, p => ConvertJson(p.Value)),
+        JsonValueKind.Array => element.EnumerateArray().Select(ConvertJson).ToList(),
+        _ => null,
+    };
 
     /// <summary>
     /// Reads <c>postServeActions</c> webhook actions: <c>[{ "name": "webhook", "parameters": {
