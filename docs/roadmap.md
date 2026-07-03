@@ -75,7 +75,12 @@ Detailed rationale and per-group contents:
     `offset=` units), validated against the oracle over fixed instants. `now`/now-relative and the
     unparseable-date fallback are racy and deferred; `timezone=` is ignored on a parsed instant to
     match the oracle. See docs/parity/g2-response.md
-  - [ ] G2e random helpers
+  - [x] G2e random helpers — `randomValue` (UUID + `[a-z0-9]`/`[a-z]`/`[0-9]`/`[0-9a-f]` types with
+    `length`/`uppercase`), `pickRandom`, `randomInt` (half-open `[lower,upper)`), and bounded
+    `randomDecimal`, validated **structurally** against the oracle (the racy output can't be
+    byte-diffed, so the oracle and Mockifyr must each satisfy the same charset/length/range
+    contract). `ALPHANUMERIC_AND_SYMBOLS` and unbounded-decimal distribution deferred. See
+    docs/parity/g2-response.md
   - [ ] G2f json manipulation helpers
   - [ ] G2g format/math/array helpers
   - [ ] G2h system helpers

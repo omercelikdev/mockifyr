@@ -28,6 +28,45 @@ public sealed class G2StaticResponseTests : IAsyncLifetime
     [Fact]
     public Task Templating_DateHelpers() => Verify(TemplatingScenarios.DateHelpers());
 
+    /// <summary>
+    /// Random helpers (G2e) can't be byte-diffed — their output is non-deterministic. Instead each
+    /// case is probed many times: the oracle output must satisfy the case's structural contract
+    /// (proving the contract is real WireMock behavior) and Mockifyr's output must satisfy the same
+    /// contract. Both sides being independently valid under one contract is the parity claim.
+    /// </summary>
+    [Fact]
+    public async Task Templating_RandomHelpers()
+    {
+        const int iterations = 25;
+        var failures = new List<string>();
+
+        foreach (var scenario in RandomScenarios.All())
+        {
+            await _runner.LoadAsync(scenario.WireMockJson);
+
+            for (var i = 0; i < iterations; i++)
+            {
+                var outcome = await _runner.ProbeAsync(scenario.Request);
+
+                if (!outcome.OracleMatched)
+                {
+                    failures.Add($"{scenario.Description}: oracle did not serve the stub (status {outcome.Oracle.Status})");
+                }
+                else if (!scenario.IsValid(outcome.Oracle.BodyAsText))
+                {
+                    failures.Add($"{scenario.Description}: ORACLE body violates the contract: \"{outcome.Oracle.BodyAsText}\"");
+                }
+
+                if (!scenario.IsValid(outcome.Mockifyr.BodyAsText))
+                {
+                    failures.Add($"{scenario.Description}: mockifyr body violates the contract: \"{outcome.Mockifyr.BodyAsText}\"");
+                }
+            }
+        }
+
+        Assert.True(failures.Count == 0, $"{failures.Count} violation(s):\n{string.Join("\n", failures.Distinct().Take(25))}");
+    }
+
     private async Task Verify(IEnumerable<MatcherScenario> scenarios)
     {
         var failures = new List<string>();
