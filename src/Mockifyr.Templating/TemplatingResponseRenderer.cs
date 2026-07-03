@@ -39,6 +39,8 @@ public sealed class TemplatingResponseRenderer : IResponseRenderer
                 StatusMessage = definition.StatusMessage,
                 Headers = definition.Headers,
                 Body = definition.Body ?? [],
+                Delay = definition.Delay,
+                Fault = definition.Fault,
             };
         }
 
@@ -59,6 +61,8 @@ public sealed class TemplatingResponseRenderer : IResponseRenderer
             StatusMessage = definition.StatusMessage,
             Headers = headers,
             Body = body,
+            Delay = definition.Delay,
+            Fault = definition.Fault,
         };
     }
 

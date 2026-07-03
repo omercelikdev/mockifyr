@@ -180,6 +180,12 @@ public sealed record ResponseDefinition
 
     /// <summary>Names of the response transformers to apply (e.g. <c>response-template</c>).</summary>
     public required IReadOnlyList<string> Transformers { get; init; }
+
+    /// <summary>Optional response delay directive (applied by the facade, not the engine).</summary>
+    public DelayDirective? Delay { get; init; }
+
+    /// <summary>Optional low-level fault directive (applied by the transport facade — G12).</summary>
+    public FaultDirective? Fault { get; init; }
 }
 
 /// <summary>A single stub: a request pattern paired with a response definition.</summary>

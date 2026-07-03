@@ -60,13 +60,22 @@ Matching (G1, all matchers), Response + templating (G2, all helper families), an
 (G3a static + G3b templated) are each differentially validated against the oracle. 58 differential
 tests, all green.
 
-**Next item: G4 — Delay + fault injection** (first item of Phase B). WireMock response `fixedDelay`/
-`delayDistribution` and `fault` (e.g. `EMPTY_RESPONSE`, `MALFORMED_RESPONSE_CHUNK`,
-`CONNECTION_RESET_BY_PEER`). These are **transport/timing** behaviors — the engine emits a delay/fault
-*directive* (like it does for webhooks) and the facade applies it; the pure core does not sleep or
-touch sockets. Probe the oracle first: some faults may be hard to observe through the current
-in-process harness (which drives the engine, not a socket) — expect to validate the directive and
-defer socket-level fault emission to the HTTP facade (G12), documenting what's diffable now.
+- **G4** delay + fault — done. `fixedDelayMilliseconds` → `DelayDirective`, applied by the library
+  facade (`MockifyrServer.Handle`); validated by content parity + a robust **lower-bound** timing
+  assertion (`ProbeTimedAsync`; a fixed delay can't make a response faster). `fault` (all four kinds)
+  parsed into a `FaultDirective` and unit-tested; **socket-level fault emission** and
+  `delayDistribution` deferred to the HTTP facade (**G12**). Faults can't be diffed in-process — the
+  harness drives the engine, not a socket. 64 differential tests green.
+
+**Next item: G5 — Stateful scenarios.** WireMock's `scenarioName` + `requiredScenarioState` +
+`newScenarioState`: a stub is eligible only in a given state, and matching transitions the state. The
+**model and store already exist** — `StubMapping.Scenario` (`ScenarioBinding`),
+`IScenarioStateStore` (in-memory impl wired), and `StubEngine` already reads state for eligibility and
+writes the transition (see `IsEligible`/`ApplyTransition`). So G5 is likely mostly **adapter parsing**
+(`scenarioName`/`requiredScenarioState`/`newScenarioState` → `ScenarioBinding`) + differential
+scenarios that drive a multi-step state machine (e.g. the classic to-do/START→state transitions) and
+assert the response changes per state. Probe the oracle for the default start state name (`Started`)
+and transition semantics.
 
 ## 4. Gotchas learned (save yourself the time)
 

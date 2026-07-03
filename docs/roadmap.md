@@ -108,7 +108,10 @@ Detailed rationale and per-group contents:
 
 ## Phase B — Everything else, up to parity
 
-- [ ] **G4** Delay + fault injection
+- [x] **G4** Delay + fault injection — `fixedDelayMilliseconds` recorded as a `DelayDirective` and
+  applied by the facade (content parity + robust lower-bound timing, both sides); `fault`
+  (all four kinds) parsed into a `FaultDirective`. Socket-level fault *emission* and
+  `delayDistribution` deferred to the HTTP facade (G12). See docs/parity/g4-delay-fault.md
 - [ ] **G5** Stateful scenarios
 - [ ] **G6** Verify + near-miss diagnostics
 - [ ] **G7** Admin API (full) + first-class stub metadata
