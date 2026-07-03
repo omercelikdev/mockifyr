@@ -88,16 +88,25 @@ tests, all green.
   validation approach for the HTTP layer: **(A) test host + semantic differential**, split **G7a
   (this) / G7b**.
 
-**Next item: G7b — Admin HTTP facade + semantic differential.** Build `Mockifyr.Facade.Admin` (thin
-Kestrel/minimal-API `/__admin/*` → `ISender.Send`) and the host (`Mockifyr.Server` Program) serving
-both the mock routes and admin routes. Then validate over HTTP with a **test host**
-(`WebApplicationFactory`/`TestServer`): drive the same admin ops against the oracle and Mockifyr and
-compare the **effects** semantically (create→serves, delete→404, reset→empty, import→serves,
-list→count), NOT the volatile-id admin JSON byte-for-byte (see G6/G7a). Endpoints: `/__admin/mappings`
-CRUD, `/mappings/import`, `/mappings/reset`, `/requests*` (surface the G6 verify handlers), and
-`/__admin/scenarios*`. Mediant is already wired via `AddMockifyr` — the Admin facade just maps HTTP →
-commands/queries. Oracle CRUD shapes are in docs/parity/g7-admin.md. Probe the exact admin
-status-codes/paths you touch first.
+- **G7b** admin HTTP facade — done. `Mockifyr.Facade.Admin.AdminEndpoints` maps `/__admin/*`
+  (mappings CRUD/import/reset, requests/count) to `ISender`; `Mockifyr.Server` hosts it via
+  `AddMockifyr` + `MapAdminEndpoints` (and exposes `public partial class Program` for the test host).
+  Validated over HTTP with a `WebApplicationFactory<Program>` in-memory host: the same admin scenario
+  is driven against both the oracle and Mockifyr and the **status-code + mapping-count observation
+  sequence** matches (201/200/404/422). Semantic, not byte-for-byte (per-engine ids). **G7 is
+  complete.**
+
+**Next item: G8 — Proxying.** WireMock's `proxyBaseUrl` response: matched requests are forwarded to a
+real upstream and the upstream's response is returned (optionally with additional/removed proxy
+headers, URL prefix, etc.). The model already has a **`ProxyDirective`** on `CanonicalResponse` (like
+delay/fault) and the adapter has a home for it — so the engine records the directive and a **facade**
+performs the outbound call (same shape as the G3 webhook: engine pure, I/O at the edge). Validation
+needs an **upstream** both sides can reach: reuse the G3 `host.docker.internal` + a host-side
+`HttpListener` (like `WebhookReceiver`) as the upstream, and diff the proxied response. Probe the
+oracle: `proxyBaseUrl`, path handling, `additionalProxyRequestHeaders`, and whether the in-process
+harness can drive it (the proxy call is outbound like a webhook, so likely yes). Mock-serving over
+HTTP is still G12, but proxying may be validatable in-process via the library facade applying the
+`ProxyDirective`.
 
 ## 4. Gotchas learned (save yourself the time)
 

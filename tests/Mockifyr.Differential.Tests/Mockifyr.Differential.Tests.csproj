@@ -8,10 +8,19 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
+    <!-- In-memory admin HTTP host for the G7b differential. -->
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+  </ItemGroup>
+
+  <!-- WebApplicationFactory needs the ASP.NET shared framework in this (non-web) test project. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\harness\Mockifyr.Differential.Harness\Mockifyr.Differential.Harness.csproj" />
+    <!-- The admin host under test (exposes `Program` for WebApplicationFactory). -->
+    <ProjectReference Include="..\..\src\Mockifyr.Server\Mockifyr.Server.csproj" />
   </ItemGroup>
 
   <ItemGroup>
