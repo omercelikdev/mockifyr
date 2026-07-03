@@ -42,10 +42,18 @@ JSON, drive it through the Java WireMock oracle and Mockifyr, assert the diff) �
   validated structurally). **G2 (Response + templating) is now complete** — the whole helper surface
   (data/date/random/json/format-math-array/system) is covered.
 
-**Next item: G3a** (serve-event listener + async outbound webhook) — first item of G3, and the last
-group needed to finish Phase A. This is a different shape from G2: it's an **outbound** side effect
-(`IServeEventListener`) fired after a match, not a response transform — the engine stays pure and the
-facade performs the I/O. Expect harness work to capture the outbound call.
+- **G3a** serve-event listener + async outbound — done. `postServeActions` webhook (static
+  method/url/headers/body) fired by `WebhookServeEventListener` (`IServeEventListener`) at the facade
+  edge; the engine only records the `WebhookDefinition`. Validated differentially via a host-side
+  `WebhookReceiver` (`HttpListener`): the oracle reaches it through `host.docker.internal` (the oracle
+  container now has `WithExtraHost("host.docker.internal","host-gateway")` for Linux CI), Mockifyr via
+  `127.0.0.1`; the mapping's `__WEBHOOK_HOST__` token is rewritten per side, and only declared headers
+  (+ method/path/body) are diffed (auto transport headers differ per client).
+
+**Next item: G3b** (templated webhook + originalRequest correlation + sub-events) — the last item of
+Phase A. Reuse the G3a webhook harness; add response templating to the webhook `url`/`headers`/`body`
+(the `TemplatingResponseRenderer`/helpers already exist), the `originalRequest` model exposed to the
+webhook template, and sub-event recording on the `ServeEvent`.
 
 ## 4. Gotchas learned (save yourself the time)
 

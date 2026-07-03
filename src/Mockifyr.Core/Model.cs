@@ -205,6 +205,32 @@ public sealed record StubMapping
 
     /// <summary>Optional metadata.</summary>
     public StubMetadata? Metadata { get; init; }
+
+    /// <summary>
+    /// Outbound webhooks fired after this stub serves a request (WireMock <c>postServeActions</c>).
+    /// The engine only records the intent; the actual I/O is performed by an
+    /// <see cref="IServeEventListener"/> at the facade edge. See docs/decisions/0001.
+    /// </summary>
+    public IReadOnlyList<WebhookDefinition> Webhooks { get; init; } = [];
+}
+
+/// <summary>
+/// A single outbound webhook (a WireMock <c>webhook</c> post-serve action): the method, target URL,
+/// headers, and body to send after a stub matches. Templating of these fields arrives with G3b.
+/// </summary>
+public sealed record WebhookDefinition
+{
+    /// <summary>HTTP method of the outbound call.</summary>
+    public required string Method { get; init; }
+
+    /// <summary>Target URL.</summary>
+    public required string Url { get; init; }
+
+    /// <summary>Outbound headers (multi-valued, insertion order preserved).</summary>
+    public required IReadOnlyList<KeyValuePair<string, string>> Headers { get; init; }
+
+    /// <summary>Outbound body, when present.</summary>
+    public byte[]? Body { get; init; }
 }
 
 /// <summary>

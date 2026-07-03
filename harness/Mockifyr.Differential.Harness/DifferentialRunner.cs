@@ -21,6 +21,9 @@ public sealed record ProbeOutcome(HttpResponseSnapshot Oracle, HttpResponseSnaps
     public bool DecisionAgrees => OracleMatched == MockifyrMatched;
 }
 
+/// <summary>The webhooks each side fired for a G3 case (null if a side fired none within the wait).</summary>
+public sealed record WebhookOutcome(CapturedWebhook? Oracle, CapturedWebhook? Mockifyr);
+
 /// <summary>
 /// Orchestrates differential cases: load the same WireMock JSON into the oracle and Mockifyr,
 /// replay the same request(s), and diff. Reuses a single oracle container across cases; for
@@ -49,6 +52,30 @@ public sealed class DifferentialRunner : IAsyncDisposable
         await _oracle.LoadMappingAsync(wireMockJson);
         _mockifyr = new MockifyrUnderTest();
         _mockifyr.ImportWireMockJson(wireMockJson);
+    }
+
+    /// <summary>
+    /// Drives a webhook (G3) case: loads the same mapping into each side with the receiver host
+    /// rewritten to what that side can reach, triggers the stub, and captures the outbound webhook
+    /// each side fires. The <c>__WEBHOOK_HOST__</c> token in the mapping is replaced per side.
+    /// </summary>
+    public async Task<WebhookOutcome> RunWebhookAsync(WebhookReceiver receiver, string mappingTemplate, RequestSpec trigger)
+    {
+        // Oracle: reaches the host-side receiver through host.docker.internal.
+        receiver.Clear();
+        await _oracle.ResetAsync();
+        await _oracle.LoadMappingAsync(mappingTemplate.Replace("__WEBHOOK_HOST__", $"host.docker.internal:{receiver.Port}"));
+        await _oracle.SendAsync(trigger);
+        var oracle = await receiver.WaitForOneAsync(TimeSpan.FromSeconds(10));
+
+        // Mockifyr: in-process, so it reaches the receiver over loopback.
+        receiver.Clear();
+        var mockifyr = new MockifyrUnderTest();
+        mockifyr.ImportWireMockJson(mappingTemplate.Replace("__WEBHOOK_HOST__", $"127.0.0.1:{receiver.Port}"));
+        mockifyr.Send(trigger);
+        var mockifyrWebhook = await receiver.WaitForOneAsync(TimeSpan.FromSeconds(10));
+
+        return new WebhookOutcome(oracle, mockifyrWebhook);
     }
 
     /// <summary>Replays one request against the currently loaded stub on both sides and diffs.</summary>

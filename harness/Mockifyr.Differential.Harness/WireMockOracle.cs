@@ -20,6 +20,9 @@ public sealed class WireMockOracle : IAsyncDisposable
 
     private readonly IContainer _container = new ContainerBuilder(Image)
         .WithPortBinding(WireMockPort, assignRandomHostPort: true)
+        // Lets the container reach a host-side webhook receiver (G3) via host.docker.internal on
+        // Linux CI, where — unlike Docker Desktop — it is not resolvable by default.
+        .WithExtraHost("host.docker.internal", "host-gateway")
         .WithWaitStrategy(Wait.ForUnixContainer()
             .UntilHttpRequestIsSucceeded(r => r.ForPort(WireMockPort).ForPath("/__admin/mappings")))
         .Build();

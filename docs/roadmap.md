@@ -94,7 +94,11 @@ Detailed rationale and per-group contents:
     byte-diffed; permitted-key allowlist deferred to G12) and `hostname` (host-specific, validated
     structurally). `systemProperty`/`env` are not in open-source WireMock. See docs/parity/g2-response.md
 - [ ] **G3 — Webhook / correlation**
-  - [ ] G3a serve-event listener + async outbound
+  - [x] G3a serve-event listener + async outbound — `postServeActions` webhook (static
+    method/url/headers/body) fired via `WebhookServeEventListener` (`IServeEventListener`), the
+    engine's first outbound I/O at the facade edge. Validated differentially with a host-side
+    webhook receiver (oracle reaches it via host.docker.internal). Templating/correlation → G3b.
+    See docs/parity/g3-webhook.md
   - [ ] G3b templated webhook + originalRequest correlation + sub-events
 
 ## Phase B — Everything else, up to parity
