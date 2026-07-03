@@ -59,4 +59,20 @@ public sealed class MockifyrServer
 
         return resolution;
     }
+
+    /// <summary>Counts journaled requests matching the pattern (verification — G6).</summary>
+    public int CountRequestsMatching(RequestPattern pattern, TenantId? tenant = null) =>
+        _engine.CountRequestsMatching(tenant ?? TenantId.Default, pattern);
+
+    /// <summary>The journaled requests matching the pattern (verification — G6).</summary>
+    public IReadOnlyList<CanonicalRequest> FindRequestsMatching(RequestPattern pattern, TenantId? tenant = null) =>
+        _engine.FindRequestsMatching(tenant ?? TenantId.Default, pattern);
+
+    /// <summary>The journaled requests that matched no stub (verification — G6).</summary>
+    public IReadOnlyList<CanonicalRequest> FindUnmatchedRequests(TenantId? tenant = null) =>
+        _engine.FindUnmatchedRequests(tenant ?? TenantId.Default);
+
+    /// <summary>The stubs closest to an unmatched request, ranked by distance (near-miss — G6).</summary>
+    public IReadOnlyList<NearMiss> FindNearMisses(CanonicalRequest request, TenantId? tenant = null) =>
+        _engine.FindNearMisses(tenant ?? TenantId.Default, request);
 }

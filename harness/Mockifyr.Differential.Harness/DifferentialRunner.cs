@@ -25,6 +25,12 @@ public sealed record ProbeOutcome(HttpResponseSnapshot Oracle, HttpResponseSnaps
 /// <summary>The webhooks each side fired for a G3 case (null if a side fired none within the wait).</summary>
 public sealed record WebhookOutcome(CapturedWebhook? Oracle, CapturedWebhook? Mockifyr);
 
+/// <summary>Per-pattern match counts plus the unmatched-request counts, for a G6 verify case.</summary>
+public sealed record VerifyOutcome(
+    IReadOnlyList<(string Pattern, int Oracle, int Mockifyr)> Counts,
+    int OracleUnmatched,
+    int MockifyrUnmatched);
+
 /// <summary>
 /// Orchestrates differential cases: load the same WireMock JSON into the oracle and Mockifyr,
 /// replay the same request(s), and diff. Reuses a single oracle container across cases; for
@@ -77,6 +83,35 @@ public sealed class DifferentialRunner : IAsyncDisposable
         var mockifyrWebhook = await receiver.WaitForOneAsync(TimeSpan.FromSeconds(10));
 
         return new WebhookOutcome(oracle, mockifyrWebhook);
+    }
+
+    /// <summary>
+    /// Drives a verify (G6) case: loads the stubs, replays traffic through both sides to fill the
+    /// journals, then compares the match-count for each pattern and the unmatched-request count. The
+    /// admin JSON is full of volatile fields, so verification is compared <em>semantically</em>
+    /// (counts) rather than byte-for-byte.
+    /// </summary>
+    public async Task<VerifyOutcome> RunVerifyAsync(
+        string mappingsJson, IReadOnlyList<RequestSpec> traffic, IReadOnlyList<string> countPatterns)
+    {
+        await _oracle.ResetAsync();
+        await _oracle.LoadMappingAsync(mappingsJson);
+        _mockifyr = new MockifyrUnderTest();
+        _mockifyr.ImportWireMockJson(mappingsJson);
+
+        foreach (var request in traffic)
+        {
+            await _oracle.SendAsync(request);
+            _mockifyr.Send(request);
+        }
+
+        var counts = new List<(string, int, int)>();
+        foreach (var pattern in countPatterns)
+        {
+            counts.Add((pattern, await _oracle.CountRequestsMatchingAsync(pattern), _mockifyr.CountRequestsMatching(pattern)));
+        }
+
+        return new VerifyOutcome(counts, await _oracle.UnmatchedCountAsync(), _mockifyr.UnmatchedCount());
     }
 
     /// <summary>Replays one request against the currently loaded stub on both sides and diffs.</summary>

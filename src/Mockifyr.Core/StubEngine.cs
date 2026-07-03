@@ -140,6 +140,43 @@ public sealed class StubEngine
         }
     }
 
+    // --- Verification / diagnostics (G6): read-only queries over the journal, reusing matching. ---
+
+    /// <summary>Counts journaled requests matching the pattern (WireMock's <c>requests/count</c>).</summary>
+    public int CountRequestsMatching(TenantId tenant, RequestPattern pattern) =>
+        RequestsMatching(tenant, pattern).Count;
+
+    /// <summary>The journaled requests matching the pattern (WireMock's <c>requests/find</c>).</summary>
+    public IReadOnlyList<CanonicalRequest> FindRequestsMatching(TenantId tenant, RequestPattern pattern) =>
+        [.. RequestsMatching(tenant, pattern)];
+
+    /// <summary>The journaled requests that matched no stub (WireMock's <c>requests/unmatched</c>).</summary>
+    public IReadOnlyList<CanonicalRequest> FindUnmatchedRequests(TenantId tenant) =>
+        [.. _journal.Query(tenant, new ServeEventQuery { UnmatchedOnly = true }).Select(e => e.Request)];
+
+    /// <summary>
+    /// The stubs closest to an unmatched request, ranked by ascending match distance — the near-miss
+    /// diagnostic. The distance is the same one matching computes, so no extra machinery is needed.
+    /// </summary>
+    public IReadOnlyList<NearMiss> FindNearMisses(TenantId tenant, CanonicalRequest request)
+    {
+        var input = new MatchInput { Request = request };
+        return
+        [
+            .. _stubStore.GetStubs(tenant)
+                .Select(stub => new NearMiss(stub, Evaluate(stub.Request, input).Distance))
+                .OrderBy(nearMiss => nearMiss.Distance)
+                .Take(3),
+        ];
+    }
+
+    private List<CanonicalRequest> RequestsMatching(TenantId tenant, RequestPattern pattern) =>
+    [
+        .. _journal.Query(tenant, new ServeEventQuery())
+            .Where(e => Evaluate(pattern, new MatchInput { Request = e.Request }).IsExactMatch)
+            .Select(e => e.Request),
+    ];
+
     private static MatchResult Evaluate(RequestPattern pattern, MatchInput input)
     {
         var exact = true;
