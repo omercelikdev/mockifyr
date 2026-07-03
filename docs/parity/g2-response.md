@@ -116,3 +116,29 @@ oracle (`wiremock/wiremock:3.10.0`). See [README](README.md) for the format.
   outside the shared/rewritten set (zone `Z`/`X`, era `G`, week/day-of-year…), which are emitted as
   literals rather than throwing.
 - **Regression case:** `G2StaticResponseTests.Templating_DateHelpers`.
+
+### Random helpers (G2e)
+
+- **Group / item:** G2e — validated **structurally** against the oracle.
+- **Why structural.** `randomValue`/`pickRandom`/`randomInt`/`randomDecimal` are non-deterministic,
+  so a byte diff is impossible. Each case instead carries a **contract** (charset + length, set
+  membership, or numeric range). Every case is probed many times: the **oracle** output must satisfy
+  the contract (which proves the contract is real WireMock behavior, not a self-assertion) and
+  Mockifyr's output must satisfy the **same** contract. Driven by `RandomScenarios` +
+  `G2StaticResponseTests.Templating_RandomHelpers`.
+- **`randomValue` character alphabets** (sampled from the oracle): `ALPHANUMERIC` = `[a-z0-9]`,
+  `ALPHABETIC` = `[a-z]`, `NUMERIC` = `[0-9]`, `HEXADECIMAL` = `[0-9a-f]` — all **lowercase** by
+  default; `uppercase=true` uppercases the alphabet (`ALPHANUMERIC` → `[A-Z0-9]`). `length=` is exact.
+- **`randomValue type='UUID'`** is an RFC 4122 **v4** UUID (`…-4xxx-[89ab]xxx-…`), matched by
+  `Guid.NewGuid()`; `length`/`uppercase` don't apply to it.
+- **`pickRandom 'a' 'b' 'c'`** returns one of the given literals (a single-element list is
+  deterministic).
+- **`randomInt lower=L upper=U`** is a **half-open** range `[L, U)` — sampling `lower=5 upper=6`
+  always yielded `5`, never `6` — which is exactly `Random.Next(L, U)`. Unbounded `randomInt` is a
+  32-bit int (can be negative).
+- **`randomDecimal lower=L upper=U`** lands in `[L, U]`; emitted with the invariant culture so the
+  decimal point is stable.
+- **Deferred (documented):** `randomValue type='ALPHANUMERIC_AND_SYMBOLS'` — its symbol alphabet is
+  broad and imprecisely bounded, which would make a brittle structural assertion; and the
+  distribution/format of **unbounded** `randomDecimal` (only bounded ranges are contracted).
+- **Regression case:** `G2StaticResponseTests.Templating_RandomHelpers`.
