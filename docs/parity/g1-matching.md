@@ -80,14 +80,23 @@ Verified WireMock behaviors discovered while building the matching vertical agai
 - **Regression cases:** `G1GeneratedMatcherTests.MultiValue_{HasExactly,Includes}` (differential),
   `ValueMatcherTests.{HasExactly,Includes}_*` (pure logic).
 
-### Cookie value matching diverges (deferred)
+### Cookie value matching (G1c) — resolved; the divergence was a harness artifact
 
-- **Group / item:** G1c (cookies) — **found by the fuzzing generator**.
-- **Observation:** cookie **presence** (`absent`) matches the oracle, but cookie **value**
-  matching (`equalTo`/`contains`) diverges in a way consistent with WireMock normalizing cookie
-  value case. Needs a focused investigation (WireMock cookie parsing + client transport).
-- **Status:** `CookieMatcher` and cookie parsing are implemented and unit-tested
-  (`ValueMatcherTests.CookieMatcher_*`); only `Absent_Cookie` is validated against the oracle.
+- **Group / item:** G1c (cookies) — originally deferred as a suspected WireMock case-normalization,
+  now **root-caused and validated**.
+- **Real cause: HTTP keep-alive connection reuse in the oracle client.** The differential harness
+  reused one `HttpClient` across every probe. On a **reused** keep-alive connection the oracle
+  received a **lowercased** Cookie header (`probe=A` → WireMock saw `a`; `preApost` → `preapost`),
+  and a `"` in a value made the servlet drop the cookie entirely. A **fresh** connection transmits
+  the header verbatim. Confirmed three ways: curl and a standalone `HttpClient` both send verbatim;
+  the oracle's own near-miss diagnostic showed the lowercased value; and forcing a new connection
+  fixed it. **Mockifyr's `CookieMatcher` was correct the whole time.**
+- **Fix:** `WireMockOracle.SendAsync` sets `request.Headers.ConnectionClose = true` so each probe
+  uses a fresh connection. Cookie `equalTo`/`contains` now diff green against the oracle
+  (`G1GeneratedMatcherTests.{EqualTo,Contains}_Cookie`).
+- **Corpus note.** A `"` (and other separators) in a cookie **value** is invalid per RFC 6265 and the
+  servlet drops such a cookie, so cookie fuzzing is restricted to the cookie-safe character subset
+  (letters/digits/`-._`), matching what a real client could send.
 
 ### Empty request body is "absent" for body matching
 

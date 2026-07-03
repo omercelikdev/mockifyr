@@ -19,11 +19,11 @@ Detailed rationale and per-group contents:
   - [x] G1b URL advanced — `urlPattern` (anchored full-URL regex), `urlPathPattern` (anchored
     path regex), `urlPathTemplate` (one segment per `{var}`), fuzz-validated. Named path-variable
     **extraction** is deferred to G2b (only the match decision is observable now)
-  - [ ] G1c header/query/cookie matchers (+ multi-value) — header/query `equalTo`/`contains`/
-    `absent`/`doesNotMatch`/`caseInsensitive` and multi-value `hasExactly`/`includes` (validated on
-    query — the real keys, not `havingExactly`/`including`) fuzz-validated. **Cookie value** matching
-    remains the only open piece (a documented parsing divergence); header multi-value awaits a
-    harness that sends discrete header lines
+  - [x] G1c header/query/cookie matchers (+ multi-value) — header/query/**cookie**
+    `equalTo`/`contains`/`absent`/`doesNotMatch`/`caseInsensitive` and multi-value
+    `hasExactly`/`includes` (real keys, not `havingExactly`/`including`) fuzz-validated. Cookie value
+    matching was root-caused (a harness keep-alive artifact, not a Mockifyr bug) and now diffs green.
+    Header multi-value still awaits a harness that sends discrete header lines (query covers it)
   - [x] G1d body basic (equalTo, binaryEqualTo, contains, matches) — `equalTo`/`contains`/
     `matches`/`doesNotMatch`/`caseInsensitive` and now `binaryEqualTo` (exact byte comparison)
     fuzz-validated

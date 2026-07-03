@@ -81,6 +81,10 @@ public sealed class WireMockOracle : IAsyncDisposable
             }
         }
 
+        // Force a fresh connection per request: on a reused keep-alive connection the oracle
+        // receives a mangled (lowercased) Cookie header, which made cookie value matching diverge
+        // spuriously. A fresh connection transmits the header verbatim. See docs/parity/g1-matching.md.
+        request.Headers.ConnectionClose = true;
         using var response = await Client.SendAsync(request);
 
         var headers = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);

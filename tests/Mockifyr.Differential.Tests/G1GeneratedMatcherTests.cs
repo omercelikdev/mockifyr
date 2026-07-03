@@ -60,6 +60,12 @@ public sealed class G1GeneratedMatcherTests : IAsyncLifetime
     public Task Absent_Cookie() => Verify(MatcherScenarios.Absent(Target.Cookie));
 
     [Fact]
+    public Task EqualTo_Cookie() => Verify(MatcherScenarios.EqualTo(Target.Cookie, seed: 41));
+
+    [Fact]
+    public Task Contains_Cookie() => Verify(MatcherScenarios.Contains(Target.Cookie, seed: 42));
+
+    [Fact]
     public Task MultiValue_HasExactly() => Verify(MultiValueScenarios.HasExactly());
 
     [Fact]
