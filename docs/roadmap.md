@@ -136,7 +136,11 @@ Detailed rationale and per-group contents:
   upstream and returns its response. Validated differentially: both sides proxy to one shared
   host-side upstream and the proxied response (status + body + marker header) matches.
   `additionalProxyRequestHeaders` / URL rewriting deferred. See docs/parity/g8-proxy.md
-- [ ] **G9** Record & Playback
+- [x] **G9** Record & Playback — `StubRecorder` proxies to the target, captures the exchange, and
+  `WireMockRecordingWriter` generates a stub (exact URL + method + body `equalTo`, captured response).
+  Validated by **cross-engine replay**: Mockifyr's generated stubs, loaded into the real oracle,
+  replay the captured response (and Mockifyr replays them identically). Recorder admin endpoints,
+  filters, body-file extraction, and scenario generation deferred. See docs/parity/g9-record-playback.md
 - [ ] **G10** Extensibility (public — 7 extension types)
 - [ ] **G11** HTTPS/TLS + HTTP/2
 - [ ] **G12** Standalone/deploy + config

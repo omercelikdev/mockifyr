@@ -104,14 +104,25 @@ tests, all green.
   (status + body + the `X-Upstream` marker header) matches. `additionalProxyRequestHeaders` / URL
   rewriting deferred.
 
-**Next item: G9 — Record & Playback.** WireMock's recorder: with a proxy target set, it captures the
-proxied request/response pairs and **generates stub mappings** from them (`POST /__admin/recordings/
-start` + `/stop`, or `/__admin/recordings/snapshot`), with filters, body-extraction, and
-`transformers`. It builds directly on G8 (proxying) and G7 (the admin API + stub CRUD). Probe the
-oracle's recorder endpoints and the shape of the generated mappings first; decide with the maintainer
-how much of record/playback to validate (the generated-stub shape is a moving target — likely compare
-that a recorded stub, once loaded, *serves the same response* rather than byte-diffing the generated
-JSON). This is a larger, more stateful item — worth a design checkpoint.
+- **G9** record & playback — done. `StubRecorder` (`Mockifyr.Facade.Library`) proxies to the target
+  (reusing `ProxyResponder`), captures the exchange, and `WireMockRecordingWriter`
+  (`Mockifyr.Adapters.WireMockJson`) generates a stub JSON (exact URL + method + body `equalTo` +
+  captured response). Validated by **cross-engine replay**: Mockifyr's generated stubs, loaded into
+  the real oracle and a fresh Mockifyr, replay the captured response (status + body + stable headers;
+  volatile/transport headers not baked in and masked). The `/__admin/recordings/*` HTTP endpoints,
+  filters, body-file extraction, and scenario generation are deferred.
+
+**Next item: G10 — Extensibility (public — 7 extension types).** WireMock's extension points, made
+public so users can plug in custom behavior: `RequestMatcherExtension` (custom matchers),
+`ResponseDefinitionTransformer` / `ResponseTransformer`, `ServeEventListener` (webhooks are one),
+`PostServeAction`, template `helper`s, `AdminApiExtension`, etc. The Core already has the seams —
+`IMatcher` (custom-matcher seam, noted in G10), `IServeEventListener` (G3), the template-helper
+registration (G2), `IResponseRenderer` — so G10 is mostly **making those seams public + a
+registration/discovery mechanism** and proving a user-supplied extension is invoked. This is likely
+**not oracle-differential** (custom extensions are Mockifyr-specific, no WireMock equivalent to diff
+against) — so validate it with **in-process unit tests** (register a custom `IMatcher` /
+`IServeEventListener` / helper, drive a request, assert it ran), like G7a. Decide the public
+extension API shape with the maintainer first — this is an API-design item more than a parity item.
 
 ## 4. Gotchas learned (save yourself the time)
 
