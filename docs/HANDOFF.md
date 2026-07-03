@@ -67,15 +67,20 @@ tests, all green.
   `delayDistribution` deferred to the HTTP facade (**G12**). Faults can't be diffed in-process — the
   harness drives the engine, not a socket. 64 differential tests green.
 
-**Next item: G5 — Stateful scenarios.** WireMock's `scenarioName` + `requiredScenarioState` +
-`newScenarioState`: a stub is eligible only in a given state, and matching transitions the state. The
-**model and store already exist** — `StubMapping.Scenario` (`ScenarioBinding`),
-`IScenarioStateStore` (in-memory impl wired), and `StubEngine` already reads state for eligibility and
-writes the transition (see `IsEligible`/`ApplyTransition`). So G5 is likely mostly **adapter parsing**
-(`scenarioName`/`requiredScenarioState`/`newScenarioState` → `ScenarioBinding`) + differential
-scenarios that drive a multi-step state machine (e.g. the classic to-do/START→state transitions) and
-assert the response changes per state. Probe the oracle for the default start state name (`Started`)
-and transition semantics.
+- **G5** stateful scenarios — done. `scenarioName`/`requiredScenarioState`/`newScenarioState` parsed
+  into `ScenarioBinding` (the engine already gated eligibility and wrote transitions; default start
+  state `Started`). Validated differentially via a multi-step state walk and per-scenario isolation
+  (`StateScenarios` loads a `{"mappings":[…]}` bundle and drives an ordered request sequence).
+
+**Next item: G6 — Verify + near-miss diagnostics.** WireMock's request journal + verification:
+`GET /__admin/requests` (recorded requests), `POST /__admin/requests/count` and `/__admin/requests/
+find` (count/find by request pattern), unmatched-request retrieval, and near-miss diagnostics. The
+**engine already records** every serve into `IRequestJournal` and computes near-miss **distances**
+(`MatchResult.Distance`, `StubResolution.NearMisses`) — so G6 is largely surfacing that through an
+admin-ish query API + matching the near-miss/`count` semantics against the oracle. This is the first
+item that leans on the **admin surface**; decide with the maintainer whether to build a thin admin
+query path now or validate the journal/near-miss logic another way. Probe the oracle's
+`/__admin/requests*` responses first.
 
 ## 4. Gotchas learned (save yourself the time)
 

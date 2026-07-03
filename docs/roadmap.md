@@ -112,7 +112,10 @@ Detailed rationale and per-group contents:
   applied by the facade (content parity + robust lower-bound timing, both sides); `fault`
   (all four kinds) parsed into a `FaultDirective`. Socket-level fault *emission* and
   `delayDistribution` deferred to the HTTP facade (G12). See docs/parity/g4-delay-fault.md
-- [ ] **G5** Stateful scenarios
+- [x] **G5** Stateful scenarios — `scenarioName`/`requiredScenarioState`/`newScenarioState` parsed
+  into `ScenarioBinding` (the engine already gated eligibility + wrote transitions); default start
+  state `Started`. Validated differentially with a multi-step state walk and per-scenario isolation.
+  Direct state-set + scenarios admin listing → G7. See docs/parity/g5-scenarios.md
 - [ ] **G6** Verify + near-miss diagnostics
 - [ ] **G7** Admin API (full) + first-class stub metadata
 - [ ] **G8** Proxying
