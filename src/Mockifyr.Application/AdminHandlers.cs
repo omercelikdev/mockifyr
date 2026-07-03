@@ -11,14 +11,15 @@ namespace Mockifyr.Application;
 // and the engine's read-only verification queries; Mediant registers them by assembly scan.
 
 /// <summary>Creates a stub and returns its id, or a validation error if the JSON yields none.</summary>
-public sealed class CreateStubHandler(IStubStore store) : ICommandHandler<CreateStubCommand, Result<Guid>>
+public sealed class CreateStubHandler(IStubStore store, IMatcherRegistry matchers)
+    : ICommandHandler<CreateStubCommand, Result<Guid>>
 {
     public ValueTask<Result<Guid>> Handle(CreateStubCommand command, CancellationToken cancellationToken)
     {
         IReadOnlyList<StubMapping> stubs;
         try
         {
-            stubs = WireMockMappingReader.Read(command.WireMockJson, command.Tenant);
+            stubs = WireMockMappingReader.Read(command.WireMockJson, command.Tenant, matchers);
         }
         catch (JsonException)
         {
@@ -46,14 +47,15 @@ public sealed class DeleteStubHandler(IStubStore store) : ICommandHandler<Delete
 }
 
 /// <summary>Imports one stub or a bundle of them, returning how many were loaded.</summary>
-public sealed class ImportMappingsHandler(IStubStore store) : ICommandHandler<ImportMappingsCommand, Result<int>>
+public sealed class ImportMappingsHandler(IStubStore store, IMatcherRegistry matchers)
+    : ICommandHandler<ImportMappingsCommand, Result<int>>
 {
     public ValueTask<Result<int>> Handle(ImportMappingsCommand command, CancellationToken cancellationToken)
     {
         IReadOnlyList<StubMapping> stubs;
         try
         {
-            stubs = WireMockMappingReader.Read(command.WireMockJson, command.Tenant);
+            stubs = WireMockMappingReader.Read(command.WireMockJson, command.Tenant, matchers);
         }
         catch (JsonException)
         {

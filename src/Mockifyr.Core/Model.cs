@@ -158,6 +158,9 @@ public sealed record RequestPattern
 
     /// <summary>Body matchers.</summary>
     public required IReadOnlyList<IMatcher> Body { get; init; }
+
+    /// <summary>Custom request-level matchers contributed by extensions (G10, <c>customMatcher</c>).</summary>
+    public IReadOnlyList<IMatcher> Custom { get; init; } = [];
 }
 
 /// <summary>

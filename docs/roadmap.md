@@ -141,7 +141,13 @@ Detailed rationale and per-group contents:
   Validated by **cross-engine replay**: Mockifyr's generated stubs, loaded into the real oracle,
   replay the captured response (and Mockifyr replays them identically). Recorder admin endpoints,
   filters, body-file extraction, and scenario generation deferred. See docs/parity/g9-record-playback.md
-- [ ] **G10** Extensibility (public — 7 extension types)
+- [x] **G10** Extensibility (public) — `AddMockifyr(cfg => …)` with a `MockifyrExtensions` builder
+  registers user extensions; four types validated in-process (custom **matcher** via `customMatcher`,
+  **serve-event listener**, **template helper**, **response transformer**). The Core seams were
+  already public/dogfooded; the remaining ones (`IResponseDefinitionTransformer`,
+  `ITemplateModelProvider`, `IAdminApiExtension`, `IMappingsLoader`) are wired incrementally.
+  Validated in-process (not oracle-differential — custom extensions have no WireMock equivalent). See
+  docs/parity/g10-extensibility.md
 - [ ] **G11** HTTPS/TLS + HTTP/2
 - [ ] **G12** Standalone/deploy + config
 - [ ] **G13** gRPC extension

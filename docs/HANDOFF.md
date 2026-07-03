@@ -112,17 +112,25 @@ tests, all green.
   volatile/transport headers not baked in and masked). The `/__admin/recordings/*` HTTP endpoints,
   filters, body-file extraction, and scenario generation are deferred.
 
-**Next item: G10 — Extensibility (public — 7 extension types).** WireMock's extension points, made
-public so users can plug in custom behavior: `RequestMatcherExtension` (custom matchers),
-`ResponseDefinitionTransformer` / `ResponseTransformer`, `ServeEventListener` (webhooks are one),
-`PostServeAction`, template `helper`s, `AdminApiExtension`, etc. The Core already has the seams —
-`IMatcher` (custom-matcher seam, noted in G10), `IServeEventListener` (G3), the template-helper
-registration (G2), `IResponseRenderer` — so G10 is mostly **making those seams public + a
-registration/discovery mechanism** and proving a user-supplied extension is invoked. This is likely
-**not oracle-differential** (custom extensions are Mockifyr-specific, no WireMock equivalent to diff
-against) — so validate it with **in-process unit tests** (register a custom `IMatcher` /
-`IServeEventListener` / helper, drive a request, assert it ran), like G7a. Decide the public
-extension API shape with the maintainer first — this is an API-design item more than a parity item.
+- **G10** extensibility — done. `AddMockifyr(cfg => …)` + a `MockifyrExtensions` builder register
+  user extensions; four types validated in-process: custom **matcher** (`customMatcher` → the adapter
+  resolves it via `IMatcherRegistry` into `RequestPattern.Custom`), **serve-event listener**,
+  **template helper** (an engine-agnostic `Func<IReadOnlyList<object?>,string>` adapted in
+  `HandlebarsFactory`), and **response transformer** (`IResponseTransformer` applied in `StubEngine`).
+  Not oracle-differential (custom extensions have no WireMock equivalent). Remaining seams
+  (`IResponseDefinitionTransformer`/`ITemplateModelProvider`/`IAdminApiExtension`/`IMappingsLoader`)
+  stay public + wired incrementally.
+
+**Next item: G11 — HTTPS/TLS + HTTP/2.** This is squarely a **transport-facade** item (Kestrel
+config: TLS cert, HTTP/2/ALPN) — it belongs with the mock-serving-over-HTTP path that has been
+deferred to **G12** throughout (delay timing, fault emission, `/__admin/scenarios*`, admin-ext
+routing, and the recorder admin endpoints all wait on it). **Recommend doing G12 (the transport HTTP
+facade — `Mockifyr.Facade.Http`, Kestrel catch-all → engine → wire delivery) before or together with
+G11**, since G11's TLS/HTTP2 is configuration *on top of* that facade, and G12 also unblocks the
+several deferred socket/wire behaviors. Validation shifts from in-process to **over-the-wire** (drive
+real HTTP against a hosted Mockifyr, like the G7b `WebApplicationFactory` pattern but for the mock
+port). Flag this ordering to the maintainer — it's the last big architectural piece before the
+extension/protocol groups (gRPC/GraphQL/messaging) and persistence.
 
 ## 4. Gotchas learned (save yourself the time)
 

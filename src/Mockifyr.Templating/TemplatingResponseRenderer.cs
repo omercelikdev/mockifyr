@@ -26,7 +26,8 @@ public sealed class TemplatingResponseRenderer : IResponseRenderer
     // TextEncoder = null disables HTML escaping, matching WireMock's non-escaping output.
     private readonly IHandlebars _handlebars;
 
-    public TemplatingResponseRenderer() => _handlebars = HandlebarsFactory.Create();
+    public TemplatingResponseRenderer(IEnumerable<TemplateHelperExtension>? extraHelpers = null) =>
+        _handlebars = HandlebarsFactory.Create(extraHelpers);
 
     /// <inheritdoc />
     public CanonicalResponse Render(ResponseDefinition definition, RenderContext context)

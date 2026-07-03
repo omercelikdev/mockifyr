@@ -44,6 +44,13 @@ public interface ITemplateHelper
     string Name { get; }
 }
 
+/// <summary>
+/// A user-supplied template helper (G10): its <see cref="ITemplateHelper.Name"/> plus a render
+/// function over the positional arguments. The templating edge adapts it to the underlying engine, so
+/// the public API stays engine-agnostic.
+/// </summary>
+public sealed record TemplateHelperExtension(string Name, Func<IReadOnlyList<object?>, string> Render) : ITemplateHelper;
+
 /// <summary>Contributes one or more <see cref="ITemplateHelper"/> instances.</summary>
 public interface ITemplateHelperProvider : IExtension
 {
