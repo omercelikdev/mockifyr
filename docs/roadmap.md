@@ -57,7 +57,9 @@ Detailed rationale and per-group contents:
     like the standalone number matchers. The equal-priority tie-break (load-path dependent) and
     per-part multipart headers are deferred; see docs/parity/g1-matching.md
 - [ ] **G2 — Response + templating**
-  - [ ] G2a static response (+ bodyFileName templating, gzip)
+  - [x] G2a static response — status, multi-value headers, literal `body`, `jsonBody` (compact),
+    `base64Body` (bytes) fuzz-validated. `statusMessage` parsed (not yet diffable); `bodyFileName`
+    (needs `__files` + templating → G2b) and gzip (transport) deferred. See docs/parity/g2-response.md
   - [ ] G2b templating engine (Handlebars.Net + request model + named path vars)
   - [ ] G2c data helpers (jsonPath, xPath, regexExtract, formData, parseJson)
   - [ ] G2d date helpers
