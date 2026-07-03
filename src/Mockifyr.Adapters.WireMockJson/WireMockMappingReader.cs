@@ -616,8 +616,16 @@ public static class WireMockMappingReader
             Transformers = transformers,
             Delay = ReadDelay(response),
             Fault = ReadFault(response),
+            Proxy = ReadProxy(response),
         };
     }
+
+    /// <summary>Reads the <c>proxyBaseUrl</c> directive (G8); the facade performs the outbound call.</summary>
+    private static ProxyDirective? ReadProxy(JsonElement response) =>
+        response.ValueKind == JsonValueKind.Object &&
+        response.TryGetProperty("proxyBaseUrl", out var url) && url.ValueKind == JsonValueKind.String
+            ? new ProxyDirective(url.GetString()!)
+            : null;
 
     /// <summary>Reads the <c>fixedDelayMilliseconds</c> response delay (delayDistribution → G4 follow-up).</summary>
     private static DelayDirective? ReadDelay(JsonElement response) =>

@@ -13,6 +13,7 @@ namespace Mockifyr.Differential.Harness;
 public sealed class MockifyrUnderTest
 {
     private readonly MockifyrServer _server = new();
+    private readonly ProxyResponder _proxy = new();
 
     /// <summary>Imports the same WireMock JSON the oracle receives.</summary>
     public void ImportWireMockJson(string wireMockJson) => _server.ImportWireMockJson(wireMockJson);
@@ -22,31 +23,43 @@ public sealed class MockifyrUnderTest
     {
         var request = CanonicalRequestBuilder.Build(spec.Method, spec.Url, spec.Headers, spec.Body);
         var resolution = _server.Handle(request);
+        return resolution.Response is { } response ? Snapshot(response) : NotFound();
+    }
 
-        if (!resolution.Matched || resolution.Response is not { } response)
+    /// <summary>
+    /// Like <see cref="Send"/> but applies a proxy directive (G8): if the matched response is a
+    /// proxy, the request is forwarded to the upstream and the upstream's response is snapshotted.
+    /// </summary>
+    public async Task<HttpResponseSnapshot> SendWithProxyAsync(RequestSpec spec)
+    {
+        var request = CanonicalRequestBuilder.Build(spec.Method, spec.Url, spec.Headers, spec.Body);
+        var resolution = _server.Handle(request);
+
+        if (resolution.Response is not { } response)
         {
-            // No stub matched. WireMock serves a 404 here; the full no-match body is compared
-            // from the group that implements it. For now report a bare 404.
-            return new HttpResponseSnapshot
-            {
-                Status = 404,
-                Headers = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase),
-                Body = [],
-            };
+            return NotFound();
         }
 
-        var headers = response.Headers.ToDictionary(
-            g => g.Key,
-            g => g.ToArray(),
-            StringComparer.OrdinalIgnoreCase);
-
-        return new HttpResponseSnapshot
-        {
-            Status = response.Status,
-            Headers = headers,
-            Body = response.Body,
-        };
+        return response.Proxy is { } proxy
+            ? Snapshot(await _proxy.ProxyAsync(proxy, request))
+            : Snapshot(response);
     }
+
+    private static HttpResponseSnapshot Snapshot(CanonicalResponse response) => new()
+    {
+        Status = response.Status,
+        Headers = response.Headers.ToDictionary(g => g.Key, g => g.ToArray(), StringComparer.OrdinalIgnoreCase),
+        Body = response.Body,
+    };
+
+    // No stub matched. WireMock serves a 404 here; the full no-match body is compared from the group
+    // that implements it. For now report a bare 404.
+    private static HttpResponseSnapshot NotFound() => new()
+    {
+        Status = 404,
+        Headers = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase),
+        Body = [],
+    };
 
     /// <summary>Counts journaled requests matching a WireMock request-pattern JSON (verification — G6).</summary>
     public int CountRequestsMatching(string patternJson) =>

@@ -186,6 +186,9 @@ public sealed record ResponseDefinition
 
     /// <summary>Optional low-level fault directive (applied by the transport facade — G12).</summary>
     public FaultDirective? Fault { get; init; }
+
+    /// <summary>Optional proxy directive: forward the request to an upstream and return its response.</summary>
+    public ProxyDirective? Proxy { get; init; }
 }
 
 /// <summary>A single stub: a request pattern paired with a response definition.</summary>
