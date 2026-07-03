@@ -1,0 +1,161 @@
+using System.Globalization;
+using System.Text;
+using System.Text.RegularExpressions;
+using HandlebarsDotNet;
+
+namespace Mockifyr.Templating;
+
+/// <summary>
+/// WireMock's date/time Handlebars helpers (G2d): <c>parseDate</c> and <c>date</c>. All behaviors
+/// are pinned against the WireMock oracle over <em>fixed</em> input instants — see
+/// docs/parity/g2-response.md. <c>parseDate</c> turns a string into an instant (ISO-8601 by default,
+/// or a Java <c>SimpleDateFormat</c> pattern via <c>format=</c>); <c>date</c> renders an instant,
+/// applying an <c>offset=</c> and a Java format pattern (plus the special <c>epoch</c>/<c>unix</c>
+/// tokens). The clock-dependent surface (<c>now</c>, unparseable-date fallback, and the
+/// <c>timezone=</c> option, which the oracle ignores on a parsed instant) is deferred/racy.
+/// </summary>
+internal static class DateHelpers
+{
+    public static void Register(IHandlebars handlebars)
+    {
+        handlebars.RegisterHelper("parseDate", (_, arguments) => ParseDate(arguments));
+        handlebars.RegisterHelper("date", (_, arguments) => FormatDate(arguments));
+    }
+
+    // --- parseDate ----------------------------------------------------------------------------
+
+    private static object ParseDate(Arguments arguments)
+    {
+        var input = Str(arguments, 0);
+        var format = Hash(arguments, "format");
+        const DateTimeStyles styles = DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal;
+
+        if (format is not null)
+        {
+            if (DateTimeOffset.TryParseExact(
+                    input, TranslateFormat(format), CultureInfo.InvariantCulture, styles, out var exact))
+            {
+                return exact;
+            }
+        }
+        else if (DateTimeOffset.TryParse(input, CultureInfo.InvariantCulture, styles, out var parsed))
+        {
+            return parsed;
+        }
+
+        // WireMock falls back to the current time on an unparseable date — racy, so never asserted.
+        return DateTimeOffset.UtcNow;
+    }
+
+    // --- date ---------------------------------------------------------------------------------
+
+    private static object FormatDate(Arguments arguments)
+    {
+        // A non-date argument (e.g. a bare string) makes WireMock fall back to now — racy, not asserted.
+        var instant = arguments.Length > 0 && arguments[0] is DateTimeOffset value ? value : DateTimeOffset.UtcNow;
+
+        var offset = Hash(arguments, "offset");
+        if (offset is not null)
+        {
+            instant = ApplyOffset(instant, offset);
+        }
+
+        // The timezone= option is intentionally ignored: the oracle applies no shift to a parsed
+        // instant (verified for Australia/Sydney and America/New_York). See the parity notes.
+        return Render(instant, Hash(arguments, "format"));
+    }
+
+    private static readonly Regex OffsetPattern = new(@"^\s*(-?\d+)\s+([A-Za-z]+)\s*$", RegexOptions.Compiled);
+
+    private static DateTimeOffset ApplyOffset(DateTimeOffset instant, string offset)
+    {
+        var match = OffsetPattern.Match(offset);
+        if (!match.Success || !int.TryParse(match.Groups[1].Value, out var amount))
+        {
+            return instant;
+        }
+
+        // WireMock's DateTimeUnit enum is plural (a singular unit throws on the oracle side).
+        return match.Groups[2].Value.ToLowerInvariant() switch
+        {
+            "seconds" => instant.AddSeconds(amount),
+            "minutes" => instant.AddMinutes(amount),
+            "hours" => instant.AddHours(amount),
+            "days" => instant.AddDays(amount),
+            "months" => instant.AddMonths(amount),
+            "years" => instant.AddYears(amount),
+            _ => instant,
+        };
+    }
+
+    private static string Render(DateTimeOffset instant, string? format) => format switch
+    {
+        null => instant.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture),
+        "epoch" => instant.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture),
+        "unix" => instant.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture),
+        _ => instant.ToString(TranslateFormat(format), CultureInfo.InvariantCulture),
+    };
+
+    // --- Java SimpleDateFormat -> .NET custom format ------------------------------------------
+
+    // Most letters are shared (y M d H h m s), so only the ones that differ are rewritten:
+    // E -> day name, a -> AM/PM, S -> fractional second. Unsupported letters (zone, era, week…) are
+    // emitted literally so the format never throws; those patterns are the deferred surface.
+    private static string TranslateFormat(string javaPattern)
+    {
+        var sb = new StringBuilder(javaPattern.Length);
+        var i = 0;
+        while (i < javaPattern.Length)
+        {
+            var c = javaPattern[i];
+            if (!char.IsLetter(c))
+            {
+                sb.Append(c);
+                i++;
+                continue;
+            }
+
+            var run = 1;
+            while (i + run < javaPattern.Length && javaPattern[i + run] == c)
+            {
+                run++;
+            }
+
+            switch (c)
+            {
+                case 'E':
+                    sb.Append(run >= 4 ? "dddd" : "ddd");
+                    break;
+                case 'a':
+                    sb.Append("tt");
+                    break;
+                case 'S':
+                    sb.Append('f', run);
+                    break;
+                case 'y' or 'M' or 'd' or 'H' or 'h' or 'm' or 's':
+                    sb.Append(c, run);
+                    break;
+                default:
+                    // Unsupported pattern letter: emit each occurrence as an escaped literal.
+                    for (var n = 0; n < run; n++)
+                    {
+                        sb.Append('\\').Append(c);
+                    }
+
+                    break;
+            }
+
+            i += run;
+        }
+
+        return sb.ToString();
+    }
+
+    // --- shared -------------------------------------------------------------------------------
+
+    private static string Str(Arguments arguments, int index) =>
+        index < arguments.Length && arguments[index] is { } value ? value.ToString() ?? string.Empty : string.Empty;
+
+    private static string? Hash(Arguments arguments, string key) =>
+        arguments.Hash is { } hash && hash.TryGetValue(key, out var value) ? value?.ToString() : null;
+}

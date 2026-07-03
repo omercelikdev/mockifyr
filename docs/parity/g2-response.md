@@ -89,3 +89,30 @@ oracle (`wiremock/wiremock:3.10.0`). See [README](README.md) for the format.
   - **`jsonPath` on a container that nests objects inside arrays** (only scalar-array and
     flat/array-valued objects are pinned).
 - **Regression case:** `G2StaticResponseTests.Templating_DataHelpers`.
+
+### Date helpers (G2d)
+
+- **Group / item:** G2d — validated against the oracle over **fixed** input instants (so the diff is
+  clock-independent; `now`-based rendering is racy against a second clock and is excluded).
+- **Helpers:** `parseDate` (string → instant) composed into `date` (instant → string), the WireMock
+  form `{{date (parseDate '…') …}}`. Handlebars.Net passes the parsed value through the subexpression
+  as a real object, so the composition needs no stringify/re-parse.
+- **`parseDate`** reads **ISO-8601** by default (`2021-05-15T10:30:00Z`), or a **Java
+  `SimpleDateFormat`** input pattern via `format=` (`parseDate '15/05/2021' format='dd/MM/yyyy'`).
+- **`date` format pattern is Java `SimpleDateFormat`.** Most letters are shared with .NET
+  (`y M d H h m s`) but three differ and are rewritten: `E`→day name (`ddd`/`dddd`), `a`→AM/PM
+  (`tt`), `S`→fractional second (`f`). Verified: `EEE, dd MMM yyyy HH:mm:ss` → `Sat, 15 May 2021
+  10:30:00`; `hh:mm a` → `10:30 PM`; `…ss.SSS` → `….000`. Names use the invariant (English) culture.
+- **Default format** (no `format=`) renders ISO-8601 UTC with a literal `Z`: `2021-05-15T10:30:00Z`.
+- **`format='epoch'`** → **milliseconds** since the epoch; **`format='unix'`** → **seconds**.
+- **`offset=`** is `"<n> <unit>"` where **unit is plural** — `seconds`/`minutes`/`hours`/`days`/
+  `months`/`years`, forwards or backwards (`-1 hours`). A **singular** unit throws on the oracle
+  (`No enum constant DateTimeUnit.DAY`), so only plural is supported.
+- **`timezone=` is ignored on a parsed instant.** The oracle applies **no shift** for
+  `Australia/Sydney` or `America/New_York` (a parsed instant is already absolute); we match by
+  ignoring the option, pinned by the `date-timezone-ignored` case.
+- **Deferred (racy / documented, no oracle claim):** the `now` helper and any `now`-relative
+  rendering; the **unparseable-date fallback** (WireMock falls back to *now*); Java pattern letters
+  outside the shared/rewritten set (zone `Z`/`X`, era `G`, week/day-of-year…), which are emitted as
+  literals rather than throwing.
+- **Regression case:** `G2StaticResponseTests.Templating_DateHelpers`.

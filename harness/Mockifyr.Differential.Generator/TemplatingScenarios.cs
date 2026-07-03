@@ -175,6 +175,65 @@ public static class TemplatingScenarios
         Body = Encoding.UTF8.GetBytes(body),
     };
 
+    /// <summary>
+    /// G2d date/time helpers: <c>parseDate</c> + <c>date</c>. Every case parses a <em>fixed</em>
+    /// instant (so the output is deterministic and clock-independent) and renders it through the
+    /// oracle for a byte diff. The clock-dependent surface (<c>now</c>, unparseable-date fallback)
+    /// is deliberately excluded — it is racy against a second clock.
+    /// </summary>
+    public static IEnumerable<MatcherScenario> DateHelpers()
+    {
+        // Format patterns (shared Java/.NET letters) plus the default ISO-8601 rendering.
+        yield return Get(
+            "date-format", "/df",
+            "d={{date (parseDate '2021-05-15T10:30:00Z') format='yyyy-MM-dd'}}|" +
+            "t={{date (parseDate '2021-05-15T10:30:00Z') format='HH:mm:ss'}}|" +
+            "def={{date (parseDate '2021-05-15T10:30:00Z')}}",
+            unmatchedUrl: "/nope-date");
+
+        // offset= across every supported (plural) unit, forwards and backwards.
+        yield return Get(
+            "date-offset", "/dof",
+            "dd={{date (parseDate '2021-05-15T10:30:00Z') offset='3 days' format='yyyy-MM-dd'}}|" +
+            "hh={{date (parseDate '2021-05-15T10:30:00Z') offset='-1 hours' format='HH:mm'}}|" +
+            "mo={{date (parseDate '2021-05-15T10:30:00Z') offset='2 months' format='yyyy-MM-dd'}}|" +
+            "yy={{date (parseDate '2021-05-15T10:30:00Z') offset='1 years' format='yyyy-MM-dd'}}|" +
+            "mi={{date (parseDate '2021-05-15T10:30:00Z') offset='90 minutes' format='HH:mm'}}|" +
+            "se={{date (parseDate '2021-05-15T10:30:00Z') offset='-30 seconds' format='HH:mm:ss'}}");
+
+        // Java SimpleDateFormat letters that differ from .NET: E (day name), a (AM/PM), S (millis).
+        yield return Get(
+            "date-java-patterns", "/djp",
+            "rfc={{date (parseDate '2021-05-15T10:30:00Z') format='EEE, dd MMM yyyy HH:mm:ss'}}|" +
+            "ap={{date (parseDate '2021-05-15T22:30:00Z') format='hh:mm a'}}|" +
+            "ms={{date (parseDate '2021-05-15T10:30:00Z') format='yyyy-MM-dd HH:mm:ss.SSS'}}");
+
+        // The special epoch (milliseconds) and unix (seconds) format tokens.
+        yield return Get(
+            "date-epoch-unix", "/deu",
+            "epoch={{date (parseDate '2021-05-15T10:30:00Z') format='epoch'}}|" +
+            "unix={{date (parseDate '2021-05-15T10:30:00Z') format='unix'}}");
+
+        // parseDate with an explicit (non-ISO) input format.
+        yield return Get(
+            "date-parse-custom", "/dpc",
+            "custom={{date (parseDate '15/05/2021' format='dd/MM/yyyy') format='yyyy-MM-dd'}}");
+
+        // timezone= is ignored on a parsed instant (oracle applies no shift) — pin that.
+        yield return Get(
+            "date-timezone-ignored", "/dtz",
+            "utc={{date (parseDate '2021-05-15T10:30:00Z') format='HH:mm'}}|" +
+            "syd={{date (parseDate '2021-05-15T10:30:00Z') timezone='Australia/Sydney' format='HH:mm'}}");
+    }
+
+    private static MatcherScenario Get(string description, string url, string body, string? unmatchedUrl = null) =>
+        Build(
+            description,
+            new Dictionary<string, object> { ["method"] = "GET", ["urlPath"] = url },
+            Templated(body),
+            new RequestSpec { Method = "GET", Url = url },
+            unmatchedUrl);
+
     private static MatcherScenario Build(
         string description,
         Dictionary<string, object> requestPattern,

@@ -70,7 +70,11 @@ Detailed rationale and per-group contents:
     (whole-match, capture-group variable, `default=` / error string), `formData` (first value +
     `urlDecode`), `parseJson` (navigable variable), validated against the oracle. Multi-value
     `formData` indexing and the `parseJson` block form are deferred. See docs/parity/g2-response.md
-  - [ ] G2d date helpers
+  - [x] G2d date helpers — `parseDate` (ISO-8601 + Java `SimpleDateFormat` input) composed into
+    `date` (Java format patterns incl. `E`/`a`/`S` translation, `epoch`/`unix`, default ISO, plural
+    `offset=` units), validated against the oracle over fixed instants. `now`/now-relative and the
+    unparseable-date fallback are racy and deferred; `timezone=` is ignored on a parsed instant to
+    match the oracle. See docs/parity/g2-response.md
   - [ ] G2e random helpers
   - [ ] G2f json manipulation helpers
   - [ ] G2g format/math/array helpers
