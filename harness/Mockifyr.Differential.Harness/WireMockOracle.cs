@@ -39,6 +39,12 @@ public sealed class WireMockOracle : IAsyncDisposable
     /// <summary>Starts the oracle container.</summary>
     public Task StartAsync() => _container.StartAsync();
 
+    /// <summary>A fresh HTTP client bound to the oracle, for driving its admin API directly (G7b).</summary>
+    public HttpClient CreateAdminClient() => new()
+    {
+        BaseAddress = new Uri($"http://{_container.Hostname}:{_container.GetMappedPublicPort(WireMockPort)}"),
+    };
+
     /// <summary>Clears all stubs and the request journal.</summary>
     public async Task ResetAsync()
     {

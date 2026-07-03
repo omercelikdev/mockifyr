@@ -121,13 +121,16 @@ Detailed rationale and per-group contents:
   `/__admin/requests*` (counts, not the volatile-field-heavy JSON). Near-miss ranking by ascending
   match distance validated as pure logic. Cross-engine near-miss identity deferred. See
   docs/parity/g6-verify.md
-- [ ] **G7** Admin API (full) + first-class stub metadata
+- [x] **G7** Admin API (full) + first-class stub metadata
   - [x] G7a Application/CQRS + metadata — the `Mockifyr.Application` management path (Mediant 1.0.0):
     Create/Delete/Import/Reset stub commands + GetStubs/GetStub/CountRequests/FindUnmatched queries,
     `Result<T>` pattern, dispatched via `ISender`. `AddMockifyr` composes shared stores + engine +
     handlers, so the management path and serving hot path share state. Adapter now parses stub
     `id`/`uuid` and `metadata`. Validated in-process. See docs/parity/g7-admin.md
-  - [ ] G7b Admin HTTP facade (`/__admin/*`) + test-host semantic differential
+  - [x] G7b Admin HTTP facade — `Mockifyr.Facade.Admin` maps `/__admin/*` (mappings CRUD/import/reset,
+    requests/count) to `ISender`; validated over HTTP via a `WebApplicationFactory` test host by
+    comparing the status-code + mapping-count observation sequence to the oracle (201/200/404/422 all
+    match). Mock-serving-over-HTTP + `/__admin/scenarios*` deferred to G12. See docs/parity/g7-admin.md
 - [ ] **G8** Proxying
 - [ ] **G9** Record & Playback
 - [ ] **G10** Extensibility (public — 7 extension types)

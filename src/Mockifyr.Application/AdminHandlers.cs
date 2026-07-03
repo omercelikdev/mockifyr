@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Text.Json;
 using Mediant.Abstractions;
 using Mediant.Results;
 using Mockifyr.Adapters.WireMockJson;
@@ -14,7 +15,16 @@ public sealed class CreateStubHandler(IStubStore store) : ICommandHandler<Create
 {
     public ValueTask<Result<Guid>> Handle(CreateStubCommand command, CancellationToken cancellationToken)
     {
-        var stubs = WireMockMappingReader.Read(command.WireMockJson, command.Tenant);
+        IReadOnlyList<StubMapping> stubs;
+        try
+        {
+            stubs = WireMockMappingReader.Read(command.WireMockJson, command.Tenant);
+        }
+        catch (JsonException)
+        {
+            return ValueTask.FromResult<Result<Guid>>(Error.Validation("Stub.Invalid", "The stub JSON is malformed."));
+        }
+
         if (stubs.Count == 0)
         {
             return ValueTask.FromResult<Result<Guid>>(Error.Validation("Stub.Invalid", "No stub could be read from the JSON."));
@@ -40,7 +50,16 @@ public sealed class ImportMappingsHandler(IStubStore store) : ICommandHandler<Im
 {
     public ValueTask<Result<int>> Handle(ImportMappingsCommand command, CancellationToken cancellationToken)
     {
-        var stubs = WireMockMappingReader.Read(command.WireMockJson, command.Tenant);
+        IReadOnlyList<StubMapping> stubs;
+        try
+        {
+            stubs = WireMockMappingReader.Read(command.WireMockJson, command.Tenant);
+        }
+        catch (JsonException)
+        {
+            return ValueTask.FromResult<Result<int>>(Error.Validation("Mappings.Invalid", "The mappings JSON is malformed."));
+        }
+
         foreach (var stub in stubs)
         {
             store.Put(stub);
