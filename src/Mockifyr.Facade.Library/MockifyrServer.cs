@@ -1,5 +1,6 @@
 using Mockifyr.Adapters.WireMockJson;
 using Mockifyr.Core;
+using Mockifyr.ServeEvents.Webhook;
 using Mockifyr.Stores.InMemory;
 using Mockifyr.Templating;
 
@@ -17,14 +18,18 @@ public sealed class MockifyrServer
     private readonly StubEngine _engine;
 
     /// <summary>Creates a server with the default in-memory composition.</summary>
-    public MockifyrServer()
+    /// <param name="webhookClient">
+    /// Optional <see cref="HttpClient"/> for the webhook listener's outbound calls (the differential
+    /// harness injects one; production uses the default).
+    /// </param>
+    public MockifyrServer(HttpClient? webhookClient = null)
     {
         _engine = new StubEngine(
             _stubStore,
             new TemplatingResponseRenderer(),
             new InMemoryScenarioStateStore(),
             new InMemoryRequestJournal(),
-            serveEventListeners: []);
+            serveEventListeners: [new WebhookServeEventListener(webhookClient)]);
     }
 
     /// <summary>Imports WireMock stub mapping JSON into the given tenant (defaults to the default tenant).</summary>

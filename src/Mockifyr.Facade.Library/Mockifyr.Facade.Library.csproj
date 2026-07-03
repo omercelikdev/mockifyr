@@ -6,6 +6,7 @@
     <ProjectReference Include="..\Mockifyr.Matching\Mockifyr.Matching.csproj" />
     <ProjectReference Include="..\Mockifyr.Templating\Mockifyr.Templating.csproj" />
     <ProjectReference Include="..\Mockifyr.Adapters.WireMockJson\Mockifyr.Adapters.WireMockJson.csproj" />
+    <ProjectReference Include="..\Mockifyr.ServeEvents.Webhook\Mockifyr.ServeEvents.Webhook.csproj" />
   </ItemGroup>
 
 </Project>

@@ -45,7 +45,75 @@ public static class WireMockMappingReader
             Priority = mapping.TryGetProperty("priority", out var p) && p.TryGetInt32(out var pri) ? pri : 5,
             Request = ReadRequest(request),
             Response = ReadResponse(response),
+            Webhooks = ReadWebhooks(mapping),
         };
+    }
+
+    /// <summary>
+    /// Reads <c>postServeActions</c> webhook actions: <c>[{ "name": "webhook", "parameters": {
+    /// "method", "url", "headers", "body" } }]</c>. Non-webhook actions are ignored.
+    /// </summary>
+    private static IReadOnlyList<WebhookDefinition> ReadWebhooks(JsonElement mapping)
+    {
+        if (mapping.ValueKind != JsonValueKind.Object ||
+            !mapping.TryGetProperty("postServeActions", out var actions) ||
+            actions.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        var webhooks = new List<WebhookDefinition>();
+        foreach (var action in actions.EnumerateArray())
+        {
+            if (action.ValueKind != JsonValueKind.Object ||
+                !action.TryGetProperty("name", out var name) || name.ValueKind != JsonValueKind.String ||
+                !string.Equals(name.GetString(), "webhook", StringComparison.OrdinalIgnoreCase) ||
+                !action.TryGetProperty("parameters", out var parameters) ||
+                parameters.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            var method = parameters.TryGetProperty("method", out var m) && m.ValueKind == JsonValueKind.String
+                ? m.GetString()!
+                : "GET";
+            var url = parameters.TryGetProperty("url", out var u) && u.ValueKind == JsonValueKind.String
+                ? u.GetString()!
+                : string.Empty;
+
+            var headers = new List<KeyValuePair<string, string>>();
+            if (parameters.TryGetProperty("headers", out var h) && h.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var header in h.EnumerateObject())
+                {
+                    if (header.Value.ValueKind == JsonValueKind.Array)
+                    {
+                        headers.AddRange(header.Value.EnumerateArray()
+                            .Select(v => new KeyValuePair<string, string>(header.Name, v.GetString() ?? string.Empty)));
+                    }
+                    else
+                    {
+                        headers.Add(new(header.Name, header.Value.GetString() ?? string.Empty));
+                    }
+                }
+            }
+
+            // WireMock supports `body` (string) and `base64Body` (bytes) for the webhook payload.
+            byte[]? body = null;
+            if (parameters.TryGetProperty("body", out var b) && b.ValueKind == JsonValueKind.String)
+            {
+                body = Encoding.UTF8.GetBytes(b.GetString()!);
+            }
+            else if (parameters.TryGetProperty("base64Body", out var b64) && b64.ValueKind == JsonValueKind.String &&
+                     TryFromBase64(b64.GetString()!, out var decoded))
+            {
+                body = decoded;
+            }
+
+            webhooks.Add(new WebhookDefinition { Method = method, Url = url, Headers = headers, Body = body });
+        }
+
+        return webhooks;
     }
 
     private static RequestPattern ReadRequest(JsonElement request)
