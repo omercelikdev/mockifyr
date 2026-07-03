@@ -49,11 +49,24 @@ JSON, drive it through the Java WireMock oracle and Mockifyr, assert the diff) �
   container now has `WithExtraHost("host.docker.internal","host-gateway")` for Linux CI), Mockifyr via
   `127.0.0.1`; the mapping's `__WEBHOOK_HOST__` token is rewritten per side, and only declared headers
   (+ method/path/body) are diffed (auto transport headers differ per client).
+- **G3b** templated webhook + originalRequest — done. The webhook `url`/`headers`/`body` are
+  Handlebars-templated against `originalRequest` (automatic, no transformer flag), reusing the
+  templating engine via the shared `HandlebarsFactory`/`RequestModel` and the Core
+  `IServeEventTemplateRenderer` seam. Sub-event journaling deferred to G6/G7.
 
-**Next item: G3b** (templated webhook + originalRequest correlation + sub-events) — the last item of
-Phase A. Reuse the G3a webhook harness; add response templating to the webhook `url`/`headers`/`body`
-(the `TemplatingResponseRenderer`/helpers already exist), the `originalRequest` model exposed to the
-webhook template, and sub-event recording on the `ServeEvent`.
+## 🏁 Phase A is complete (G0–G3): a proven, working core.
+
+Matching (G1, all matchers), Response + templating (G2, all helper families), and Webhook
+(G3a static + G3b templated) are each differentially validated against the oracle. 58 differential
+tests, all green.
+
+**Next item: G4 — Delay + fault injection** (first item of Phase B). WireMock response `fixedDelay`/
+`delayDistribution` and `fault` (e.g. `EMPTY_RESPONSE`, `MALFORMED_RESPONSE_CHUNK`,
+`CONNECTION_RESET_BY_PEER`). These are **transport/timing** behaviors — the engine emits a delay/fault
+*directive* (like it does for webhooks) and the facade applies it; the pure core does not sleep or
+touch sockets. Probe the oracle first: some faults may be hard to observe through the current
+in-process harness (which drives the engine, not a socket) — expect to validate the directive and
+defer socket-level fault emission to the HTTP facade (G12), documenting what's diffable now.
 
 ## 4. Gotchas learned (save yourself the time)
 

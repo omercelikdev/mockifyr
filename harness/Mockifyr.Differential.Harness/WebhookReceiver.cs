@@ -88,7 +88,8 @@ public sealed class WebhookReceiver : IDisposable
 
             lock (_gate)
             {
-                _captured.Add(new CapturedWebhook(request.HttpMethod, request.Url?.AbsolutePath ?? "/", headers, body));
+                // PathAndQuery (not AbsolutePath) so a templated URL query string is compared too.
+                _captured.Add(new CapturedWebhook(request.HttpMethod, request.Url?.PathAndQuery ?? "/", headers, body));
             }
 
             context.Response.StatusCode = 200;

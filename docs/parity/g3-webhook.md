@@ -33,6 +33,31 @@ token the harness rewrites per side. Driven by `WebhookScenarios` + `G3WebhookTe
 - **Architecture.** The pure engine only records the `WebhookDefinition` on the matched stub; the
   outbound HTTP call lives in `Mockifyr.ServeEvents.Webhook.WebhookServeEventListener` at the facade
   edge — Core stays I/O-free (see docs/decisions/0001).
-- **Deferred to G3b:** templating of the webhook `url`/`headers`/`body` (e.g. `{{jsonPath
-  request.body '$.id'}}`), `originalRequest` correlation, `delay`, and sub-event recording.
+- **Deferred to G3b:** templating of the webhook `url`/`headers`/`body`, `originalRequest`
+  correlation, `delay`, and sub-event recording.
 - **Regression case:** `G3WebhookTests.Webhook_Delivery`.
+
+## Templated webhook + originalRequest (G3b)
+
+- **Group / item:** G3b — validated against the oracle.
+- **Templating is automatic** for webhook fields — **no `response-template` transformer is needed**
+  on the mapping (verified: a mapping with no `transformers` still rendered the webhook). The **URL**
+  (path **and** query string), **header values**, and **body** are all rendered.
+- **The model root is `originalRequest`** (the triggering request), not `request`. Its sub-structure
+  is identical to the response templating model: `{{originalRequest.method}}`, `url`, `path`,
+  `pathSegments.[n]`, `query.name`, `headers.Name`, `body`, and the built-in helpers work against it
+  (`{{jsonPath originalRequest.body '$.id'}}`). Verified end-to-end: a webhook URL
+  `…/cb/{{jsonPath originalRequest.body '$.id'}}?q={{originalRequest.query.tenant}}`, a header
+  `X-Echo: {{originalRequest.headers.X-In}}`, and a templated body all rendered identically on both
+  sides.
+- **Implementation reuse.** Response templating and webhook templating share one Handlebars engine
+  (`HandlebarsFactory`) and one request-model builder (`RequestModel`); the webhook path only swaps
+  the root key to `originalRequest`. The listener depends on the Core contract
+  `IServeEventTemplateRenderer` (implemented by `WebhookTemplateRenderer` in the templating edge), so
+  outbound I/O stays decoupled from templating.
+- **Harness note.** The receiver captures `Url.PathAndQuery` (not just the path) so a templated URL
+  **query string** is part of the diff.
+- **Deferred:** **sub-event recording** (WireMock records the webhook request/response as correlated
+  sub-events on the serve event) — these are only observable through the admin/verify surface, which
+  arrives with **G6/G7**, so there is nothing to diff yet; and webhook `delay`.
+- **Regression case:** `G3WebhookTests.Webhook_Delivery` (the `webhook[templated]` scenario).

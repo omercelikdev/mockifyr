@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 
 namespace Mockifyr.Differential.Generator;
@@ -48,6 +49,28 @@ public static class WebhookScenarios
             headers: new Dictionary<string, object> { ["X-Trace"] = "abc-123" },
             body: "plain text payload",
             trigger: new RequestSpec { Method = "POST", Url = "/p" });
+
+        // G3b — templated URL (path segment + query), header value, and body against originalRequest.
+        yield return Build(
+            "templated",
+            // urlPath (not url) so the ?tenant=acme query on the trigger still matches.
+            new Dictionary<string, object> { ["method"] = "POST", ["urlPath"] = "/tpl" },
+            method: "POST",
+            path: "/cb/{{jsonPath originalRequest.body '$.id'}}?q={{originalRequest.query.tenant}}",
+            headers: new Dictionary<string, object>
+            {
+                ["Content-Type"] = "application/json",
+                ["X-Echo"] = "{{originalRequest.headers.X-In}}",
+            },
+            body: "id={{jsonPath originalRequest.body '$.id'}} m={{originalRequest.method}} " +
+                  "path={{originalRequest.path}} seg0={{originalRequest.pathSegments.[0]}} raw={{originalRequest.body}}",
+            trigger: new RequestSpec
+            {
+                Method = "POST",
+                Url = "/tpl?tenant=acme",
+                Headers = [new("X-In", "hello")],
+                Body = Encoding.UTF8.GetBytes("{\"id\":42}"),
+            });
     }
 
     private static WebhookScenario Build(

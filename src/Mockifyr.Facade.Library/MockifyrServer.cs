@@ -29,7 +29,7 @@ public sealed class MockifyrServer
             new TemplatingResponseRenderer(),
             new InMemoryScenarioStateStore(),
             new InMemoryRequestJournal(),
-            serveEventListeners: [new WebhookServeEventListener(webhookClient)]);
+            serveEventListeners: [new WebhookServeEventListener(webhookClient, new WebhookTemplateRenderer())]);
     }
 
     /// <summary>Imports WireMock stub mapping JSON into the given tenant (defaults to the default tenant).</summary>

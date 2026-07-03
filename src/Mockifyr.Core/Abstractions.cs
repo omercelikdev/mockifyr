@@ -69,6 +69,18 @@ public interface IServeEventListener
 }
 
 /// <summary>
+/// Renders a template string against a serve event's original (triggering) request — the model
+/// WireMock exposes to webhooks as <c>originalRequest</c> (G3b). The implementation lives in the
+/// templating edge; the webhook listener depends only on this contract, keeping outbound I/O and
+/// templating decoupled.
+/// </summary>
+public interface IServeEventTemplateRenderer
+{
+    /// <summary>Renders <paramref name="template"/> with the original request exposed as <c>originalRequest</c>.</summary>
+    string Render(string template, CanonicalRequest originalRequest);
+}
+
+/// <summary>
 /// Signals that the underlying store changed out-of-band (e.g. an edited file or a DB row) so
 /// the engine can reload its in-memory compiled index. This — not reading the DB on the hot
 /// path — is how "edit directly and have it reflected" is served. See docs/decisions/0006.
