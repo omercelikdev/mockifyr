@@ -46,6 +46,7 @@ public static class WireMockMappingReader
             Request = ReadRequest(request),
             Response = ReadResponse(response),
             Webhooks = ReadWebhooks(mapping),
+            Scenario = ReadScenario(mapping),
         };
     }
 
@@ -114,6 +115,31 @@ public static class WireMockMappingReader
         }
 
         return webhooks;
+    }
+
+    /// <summary>
+    /// Reads a stub's scenario binding: <c>scenarioName</c> plus the optional
+    /// <c>requiredScenarioState</c> (eligibility) and <c>newScenarioState</c> (transition on serve).
+    /// The engine reads/writes the state; the default start state is <c>Started</c>.
+    /// </summary>
+    private static ScenarioBinding? ReadScenario(JsonElement mapping)
+    {
+        if (mapping.ValueKind != JsonValueKind.Object ||
+            !mapping.TryGetProperty("scenarioName", out var name) || name.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
+        return new ScenarioBinding
+        {
+            ScenarioName = name.GetString()!,
+            RequiredState = mapping.TryGetProperty("requiredScenarioState", out var rs) && rs.ValueKind == JsonValueKind.String
+                ? rs.GetString()
+                : null,
+            NewState = mapping.TryGetProperty("newScenarioState", out var ns) && ns.ValueKind == JsonValueKind.String
+                ? ns.GetString()
+                : null,
+        };
     }
 
     private static RequestPattern ReadRequest(JsonElement request)
