@@ -21,7 +21,7 @@ public sealed class MockifyrServer
     {
         _engine = new StubEngine(
             _stubStore,
-            new StaticResponseRenderer(),
+            new TemplatingResponseRenderer(),
             new InMemoryScenarioStateStore(),
             new InMemoryRequestJournal(),
             serveEventListeners: []);

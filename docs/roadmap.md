@@ -60,7 +60,11 @@ Detailed rationale and per-group contents:
   - [x] G2a static response — status, multi-value headers, literal `body`, `jsonBody` (compact),
     `base64Body` (bytes) fuzz-validated. `statusMessage` parsed (not yet diffable); `bodyFileName`
     (needs `__files` + templating → G2b) and gzip (transport) deferred. See docs/parity/g2-response.md
-  - [ ] G2b templating engine (Handlebars.Net + request model + named path vars)
+  - [x] G2b templating engine — Handlebars.Net wired behind the `response-template` transformer;
+    request model (`method`/`url`/`path`/`pathSegments`/`query`/`headers`/`body`), non-escaping
+    output, and templated response headers fuzz-validated. `request.path.<name>` named path vars
+    (dual string/object model) deferred to a focused follow-up; built-in helpers are G2c–G2h. See
+    docs/parity/g2-response.md
   - [ ] G2c data helpers (jsonPath, xPath, regexExtract, formData, parseJson)
   - [ ] G2d date helpers
   - [ ] G2e random helpers

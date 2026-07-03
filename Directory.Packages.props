@@ -14,6 +14,9 @@
          MIT-licensed .NET validator with Draft 6/7/2019-09/2020-12 support. Used only inside
          Mockifyr.Matching. -->
     <PackageVersion Include="JsonSchema.Net" Version="9.2.2" />
+    <!-- Response templating (G2b). Handlebars.Net mirrors WireMock's jknack Handlebars engine.
+         Used only inside Mockifyr.Templating. -->
+    <PackageVersion Include="Handlebars.Net" Version="2.1.6" />
   </ItemGroup>
 
   <ItemGroup Label="Testing / harness">
