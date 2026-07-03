@@ -10,8 +10,9 @@ namespace Mockifyr.Templating;
 /// the request as <c>{{request.method}}</c>, <c>url</c>, <c>path</c>, <c>pathSegments.[n]</c>,
 /// <c>query.name</c>, <c>headers.Name</c>, and <c>body</c>. Escaping is disabled to match WireMock
 /// (raw <c>{{ }}</c> output). The built-in data helpers (<c>jsonPath</c>, <c>xPath</c>,
-/// <c>regexExtract</c>, <c>formData</c>, <c>parseJson</c>) are registered from G2c; further helper
-/// families arrive with G2d–G2h. See docs/parity/g2-response.md.
+/// <c>regexExtract</c>, <c>formData</c>, <c>parseJson</c>) are registered from G2c and the date
+/// helpers (<c>parseDate</c>, <c>date</c>) from G2d; further helper families arrive with G2e–G2h.
+/// See docs/parity/g2-response.md.
 /// </summary>
 public sealed class TemplatingResponseRenderer : IResponseRenderer
 {
@@ -24,6 +25,7 @@ public sealed class TemplatingResponseRenderer : IResponseRenderer
     {
         _handlebars = Handlebars.Create(new HandlebarsConfiguration { TextEncoder = null });
         DataHelpers.Register(_handlebars);
+        DateHelpers.Register(_handlebars);
     }
 
     /// <inheritdoc />
