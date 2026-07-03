@@ -131,7 +131,11 @@ Detailed rationale and per-group contents:
     requests/count) to `ISender`; validated over HTTP via a `WebApplicationFactory` test host by
     comparing the status-code + mapping-count observation sequence to the oracle (201/200/404/422 all
     match). Mock-serving-over-HTTP + `/__admin/scenarios*` deferred to G12. See docs/parity/g7-admin.md
-- [ ] **G8** Proxying
+- [x] **G8** Proxying — `proxyBaseUrl` recorded as a `ProxyDirective`; a facade edge
+  (`ProxyResponder`) forwards the matched request (method + path/query + body + headers) to the
+  upstream and returns its response. Validated differentially: both sides proxy to one shared
+  host-side upstream and the proxied response (status + body + marker header) matches.
+  `additionalProxyRequestHeaders` / URL rewriting deferred. See docs/parity/g8-proxy.md
 - [ ] **G9** Record & Playback
 - [ ] **G10** Extensibility (public — 7 extension types)
 - [ ] **G11** HTTPS/TLS + HTTP/2

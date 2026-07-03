@@ -96,17 +96,22 @@ tests, all green.
   sequence** matches (201/200/404/422). Semantic, not byte-for-byte (per-engine ids). **G7 is
   complete.**
 
-**Next item: G8 — Proxying.** WireMock's `proxyBaseUrl` response: matched requests are forwarded to a
-real upstream and the upstream's response is returned (optionally with additional/removed proxy
-headers, URL prefix, etc.). The model already has a **`ProxyDirective`** on `CanonicalResponse` (like
-delay/fault) and the adapter has a home for it — so the engine records the directive and a **facade**
-performs the outbound call (same shape as the G3 webhook: engine pure, I/O at the edge). Validation
-needs an **upstream** both sides can reach: reuse the G3 `host.docker.internal` + a host-side
-`HttpListener` (like `WebhookReceiver`) as the upstream, and diff the proxied response. Probe the
-oracle: `proxyBaseUrl`, path handling, `additionalProxyRequestHeaders`, and whether the in-process
-harness can drive it (the proxy call is outbound like a webhook, so likely yes). Mock-serving over
-HTTP is still G12, but proxying may be validatable in-process via the library facade applying the
-`ProxyDirective`.
+- **G8** proxying — done. `proxyBaseUrl` → `ProxyDirective`; the facade edge `ProxyResponder`
+  (`Mockifyr.Facade.Library`) forwards the matched request (method + path/query + body + headers, minus
+  `Host`) to the upstream and returns its response. Validated differentially via a shared host-side
+  `UpstreamServer` (`HttpListener`): both sides proxy to it (oracle via `host.docker.internal`,
+  Mockifyr via `127.0.0.1`, `__PROXY_HOST__` rewritten per side) and the proxied response
+  (status + body + the `X-Upstream` marker header) matches. `additionalProxyRequestHeaders` / URL
+  rewriting deferred.
+
+**Next item: G9 — Record & Playback.** WireMock's recorder: with a proxy target set, it captures the
+proxied request/response pairs and **generates stub mappings** from them (`POST /__admin/recordings/
+start` + `/stop`, or `/__admin/recordings/snapshot`), with filters, body-extraction, and
+`transformers`. It builds directly on G8 (proxying) and G7 (the admin API + stub CRUD). Probe the
+oracle's recorder endpoints and the shape of the generated mappings first; decide with the maintainer
+how much of record/playback to validate (the generated-stub shape is a moving target — likely compare
+that a recorded stub, once loaded, *serves the same response* rather than byte-diffing the generated
+JSON). This is a larger, more stateful item — worth a design checkpoint.
 
 ## 4. Gotchas learned (save yourself the time)
 

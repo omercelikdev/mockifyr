@@ -31,6 +31,9 @@ public sealed record VerifyOutcome(
     int OracleUnmatched,
     int MockifyrUnmatched);
 
+/// <summary>The proxied response each side returned for a G8 case.</summary>
+public sealed record ProxyOutcome(HttpResponseSnapshot Oracle, HttpResponseSnapshot Mockifyr);
+
 /// <summary>
 /// Orchestrates differential cases: load the same WireMock JSON into the oracle and Mockifyr,
 /// replay the same request(s), and diff. Reuses a single oracle container across cases; for
@@ -112,6 +115,25 @@ public sealed class DifferentialRunner : IAsyncDisposable
         }
 
         return new VerifyOutcome(counts, await _oracle.UnmatchedCountAsync(), _mockifyr.UnmatchedCount());
+    }
+
+    /// <summary>
+    /// Drives a proxy (G8) case: loads a <c>proxyBaseUrl</c> stub into each side with the upstream
+    /// host rewritten to what that side can reach, sends the request, and returns the proxied
+    /// response each side produced (the oracle forwards over HTTP; Mockifyr via its
+    /// <c>ProxyResponder</c>). The <c>__PROXY_HOST__</c> token is replaced per side.
+    /// </summary>
+    public async Task<ProxyOutcome> RunProxyAsync(UpstreamServer upstream, string stubTemplate, RequestSpec request)
+    {
+        await _oracle.ResetAsync();
+        await _oracle.LoadMappingAsync(stubTemplate.Replace("__PROXY_HOST__", $"host.docker.internal:{upstream.Port}"));
+        var oracle = await _oracle.SendAsync(request);
+
+        var mockifyr = new MockifyrUnderTest();
+        mockifyr.ImportWireMockJson(stubTemplate.Replace("__PROXY_HOST__", $"127.0.0.1:{upstream.Port}"));
+        var mockifyrResponse = await mockifyr.SendWithProxyAsync(request);
+
+        return new ProxyOutcome(oracle, mockifyrResponse);
     }
 
     /// <summary>Replays one request against the currently loaded stub on both sides and diffs.</summary>

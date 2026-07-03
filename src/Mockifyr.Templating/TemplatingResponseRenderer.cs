@@ -41,6 +41,7 @@ public sealed class TemplatingResponseRenderer : IResponseRenderer
                 Body = definition.Body ?? [],
                 Delay = definition.Delay,
                 Fault = definition.Fault,
+                Proxy = definition.Proxy,
             };
         }
 
@@ -63,6 +64,7 @@ public sealed class TemplatingResponseRenderer : IResponseRenderer
             Body = body,
             Delay = definition.Delay,
             Fault = definition.Fault,
+            Proxy = definition.Proxy,
         };
     }
 
