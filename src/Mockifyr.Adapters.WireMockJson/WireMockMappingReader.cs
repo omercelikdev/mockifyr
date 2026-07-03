@@ -533,6 +533,34 @@ public static class WireMockMappingReader
             Headers = headerPairs.ToLookup(x => x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase),
             Body = body,
             Transformers = transformers,
+            Delay = ReadDelay(response),
+            Fault = ReadFault(response),
+        };
+    }
+
+    /// <summary>Reads the <c>fixedDelayMilliseconds</c> response delay (delayDistribution → G4 follow-up).</summary>
+    private static DelayDirective? ReadDelay(JsonElement response) =>
+        response.ValueKind == JsonValueKind.Object &&
+        response.TryGetProperty("fixedDelayMilliseconds", out var d) && d.TryGetInt32(out var ms) && ms > 0
+            ? new DelayDirective(ms)
+            : null;
+
+    /// <summary>Reads the <c>fault</c> directive; the transport facade (G12) emits the socket behavior.</summary>
+    private static FaultDirective? ReadFault(JsonElement response)
+    {
+        if (response.ValueKind != JsonValueKind.Object ||
+            !response.TryGetProperty("fault", out var fault) || fault.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
+        return fault.GetString() switch
+        {
+            "EMPTY_RESPONSE" => new FaultDirective(FaultKind.EmptyResponse),
+            "MALFORMED_RESPONSE_CHUNK" => new FaultDirective(FaultKind.MalformedResponseChunk),
+            "RANDOM_DATA_THEN_CLOSE" => new FaultDirective(FaultKind.RandomDataThenClose),
+            "CONNECTION_RESET_BY_PEER" => new FaultDirective(FaultKind.ConnectionResetByPeer),
+            _ => null,
         };
     }
 }

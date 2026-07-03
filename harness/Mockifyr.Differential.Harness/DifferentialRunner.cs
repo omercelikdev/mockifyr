@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Mockifyr.Differential.Generator;
 
 namespace Mockifyr.Differential.Harness;
@@ -90,6 +91,30 @@ public sealed class DifferentialRunner : IAsyncDisposable
         var mockifyr = _mockifyr.Send(request);
         var diff = ResponseDiffer.Compare(oracle, mockifyr, mockifyr.Headers.Keys);
         return new ProbeOutcome(oracle, mockifyr, diff);
+    }
+
+    /// <summary>
+    /// Like <see cref="ProbeAsync"/> but also measures each side's wall-clock handling time, for
+    /// validating response delays (G4). Only a generous <em>lower</em> bound is asserted by callers —
+    /// a fixed delay can't make a response faster, so it is robust against CI timing variance.
+    /// </summary>
+    public async Task<(ProbeOutcome Outcome, long OracleMs, long MockifyrMs)> ProbeTimedAsync(RequestSpec request)
+    {
+        if (_mockifyr is null)
+        {
+            throw new InvalidOperationException("Call LoadAsync before ProbeTimedAsync.");
+        }
+
+        var oracleTimer = Stopwatch.StartNew();
+        var oracle = await _oracle.SendAsync(request);
+        oracleTimer.Stop();
+
+        var mockifyrTimer = Stopwatch.StartNew();
+        var mockifyr = _mockifyr.Send(request);
+        mockifyrTimer.Stop();
+
+        var diff = ResponseDiffer.Compare(oracle, mockifyr, mockifyr.Headers.Keys);
+        return (new ProbeOutcome(oracle, mockifyr, diff), oracleTimer.ElapsedMilliseconds, mockifyrTimer.ElapsedMilliseconds);
     }
 
     /// <inheritdoc />

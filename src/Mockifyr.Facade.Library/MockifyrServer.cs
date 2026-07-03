@@ -43,6 +43,20 @@ public sealed class MockifyrServer
     }
 
     /// <summary>Handles a request within the given tenant (defaults to the default tenant).</summary>
-    public StubResolution Handle(CanonicalRequest request, TenantId? tenant = null) =>
-        _engine.Handle(tenant ?? TenantId.Default, request);
+    /// <remarks>
+    /// The pure engine only records directives; this facade applies the response <c>delay</c> (G4).
+    /// The <c>fault</c> directive is a socket-level behavior emitted by the HTTP facade (G12), so it
+    /// is carried on the response but not applied in-process here.
+    /// </remarks>
+    public StubResolution Handle(CanonicalRequest request, TenantId? tenant = null)
+    {
+        var resolution = _engine.Handle(tenant ?? TenantId.Default, request);
+
+        if (resolution.Response?.Delay is { Milliseconds: > 0 } delay)
+        {
+            Thread.Sleep(delay.Milliseconds);
+        }
+
+        return resolution;
+    }
 }
