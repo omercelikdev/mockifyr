@@ -226,13 +226,51 @@ public static class TemplatingScenarios
             "syd={{date (parseDate '2021-05-15T10:30:00Z') timezone='Australia/Sydney' format='HH:mm'}}");
     }
 
-    private static MatcherScenario Get(string description, string url, string body, string? unmatchedUrl = null) =>
-        Build(
+    /// <summary>
+    /// G2f JSON-manipulation helpers: <c>jsonArrayAdd</c>, <c>jsonMerge</c>, <c>jsonRemove</c>
+    /// (compact output) and <c>toJson</c> (Jackson-pretty). Each stub echoes the helper output for a
+    /// byte diff against the oracle.
+    /// </summary>
+    public static IEnumerable<MatcherScenario> JsonHelpers()
+    {
+        // jsonArrayAdd: append a parsed item; the object form; maxItems drops from the front.
+        yield return Get(
+            "jsonArrayAdd", "/ja",
+            "add={{jsonArrayAdd '[1,2,3]' '4'}}|" +
+            "obj={{jsonArrayAdd '[1,2]' '{\"k\":9}'}}|" +
+            "cap={{jsonArrayAdd '[1,2,3]' '4' maxItems=3}}",
+            unmatchedUrl: "/nope-json");
+
+        // jsonMerge: B overrides A (A keeps order, new keys appended); deep merge of nested objects.
+        yield return Get(
+            "jsonMerge", "/jm",
+            "flat={{jsonMerge '{\"x\":1,\"z\":0}' '{\"x\":9,\"y\":2}'}}|" +
+            "deep={{jsonMerge '{\"a\":{\"x\":1}}' '{\"a\":{\"y\":2}}'}}");
+
+        // jsonRemove: top-level and nested paths.
+        yield return Get(
+            "jsonRemove", "/jr",
+            "top={{jsonRemove '{\"a\":1,\"b\":2}' '$.b'}}|" +
+            "nested={{jsonRemove '{\"a\":{\"b\":1,\"c\":2}}' '$.a.b'}}");
+
+        // toJson: Jackson-pretty rendering of an object and of an array (spaced `[ 1, 2, 3 ]`).
+        yield return Get(
+            "toJson", "/tj",
+            "obj={{toJson (jsonPath request.body '$.obj')}}|arr={{toJson (jsonPath request.body '$.arr')}}",
+            request: Json("/tj", "{\"obj\":{\"k\":1},\"arr\":[1,2,3]}"));
+    }
+
+    private static MatcherScenario Get(
+        string description, string url, string body, RequestSpec? request = null, string? unmatchedUrl = null)
+    {
+        var matching = request ?? new RequestSpec { Method = "GET", Url = url };
+        return Build(
             description,
-            new Dictionary<string, object> { ["method"] = "GET", ["urlPath"] = url },
+            new Dictionary<string, object> { ["method"] = matching.Method, ["urlPath"] = url },
             Templated(body),
-            new RequestSpec { Method = "GET", Url = url },
+            matching,
             unmatchedUrl);
+    }
 
     private static MatcherScenario Build(
         string description,

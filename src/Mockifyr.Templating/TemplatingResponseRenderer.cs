@@ -11,9 +11,10 @@ namespace Mockifyr.Templating;
 /// <c>query.name</c>, <c>headers.Name</c>, and <c>body</c>. Escaping is disabled to match WireMock
 /// (raw <c>{{ }}</c> output). The built-in data helpers (<c>jsonPath</c>, <c>xPath</c>,
 /// <c>regexExtract</c>, <c>formData</c>, <c>parseJson</c>) are registered from G2c, the date helpers
-/// (<c>parseDate</c>, <c>date</c>) from G2d, and the random helpers (<c>randomValue</c>,
-/// <c>pickRandom</c>, <c>randomInt</c>, <c>randomDecimal</c>) from G2e; further helper families
-/// arrive with G2f–G2h. See docs/parity/g2-response.md.
+/// (<c>parseDate</c>, <c>date</c>) from G2d, the random helpers (<c>randomValue</c>,
+/// <c>pickRandom</c>, <c>randomInt</c>, <c>randomDecimal</c>) from G2e, and the JSON-manipulation
+/// helpers (<c>jsonArrayAdd</c>, <c>jsonMerge</c>, <c>jsonRemove</c>, <c>toJson</c>) from G2f; further
+/// helper families arrive with G2g–G2h. See docs/parity/g2-response.md.
 /// </summary>
 public sealed class TemplatingResponseRenderer : IResponseRenderer
 {
@@ -28,6 +29,7 @@ public sealed class TemplatingResponseRenderer : IResponseRenderer
         DataHelpers.Register(_handlebars);
         DateHelpers.Register(_handlebars);
         RandomHelpers.Register(_handlebars);
+        JsonHelpers.Register(_handlebars);
     }
 
     /// <inheritdoc />
