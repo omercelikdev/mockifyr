@@ -195,6 +195,12 @@ Detailed rationale and per-group contents:
 - [ ] **G14** GraphQL extension
 - [ ] **G15** Message-based/WebSocket + JWT + Faker + multi-domain
 - [ ] **G16** Persistence providers (FileBased/LiteDB/Postgres/Redis) + change-feed reload
+  - [x] G16a File-based persistence — an `IStubPersistence` seam (no-op default) the management-path
+    handlers call; `--root-dir` registers `FileSystemStubPersistence`, writing each stub as an
+    id-stamped WireMock JSON file to the **same** `<root>/mappings` the G12f loader reloads, so
+    create/import/delete/reset survive a restart with stable ids. Durability validated over the admin
+    API; the reloaded stub's served response is diffed against the oracle. Multi-tenant reload, LiteDB
+    (G16b)/Postgres (G16c)/Redis (G16d), and change-feed (G16e) deferred. See docs/parity/g16-persistence.md
 
 ## Post-phase (not now — architecture is ready for it)
 

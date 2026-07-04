@@ -11,15 +11,15 @@ namespace Mockifyr.Application;
 // and the engine's read-only verification queries; Mediant registers them by assembly scan.
 
 /// <summary>Creates a stub and returns its id, or a validation error if the JSON yields none.</summary>
-public sealed class CreateStubHandler(IStubStore store, IMatcherRegistry matchers)
+public sealed class CreateStubHandler(IStubStore store, IMatcherRegistry matchers, IStubPersistence persistence)
     : ICommandHandler<CreateStubCommand, Result<Guid>>
 {
     public ValueTask<Result<Guid>> Handle(CreateStubCommand command, CancellationToken cancellationToken)
     {
-        IReadOnlyList<StubMapping> stubs;
+        IReadOnlyList<(StubMapping Stub, string Source)> stubs;
         try
         {
-            stubs = WireMockMappingReader.Read(command.WireMockJson, command.Tenant, matchers);
+            stubs = WireMockMappingReader.ReadWithSource(command.WireMockJson, command.Tenant, matchers);
         }
         catch (JsonException)
         {
@@ -31,40 +31,44 @@ public sealed class CreateStubHandler(IStubStore store, IMatcherRegistry matcher
             return ValueTask.FromResult<Result<Guid>>(Error.Validation("Stub.Invalid", "No stub could be read from the JSON."));
         }
 
-        store.Put(stubs[0]);
-        return ValueTask.FromResult<Result<Guid>>(stubs[0].Id);
+        store.Put(stubs[0].Stub);
+        persistence.Save(stubs[0].Stub, stubs[0].Source);
+        return ValueTask.FromResult<Result<Guid>>(stubs[0].Stub.Id);
     }
 }
 
 /// <summary>Deletes a stub by id (idempotent — deleting a missing stub still succeeds, like WireMock).</summary>
-public sealed class DeleteStubHandler(IStubStore store) : ICommandHandler<DeleteStubCommand, Result>
+public sealed class DeleteStubHandler(IStubStore store, IStubPersistence persistence)
+    : ICommandHandler<DeleteStubCommand, Result>
 {
     public ValueTask<Result> Handle(DeleteStubCommand command, CancellationToken cancellationToken)
     {
         store.Remove(command.Tenant, command.Id);
+        persistence.Remove(command.Tenant, command.Id);
         return ValueTask.FromResult(Result.Success());
     }
 }
 
 /// <summary>Imports one stub or a bundle of them, returning how many were loaded.</summary>
-public sealed class ImportMappingsHandler(IStubStore store, IMatcherRegistry matchers)
+public sealed class ImportMappingsHandler(IStubStore store, IMatcherRegistry matchers, IStubPersistence persistence)
     : ICommandHandler<ImportMappingsCommand, Result<int>>
 {
     public ValueTask<Result<int>> Handle(ImportMappingsCommand command, CancellationToken cancellationToken)
     {
-        IReadOnlyList<StubMapping> stubs;
+        IReadOnlyList<(StubMapping Stub, string Source)> stubs;
         try
         {
-            stubs = WireMockMappingReader.Read(command.WireMockJson, command.Tenant, matchers);
+            stubs = WireMockMappingReader.ReadWithSource(command.WireMockJson, command.Tenant, matchers);
         }
         catch (JsonException)
         {
             return ValueTask.FromResult<Result<int>>(Error.Validation("Mappings.Invalid", "The mappings JSON is malformed."));
         }
 
-        foreach (var stub in stubs)
+        foreach (var (stub, source) in stubs)
         {
             store.Put(stub);
+            persistence.Save(stub, source);
         }
 
         return ValueTask.FromResult<Result<int>>(stubs.Count);
@@ -72,7 +76,8 @@ public sealed class ImportMappingsHandler(IStubStore store, IMatcherRegistry mat
 }
 
 /// <summary>Removes every stub for the tenant.</summary>
-public sealed class ResetMappingsHandler(IStubStore store) : ICommandHandler<ResetMappingsCommand, Result>
+public sealed class ResetMappingsHandler(IStubStore store, IStubPersistence persistence)
+    : ICommandHandler<ResetMappingsCommand, Result>
 {
     public ValueTask<Result> Handle(ResetMappingsCommand command, CancellationToken cancellationToken)
     {
@@ -81,6 +86,7 @@ public sealed class ResetMappingsHandler(IStubStore store) : ICommandHandler<Res
             store.Remove(command.Tenant, stub.Id);
         }
 
+        persistence.Clear(command.Tenant);
         return ValueTask.FromResult(Result.Success());
     }
 }

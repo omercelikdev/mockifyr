@@ -118,6 +118,37 @@ public interface IMappingsLoader : IExtension
     IReadOnlyList<StubMapping> Load(TenantId tenant);
 }
 
+/// <summary>
+/// Durably persists stub mutations so they survive a restart (G16). The management path calls this
+/// alongside the in-memory store; on startup an <see cref="IMappingsLoader"/> reloads what was saved.
+/// The default is a no-op (<see cref="NullStubPersistence"/>, purely in-memory); a file/db-backed
+/// provider is registered when persistence is configured. Tenant-scoped like the stores.
+/// </summary>
+public interface IStubPersistence : IExtension
+{
+    /// <summary>Persists a stub. <paramref name="mappingJson"/> is its source WireMock JSON (single mapping).</summary>
+    void Save(StubMapping stub, string mappingJson);
+
+    /// <summary>Removes a persisted stub by id.</summary>
+    void Remove(TenantId tenant, Guid id);
+
+    /// <summary>Removes every persisted stub for a tenant.</summary>
+    void Clear(TenantId tenant);
+}
+
+/// <summary>The default no-op persistence: the store is purely in-memory and nothing survives a restart.</summary>
+public sealed class NullStubPersistence : IStubPersistence
+{
+    /// <inheritdoc />
+    public void Save(StubMapping stub, string mappingJson) { }
+
+    /// <inheritdoc />
+    public void Remove(TenantId tenant, Guid id) { }
+
+    /// <inheritdoc />
+    public void Clear(TenantId tenant) { }
+}
+
 /// <summary>Filters or short-circuits requests before matching.</summary>
 public interface IRequestFilter : IExtension
 {
