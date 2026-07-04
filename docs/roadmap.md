@@ -197,8 +197,12 @@ Detailed rationale and per-group contents:
     `DynamicMessage`) + a gRPC HTTP/2 middleware that decodes the call, routes it through the
     **unchanged** `StubEngine` as a POST to `/service/method`, and re-encodes the response. Descriptors
     from `<root-dir>/grpc/*.dsc`. Validated against the **official WireMock gRPC extension** oracle over
-    TLS (a unary `SayHello` reply matches). Streaming, maps/enums/oneofs, status responses, and gRPC
-    admin reset deferred. See docs/parity/g13-grpc.md
+    TLS (a unary `SayHello` reply matches). See docs/parity/g13-grpc.md
+  - [x] G13b Codec expansion — `ProtobufJsonCodec` now covers `enum` (by value name), `map` (as a JSON
+    object ↔ entry messages), and repeated fields (packed + unpacked), driven by the descriptor.
+    Validated against the oracle with a `Describe` call carrying repeated/enum/map in and a packed
+    repeated `int32` out. `oneof`/wrappers, streaming, status responses, and gRPC admin reset deferred.
+    See docs/parity/g13-grpc.md
 - [ ] **G14** GraphQL extension
 - [ ] **G15** Message-based/WebSocket + JWT + Faker + multi-domain
 - [x] **G16** Persistence providers (FileBased/LiteDB/Postgres/Redis) + change-feed reload
