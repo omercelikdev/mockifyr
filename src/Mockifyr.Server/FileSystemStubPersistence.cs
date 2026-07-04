@@ -1,5 +1,3 @@
-using System.Text.Json;
-using System.Text.Json.Nodes;
 using Mockifyr.Core;
 
 namespace Mockifyr.Server;
@@ -20,13 +18,7 @@ public sealed class FileSystemStubPersistence(string mappingsDirectory) : IStubP
     {
         var directory = DirectoryFor(stub.TenantId);
         Directory.CreateDirectory(directory);
-
-        // Stamp the id so a reload keeps it stable (the reader mints a new id when absent).
-        var node = JsonNode.Parse(mappingJson)!.AsObject();
-        node["id"] = stub.Id.ToString();
-        node["uuid"] = stub.Id.ToString();
-
-        File.WriteAllText(FileFor(directory, stub.Id), node.ToJsonString());
+        File.WriteAllText(FileFor(directory, stub.Id), PersistableJson.WithId(mappingJson, stub.Id));
     }
 
     /// <inheritdoc />

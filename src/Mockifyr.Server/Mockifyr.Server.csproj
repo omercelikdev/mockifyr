@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
+    <PackageReference Include="LiteDB" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Mockifyr.Facade.Http\Mockifyr.Facade.Http.csproj" />
     <ProjectReference Include="..\Mockifyr.Facade.Admin\Mockifyr.Facade.Admin.csproj" />
     <ProjectReference Include="..\Mockifyr.Facade.Library\Mockifyr.Facade.Library.csproj" />

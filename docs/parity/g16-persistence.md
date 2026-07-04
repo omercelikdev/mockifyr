@@ -35,3 +35,25 @@ the same seam.
   **change-feed reload (G16e)**, each behind this same seam.
 - **Regression cases:** `G16aPersistenceTests.CreatedStub_SurvivesRestart_AndMatchesOracle`,
   `G16aPersistenceTests.DeletedStub_And_Reset_StayGoneAfterRestart`.
+
+## LiteDB persistence (G16b)
+
+- **Group / item:** G16b — durability validated in-process; reloaded-response parity diffed against the oracle.
+- **Second provider, same seam.** `LiteDbStubPersistence` implements the same `IStubPersistence`
+  contract as the file provider — proving the seam is genuinely multi-provider (retrofit-free, as the
+  architecture intended). Each stub is one document `{ Id, Tenant, Json }` in an embedded single-file
+  [LiteDB](https://www.litedb.org/) database; the stored JSON is id-stamped (shared `PersistableJson`
+  helper) so ids round-trip identically to the file backend. `LiteDbMappingsLoader` is the
+  `IMappingsLoader` counterpart that reloads the tenant's documents on startup.
+- **`--litedb <path>` turns it on.** `MockifyrHost` registers the provider + loader against a shared
+  `LiteDatabase` — created by DI as a singleton so the container disposes it on shutdown (flushing the
+  file before the next process opens it). Storing the raw id-stamped JSON keeps persistence faithful
+  without a domain → JSON serializer, exactly like the file backend.
+- **Validation.** Mirrors G16a over the admin API: create on a host with `--litedb`, shut it down,
+  confirm the db file exists, start a fresh host on the same file, serve the reloaded stub — its
+  response matches the oracle. Delete + reset stay gone after a restart.
+- **Deferred (tracked):** the remaining providers — **Postgres (G16c), Redis (G16d)** — and
+  **change-feed reload (G16e)**, plus the multi-tenant-reload / `persistent:false` items noted under
+  G16a.
+- **Regression cases:** `G16bLiteDbPersistenceTests.CreatedStub_SurvivesRestart_AndMatchesOracle`,
+  `G16bLiteDbPersistenceTests.DeletedStub_And_Reset_StayGoneAfterRestart`.
