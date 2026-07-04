@@ -38,11 +38,29 @@ oracle (`wiremock/wiremock:3.10.0`). See [README](README.md) for the format.
   Handlebars.Net text encoder (`TextEncoder = null`) to match.
 - **Response headers are templated too**, not just the body.
 - **Missing model values render empty** (`{{request.query.none}}` → ``).
-- **Deferred:** `request.path.<name>` **named path variables** from `urlPathTemplate` — WireMock's
-  `request.path` is a rich object (string form + named vars + indexed segments) whose dual nature
-  needs a custom Handlebars.Net member resolver; and the built-in **helpers** (jsonPath, xPath, date,
-  random, etc.), which are their own roadmap items (G2c–G2h).
+- **Deferred:** the built-in **helpers** (jsonPath, xPath, date, random, etc.), which are their own
+  roadmap items (G2c–G2h).
 - **Regression case:** `G2StaticResponseTests.Templating_ResponseTemplate`.
+
+### Named path variables — `request.path.<name>` (backfill)
+
+- **Group / item:** response-templating backfill (deferred from G1b/G2b) — validated against the oracle.
+- **WireMock's `request.path` is a dual model.** Bare (`{{request.path}}`) it renders the full request
+  path; it also exposes members: **named variables** from a matched `urlPathTemplate`
+  (`{{request.path.id}}` for `/users/{id}`) and **zero-based indexed segments**
+  (`{{request.path.[0]}}` → first segment). A missing member renders empty. Confirmed identical on the
+  oracle for multi-var templates, single-var-among-literals, bare path, and indexed access.
+- **Named vars come only from the template.** When a stub matches by a non-template URL matcher
+  (`urlPath`, `urlPattern`, …), `{{request.path.id}}` is empty — but indexed segments still work (they
+  come from the path itself, not the template). Verified against the oracle.
+- **Implementation.** The adapter records the raw `urlPathTemplate` on `RequestPattern`; the engine
+  carries it into `RenderContext`; the renderer extracts variables by aligning template segments with
+  the actual path segments. Handlebars.Net renders any enumerable by listing its items, so a plain
+  dictionary can't be the dual model — a custom `IObjectDescriptorProvider` (`PathModel`) makes the
+  type **non-enumerable** (bare → `ToString`) with a member accessor over `{named vars} ∪ {indexed
+  segments}`; the bracket form `[n]` is normalized to `n`. **Deferred:** named vars in the webhook
+  `originalRequest` model (response-side only for now).
+- **Regression case:** `G2StaticResponseTests.Templating_PathVariables`.
 
 ### Data helpers (G2c)
 

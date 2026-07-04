@@ -203,6 +203,7 @@ public static class WireMockMappingReader
     private static RequestPattern ReadRequest(JsonElement request, IMatcherRegistry? matchers = null)
     {
         IMatcher? url = null;
+        string? urlPathTemplate = null;
         if (request.ValueKind == JsonValueKind.Object)
         {
             if (request.TryGetProperty("url", out var u) && u.ValueKind == JsonValueKind.String)
@@ -223,7 +224,8 @@ public static class WireMockMappingReader
             }
             else if (request.TryGetProperty("urlPathTemplate", out var upt) && upt.ValueKind == JsonValueKind.String)
             {
-                url = new UrlPathTemplateMatcher(upt.GetString()!);
+                urlPathTemplate = upt.GetString()!;
+                url = new UrlPathTemplateMatcher(urlPathTemplate);
             }
         }
 
@@ -242,6 +244,7 @@ public static class WireMockMappingReader
         return new RequestPattern
         {
             Url = url,
+            UrlPathTemplate = urlPathTemplate,
             Method = new MethodMatcher(method),
             Headers = headers,
             Query = ReadNamedMatchers(request, "queryParameters", static (name, vm) => new QueryMatcher(name, vm)),

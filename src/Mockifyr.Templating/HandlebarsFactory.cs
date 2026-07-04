@@ -13,7 +13,10 @@ internal static class HandlebarsFactory
     public static IHandlebars Create(IEnumerable<TemplateHelperExtension>? extraHelpers = null)
     {
         // TextEncoder = null disables HTML escaping, matching WireMock's non-escaping output.
-        var handlebars = Handlebars.Create(new HandlebarsConfiguration { TextEncoder = null });
+        var configuration = new HandlebarsConfiguration { TextEncoder = null };
+        // Teach Handlebars the dual request.path model (bare string + named vars + indexed segments).
+        configuration.ObjectDescriptorProviders.Add(new PathModelDescriptorProvider());
+        var handlebars = Handlebars.Create(configuration);
         DataHelpers.Register(handlebars);
         DateHelpers.Register(handlebars);
         RandomHelpers.Register(handlebars);

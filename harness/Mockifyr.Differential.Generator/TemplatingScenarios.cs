@@ -68,6 +68,38 @@ public static class TemplatingScenarios
     }
 
     /// <summary>
+    /// Named path variables from <c>urlPathTemplate</c>: WireMock's dual <c>request.path</c> renders as
+    /// the full path bare, exposes <c>{{request.path.&lt;name&gt;}}</c> for each template variable, and
+    /// <c>{{request.path.[n]}}</c> for indexed segments. Named vars appear only when the stub matched by
+    /// template; indexed segments always. The harness diffs the rendered body against the oracle.
+    /// </summary>
+    public static IEnumerable<MatcherScenario> PathVariables()
+    {
+        // Multiple named vars + bare path + indexed segments + a missing member (→ empty).
+        yield return Build(
+            "named-vars",
+            new Dictionary<string, object> { ["method"] = "GET", ["urlPathTemplate"] = "/users/{id}/orders/{orderId}" },
+            Templated("p={{request.path}}|id={{request.path.id}}|o={{request.path.orderId}}|" +
+                      "s0={{request.path.[0]}}|s3={{request.path.[3]}}|miss=[{{request.path.zzz}}]"),
+            new RequestSpec { Method = "GET", Url = "/users/7/orders/3" },
+            unmatchedUrl: "/users/7");
+
+        // A single variable adjacent to literal segments.
+        yield return Build(
+            "single-var",
+            new Dictionary<string, object> { ["method"] = "GET", ["urlPathTemplate"] = "/things/{key}/info" },
+            Templated("key={{request.path.key}}|full={{request.path}}"),
+            new RequestSpec { Method = "GET", Url = "/things/abc/info" });
+
+        // Non-template match: no named vars ({{request.path.id}} → empty), but indexed segments work.
+        yield return Build(
+            "non-template-no-vars",
+            new Dictionary<string, object> { ["method"] = "GET", ["urlPath"] = "/plain/path" },
+            Templated("id=[{{request.path.id}}]|s1={{request.path.[1]}}|p={{request.path}}"),
+            new RequestSpec { Method = "GET", Url = "/plain/path" });
+    }
+
+    /// <summary>
     /// G2c built-in data helpers: <c>jsonPath</c>, <c>xPath</c>, <c>regexExtract</c>,
     /// <c>formData</c>, <c>parseJson</c>. Each stub echoes the helper output through the body so the
     /// harness diffs it against the oracle.

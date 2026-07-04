@@ -18,7 +18,7 @@ Detailed rationale and per-group contents:
   - [ ] G1a URL basic (urlEqualTo, urlPathEqualTo, method + ANY)
   - [x] G1b URL advanced — `urlPattern` (anchored full-URL regex), `urlPathPattern` (anchored
     path regex), `urlPathTemplate` (one segment per `{var}`), fuzz-validated. Named path-variable
-    **extraction** is deferred to G2b (only the match decision is observable now)
+    **extraction** (`{{request.path.<name>}}`) landed as a later backfill — see G2b
   - [x] G1c header/query/cookie matchers (+ multi-value) — header/query/**cookie**
     `equalTo`/`contains`/`absent`/`doesNotMatch`/`caseInsensitive` and multi-value
     `hasExactly`/`includes` (real keys, not `havingExactly`/`including`) fuzz-validated. Cookie value
@@ -63,7 +63,8 @@ Detailed rationale and per-group contents:
   - [x] G2b templating engine — Handlebars.Net wired behind the `response-template` transformer;
     request model (`method`/`url`/`path`/`pathSegments`/`query`/`headers`/`body`), non-escaping
     output, and templated response headers fuzz-validated. `request.path.<name>` named path vars
-    (dual string/object model) deferred to a focused follow-up; built-in helpers are G2c–G2h. See
+    (dual string/object model, via a custom Handlebars object descriptor) landed as a backfill and are
+    oracle-validated (`Templating_PathVariables`); built-in helpers are G2c–G2h. See
     docs/parity/g2-response.md
   - [x] G2c data helpers — `jsonPath` (scalar, empty-on-miss, compact array, Jackson-pretty object),
     `xPath` (text/attr/string/count values + XML element serialization), `regexExtract`
