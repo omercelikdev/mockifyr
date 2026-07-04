@@ -93,6 +93,7 @@ src/
   Mockifyr.Facade.Library/       in-process API
   Mockifyr.Facade.Http/          Kestrel mock server, tenant resolution, wire delivery
   Mockifyr.Facade.Admin/         /__admin/* REST (thin: HTTP -> CQRS dispatch)
+  Mockifyr.Facade.Grpc/          gRPC serving (protobuf <-> JSON codec -> engine)
   Mockifyr.Server/               composition root (host, config, CLI)
 harness/
   Mockifyr.Differential.Harness/   Java WireMock (Testcontainers) + canonical diff

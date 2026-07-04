@@ -192,6 +192,13 @@ Detailed rationale and per-group contents:
     loader parses a temp dir, and a real Kestrel host on an ephemeral port serves a disk-loaded stub.
     `--https-port` landed in **G11a** (needs TLS). See docs/parity/g12-transport.md
 - [ ] **G13** gRPC extension
+  - [x] G13a Unary serving — `Mockifyr.Facade.Grpc`: a descriptor-driven `ProtobufJsonCodec`
+    (protobuf ↔ proto3-JSON via `CodedInputStream`/`CodedOutputStream`, since C# has no runtime
+    `DynamicMessage`) + a gRPC HTTP/2 middleware that decodes the call, routes it through the
+    **unchanged** `StubEngine` as a POST to `/service/method`, and re-encodes the response. Descriptors
+    from `<root-dir>/grpc/*.dsc`. Validated against the **official WireMock gRPC extension** oracle over
+    TLS (a unary `SayHello` reply matches). Streaming, maps/enums/oneofs, status responses, and gRPC
+    admin reset deferred. See docs/parity/g13-grpc.md
 - [ ] **G14** GraphQL extension
 - [ ] **G15** Message-based/WebSocket + JWT + Faker + multi-domain
 - [x] **G16** Persistence providers (FileBased/LiteDB/Postgres/Redis) + change-feed reload

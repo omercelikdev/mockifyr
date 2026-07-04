@@ -14,6 +14,10 @@
     <PackageReference Include="Testcontainers.PostgreSql" />
     <!-- Real Redis container for the G16d persistence differential. -->
     <PackageReference Include="Testcontainers.Redis" />
+    <!-- gRPC client + codegen for the G13 differential. -->
+    <PackageReference Include="Grpc.Net.Client" />
+    <PackageReference Include="Google.Protobuf" />
+    <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
   </ItemGroup>
 
   <!-- WebApplicationFactory needs the ASP.NET shared framework in this (non-web) test project. -->
@@ -29,6 +33,13 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+  </ItemGroup>
+
+  <!-- gRPC client codegen from the test proto (G13); the compiled descriptor (greeter.dsc) is a
+       committed fixture, copied to output for mounting into the oracle and Mockifyr's grpc dir. -->
+  <ItemGroup>
+    <Protobuf Include="Protos\greeter.proto" GrpcServices="Client" />
+    <None Include="Protos\greeter.dsc" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

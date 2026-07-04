@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package mockifyr.grpc.test;
+
+option csharp_namespace = "Mockifyr.Grpc.Test";
+
+// A minimal unary service for the gRPC differential (G13a): one request field in, one out.
+service Greeter {
+  rpc SayHello (HelloRequest) returns (HelloReply);
+}
+
+message HelloRequest {
+  string name = 1;
+}
+
+message HelloReply {
+  string message = 1;
+}
