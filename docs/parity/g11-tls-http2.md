@@ -27,3 +27,26 @@ came over TLS. Validated over a real socket against the oracle's own HTTPS liste
 - **Deferred to G11b (explicitly tracked — not a silent gap):** **HTTP/2** (ALPN negotiation over TLS,
   and h2c). Also deferred: a configured (non-self-signed) keystore, and client-certificate/mTLS.
 - **Regression case:** `G11aHttpsTests.Serves_OverTls_MatchingTheOracle`.
+
+## HTTP/2 (G11b)
+
+- **Group / item:** G11b — validated over the wire against the oracle. Closes the **G11** group.
+- **Configuration.** Both Kestrel listeners are set to `Http1AndHttp2`: the TLS listener negotiates
+  h2 via ALPN (HTTP/1.1 still available), and the plaintext listener is h2c-capable — matching
+  WireMock, which enables HTTP/2 on both ports by default.
+- **Validation (h2 over TLS).** An HTTP/2-forcing client (`Version = 2.0`,
+  `VersionPolicy = RequestVersionExact`, so it fails rather than silently downgrading) fetches the
+  same stub from the oracle's `--https-port` listener and Mockifyr's — both **ALPN-negotiate HTTP/2**
+  (`response.Version` == 2.0) and return the same body. Forcing the exact version makes a green
+  assertion a real negotiation, not a 1.1 fallback.
+- **Learned WireMock behavior — plaintext prior-knowledge h2c is nondeterministic.** The oracle's
+  *plaintext* port answers a prior-knowledge h2c request **inconsistently**: sometimes it serves
+  HTTP/2 (`response.Version` == 2.0), sometimes it refuses with the HTTP/2 error `HTTP_1_1_REQUIRED`
+  (0xd) — observed flipping between otherwise-identical runs against `wiremock/wiremock:3.10.0`. So
+  plaintext h2c is **not asserted** as a parity behavior (there is no stable oracle truth to diff
+  against). Mockifyr's plaintext listener is left `Http1AndHttp2` (h2c-capable, deterministic via
+  Kestrel) so it matches WireMock whenever WireMock does serve h2c, and HTTP/1.1 always works. TLS is
+  the deterministic, asserted HTTP/2 path.
+- **Deferred:** a configured (non-self-signed) keystore and client-certificate/mTLS remain out of
+  scope (noted in G11a).
+- **Regression case:** `G11bHttp2Tests.Http2_OverTls_NegotiatedByBothSides`.
