@@ -99,3 +99,24 @@ the same seam.
   store when another writer changes it (multi-instance coherence).
 - **Regression cases:** `G16dRedisPersistenceTests.CreatedStub_SurvivesRestart_AndMatchesOracle`,
   `G16dRedisPersistenceTests.DeletedStub_And_Reset_StayGoneAfterRestart`.
+
+## Change-feed reload (G16e)
+
+- **Group / item:** G16e — multi-instance coherence validated with two live hosts sharing Redis. Closes the **G16** group.
+- **The problem.** With a shared external store, a second instance loads the current state on startup
+  (G16b–d) but does not see *later* changes another instance makes — its in-memory store drifts.
+- **Redis pub/sub reload.** Every `RedisStubPersistence` mutation *announces* on a pub/sub channel
+  (`mockifyr:changes`) — a publish with no subscribers is a cheap no-op, so it is always safe to emit.
+  `--change-feed` opts a host into a `RedisChangeFeedReloader` (an `IHostedService`) that subscribes to
+  the channel and, on any announcement, **reloads** the default tenant from the mappings loaders and
+  reconciles the store: upsert what's persisted first (no empty window where a live request could miss
+  a match), then prune what's gone. So a stub created (or deleted) on one instance is served (or
+  stopped) by the others without a restart.
+- **Validation.** Two live Mockifyr hosts share one `redis:7-alpine` container with `--change-feed`:
+  a create on host A propagates to host B (B starts serving `/cf`), and a delete on A propagates too
+  (B stops serving). Propagation is asynchronous (pub/sub), so the assertions poll within a timeout.
+  Coherence is infrastructure — served-response parity is already oracle-covered (G16d) — so no oracle
+  is needed here.
+- **Deferred (tracked):** a Postgres `LISTEN`/`NOTIFY` change feed (the seam generalizes; Redis is the
+  first transport), and multi-tenant reload (the reloader reconciles the default tenant).
+- **Regression case:** `G16eChangeFeedTests.Mutation_On_One_Instance_Propagates_To_Another`.

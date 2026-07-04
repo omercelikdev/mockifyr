@@ -194,7 +194,7 @@ Detailed rationale and per-group contents:
 - [ ] **G13** gRPC extension
 - [ ] **G14** GraphQL extension
 - [ ] **G15** Message-based/WebSocket + JWT + Faker + multi-domain
-- [ ] **G16** Persistence providers (FileBased/LiteDB/Postgres/Redis) + change-feed reload
+- [x] **G16** Persistence providers (FileBased/LiteDB/Postgres/Redis) + change-feed reload
   - [x] G16a File-based persistence — an `IStubPersistence` seam (no-op default) the management-path
     handlers call; `--root-dir` registers `FileSystemStubPersistence`, writing each stub as an
     id-stamped WireMock JSON file to the **same** `<root>/mappings` the G12f loader reloads, so
@@ -214,7 +214,12 @@ Detailed rationale and per-group contents:
   - [x] G16d Redis persistence — `RedisStubPersistence` + `RedisMappingsLoader` (StackExchange.Redis)
     behind the same seams; each tenant's stubs a Redis hash keyed by id. `--redis <connstr>` turns it
     on. Durability validated against a **real Redis container** (Testcontainers); reloaded response
-    diffed against the oracle. Change-feed (G16e) deferred. See docs/parity/g16-persistence.md
+    diffed against the oracle. See docs/parity/g16-persistence.md
+  - [x] G16e Change-feed reload — every `RedisStubPersistence` mutation announces on a pub/sub channel;
+    `--change-feed` opts a host into a `RedisChangeFeedReloader` (`IHostedService`) that reloads +
+    reconciles its store on any announcement. Multi-instance coherence validated with **two live hosts**
+    sharing Redis (create/delete on one propagates to the other without a restart). Postgres
+    LISTEN/NOTIFY + multi-tenant reload deferred. See docs/parity/g16-persistence.md
 
 ## Post-phase (not now — architecture is ready for it)
 
