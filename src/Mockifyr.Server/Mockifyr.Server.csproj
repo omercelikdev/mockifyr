@@ -3,6 +3,7 @@
   <ItemGroup>
     <PackageReference Include="LiteDB" />
     <PackageReference Include="Npgsql" />
+    <PackageReference Include="StackExchange.Redis" />
   </ItemGroup>
 
   <ItemGroup>

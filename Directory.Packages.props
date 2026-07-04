@@ -23,6 +23,9 @@
     <!-- SQL persistence provider (G16c). Npgsql is the .NET PostgreSQL driver; used only inside
          Mockifyr.Server behind the IStubPersistence seam. -->
     <PackageVersion Include="Npgsql" Version="9.0.5" />
+    <!-- Key-value persistence provider (G16d). StackExchange.Redis is the .NET Redis client; used only
+         inside Mockifyr.Server behind the IStubPersistence seam. -->
+    <PackageVersion Include="StackExchange.Redis" Version="2.13.17" />
   </ItemGroup>
 
   <ItemGroup Label="Testing / harness">
@@ -35,6 +38,8 @@
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.0" />
     <!-- Real PostgreSQL container for the persistence differential (G16c). -->
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.12.0" />
+    <!-- Real Redis container for the persistence differential (G16d). -->
+    <PackageVersion Include="Testcontainers.Redis" Version="4.12.0" />
   </ItemGroup>
 
 </Project>
