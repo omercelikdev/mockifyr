@@ -56,6 +56,12 @@ public static class MockifyrServiceCollectionExtensions
             services.AddSingleton<IResponseTransformer>(transformer);
         }
 
+        // Custom admin API extensions (G12e), served under /__admin/ext/<prefix>/*.
+        foreach (var adminExtension in extensions.AdminApiExtensions)
+        {
+            services.AddSingleton<IAdminApiExtension>(adminExtension);
+        }
+
         services.AddSingleton(sp => new StubEngine(
             sp.GetRequiredService<IStubStore>(),
             sp.GetRequiredService<IResponseRenderer>(),

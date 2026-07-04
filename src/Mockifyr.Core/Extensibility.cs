@@ -75,11 +75,40 @@ public interface IMatcherRegistry
     IMatcher? Resolve(string name);
 }
 
-/// <summary>Adds custom endpoints under <c>/__admin/ext/*</c>.</summary>
+/// <summary>
+/// A request into a custom admin endpoint under <c>/__admin/ext/&lt;prefix&gt;/…</c>. Transport-agnostic:
+/// the facade lowers an HTTP request to this shape so the extension never sees an <c>HttpContext</c>.
+/// </summary>
+/// <param name="Method">The HTTP method (e.g. <c>GET</c>).</param>
+/// <param name="Subpath">The path <em>after</em> the extension's route prefix, leading slash included
+/// (e.g. <c>/status</c>); empty when the prefix itself was requested.</param>
+/// <param name="Query">The raw query string including the leading <c>?</c>, or empty.</param>
+/// <param name="Body">The request body bytes (empty when none).</param>
+public sealed record AdminApiRequest(string Method, string Subpath, string Query, byte[] Body);
+
+/// <summary>A response from a custom admin endpoint.</summary>
+/// <param name="Status">The HTTP status code.</param>
+/// <param name="ContentType">The <c>Content-Type</c> to write.</param>
+/// <param name="Body">The response body bytes.</param>
+public sealed record AdminApiResponse(int Status, string ContentType, byte[] Body)
+{
+    /// <summary>A JSON response (UTF-8, <c>application/json</c>).</summary>
+    public static AdminApiResponse Json(string json, int status = 200) =>
+        new(status, "application/json", System.Text.Encoding.UTF8.GetBytes(json));
+}
+
+/// <summary>
+/// Adds custom endpoints under <c>/__admin/ext/&lt;RoutePrefix&gt;/*</c>. The facade routes any request
+/// whose first path segment under <c>/__admin/ext/</c> equals <see cref="RoutePrefix"/> to
+/// <see cref="HandleAsync"/>; the extension owns everything below that prefix.
+/// </summary>
 public interface IAdminApiExtension : IExtension
 {
-    /// <summary>The route prefix this extension serves.</summary>
+    /// <summary>The route prefix this extension serves (one path segment, no slashes).</summary>
     string RoutePrefix { get; }
+
+    /// <summary>Handles a request addressed to this extension's prefix.</summary>
+    Task<AdminApiResponse> HandleAsync(AdminApiRequest request, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Loads stub mappings from a source (e.g. a mappings directory) into a tenant.</summary>
