@@ -122,3 +122,70 @@ public sealed class FindUnmatchedRequestsHandler(StubEngine engine)
         FindUnmatchedRequestsQuery query, CancellationToken cancellationToken) =>
         ValueTask.FromResult(Result.Success(engine.FindUnmatchedRequests(query.Tenant)));
 }
+
+/// <summary>Projects the tenant's scenarios (from the bound stubs) with their current state.</summary>
+public sealed class GetScenariosHandler(IStubStore store, IScenarioStateStore states)
+    : IQueryHandler<GetScenariosQuery, Result<IReadOnlyList<ScenarioView>>>
+{
+    public ValueTask<Result<IReadOnlyList<ScenarioView>>> Handle(GetScenariosQuery query, CancellationToken cancellationToken)
+    {
+        var scenarios = store.GetStubs(query.Tenant)
+            .Where(stub => stub.Scenario is not null)
+            .GroupBy(stub => stub.Scenario!.ScenarioName)
+            .Select(group => new ScenarioView(
+                group.Key,
+                states.GetState(query.Tenant, group.Key),
+                PossibleStates(group)))
+            .ToList();
+
+        return ValueTask.FromResult(Result.Success<IReadOnlyList<ScenarioView>>(scenarios));
+    }
+
+    // WireMock's default start state plus every state the scenario's stubs require or transition to.
+    private static IReadOnlyList<string> PossibleStates(IEnumerable<StubMapping> stubs)
+    {
+        var states = new HashSet<string>(StringComparer.Ordinal) { "Started" };
+        foreach (var stub in stubs)
+        {
+            if (stub.Scenario!.RequiredState is { } required)
+            {
+                states.Add(required);
+            }
+
+            if (stub.Scenario!.NewState is { } next)
+            {
+                states.Add(next);
+            }
+        }
+
+        return [.. states.OrderBy(s => s, StringComparer.Ordinal)];
+    }
+}
+
+/// <summary>Sets a scenario's state directly.</summary>
+public sealed class SetScenarioStateHandler(IScenarioStateStore states) : ICommandHandler<SetScenarioStateCommand, Result>
+{
+    public ValueTask<Result> Handle(SetScenarioStateCommand command, CancellationToken cancellationToken)
+    {
+        states.SetState(command.Tenant, command.Name, command.State);
+        return ValueTask.FromResult(Result.Success());
+    }
+}
+
+/// <summary>Resets every scenario for the tenant to <c>Started</c>.</summary>
+public sealed class ResetScenariosHandler(IStubStore store, IScenarioStateStore states)
+    : ICommandHandler<ResetScenariosCommand, Result>
+{
+    public ValueTask<Result> Handle(ResetScenariosCommand command, CancellationToken cancellationToken)
+    {
+        foreach (var name in store.GetStubs(command.Tenant)
+                     .Select(stub => stub.Scenario?.ScenarioName)
+                     .Where(name => name is not null)
+                     .Distinct())
+        {
+            states.SetState(command.Tenant, name!, "Started");
+        }
+
+        return ValueTask.FromResult(Result.Success());
+    }
+}
