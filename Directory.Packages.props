@@ -17,6 +17,11 @@
     <!-- Response templating (G2b). Handlebars.Net mirrors WireMock's jknack Handlebars engine.
          Used only inside Mockifyr.Templating. -->
     <PackageVersion Include="Handlebars.Net" Version="2.1.6" />
+    <!-- gRPC facade (G13). Google.Protobuf drives generic protobuf <-> JSON via the descriptor;
+         Grpc.AspNetCore hosts the gRPC endpoint. Used only inside Mockifyr.Facade.Grpc. -->
+    <PackageVersion Include="Google.Protobuf" Version="3.35.1" />
+    <PackageVersion Include="Grpc.AspNetCore" Version="2.80.0" />
+    <PackageVersion Include="Grpc.Tools" Version="2.81.1" />
     <!-- Embedded persistence provider (G16b). LiteDB is a single-file .NET document store; used only
          inside Mockifyr.Server behind the IStubPersistence seam. -->
     <PackageVersion Include="LiteDB" Version="5.0.21" />
@@ -40,6 +45,8 @@
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.12.0" />
     <!-- Real Redis container for the persistence differential (G16d). -->
     <PackageVersion Include="Testcontainers.Redis" Version="4.12.0" />
+    <!-- gRPC client to drive the G13 differential against both sides. -->
+    <PackageVersion Include="Grpc.Net.Client" Version="2.80.0" />
   </ItemGroup>
 
 </Project>

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Configuration;
+using Mockifyr.Facade.Grpc;
 using Microsoft.Extensions.DependencyInjection;
 using Mockifyr.Core;
 using Mockifyr.Facade.Admin;
@@ -35,6 +36,7 @@ public static class MockifyrHost
         // A root-dir registers a directory loader for <root-dir>/mappings, resolved after the matcher
         // registry exists (customMatcher references in files resolve against it).
         var rootDir = builder.Configuration["root-dir"];
+        var grpcEnabled = false;
         if (!string.IsNullOrWhiteSpace(rootDir))
         {
             var mappingsDir = Path.Combine(rootDir, "mappings");
@@ -44,6 +46,22 @@ public static class MockifyrHost
             // A root-dir also makes stub mutations durable (G16a): they persist to the same mappings
             // directory the loader reads on startup. Registered last so it wins over the no-op default.
             builder.Services.AddSingleton<IStubPersistence>(new FileSystemStubPersistence(mappingsDir));
+
+            // gRPC serving (G13): compiled proto descriptors live in <root-dir>/grpc/*.dsc, the same
+            // location WireMock's gRPC extension reads. When present, the gRPC middleware is enabled.
+            var grpcDir = Path.Combine(rootDir, "grpc");
+            if (Directory.Exists(grpcDir))
+            {
+                var descriptorSets = Directory.EnumerateFiles(grpcDir, "*.dsc")
+                    .OrderBy(path => path, StringComparer.Ordinal)
+                    .Select(File.ReadAllBytes)
+                    .ToList();
+                if (descriptorSets.Count > 0)
+                {
+                    builder.Services.AddMockifyrGrpc(descriptorSets);
+                    grpcEnabled = true;
+                }
+            }
         }
 
         // LiteDB persistence (G16b): stubs persist to an embedded single-file database and reload on
@@ -117,6 +135,13 @@ public static class MockifyrHost
         if (httpsPort is null)
         {
             app.Urls.Add($"http://0.0.0.0:{port}");
+        }
+
+        // gRPC serving (G13) runs ahead of the endpoints: application/grpc requests are handled by the
+        // codec+engine, everything else falls through to the admin/mock-serving endpoints.
+        if (grpcEnabled)
+        {
+            app.UseMockifyrGrpc();
         }
 
         app.MapAdminEndpoints();

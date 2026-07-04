@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\Mockifyr.Core\Mockifyr.Core.csproj" />
+    <!-- Descriptor model + wire codec (protobuf <-> JSON) for the gRPC facade (G13). -->
+    <PackageReference Include="Google.Protobuf" />
+  </ItemGroup>
+
+</Project>
