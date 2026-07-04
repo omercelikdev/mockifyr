@@ -78,3 +78,35 @@ behaviors deferred throughout the roadmap are finally implemented and validated.
   dispatching it over HTTP is a small follow-up). Then standalone/deploy + config, then G11.
 - **Regression cases:** `G12cAdminTests.Scenarios_Admin_MatchesTheOracle`,
   `G12cAdminTests.Gzip_MatchesTheOracle`.
+
+## Proxy-over-wire + recording mode (G12d)
+
+- **Group / item:** G12d — validated over HTTP against the oracle.
+- **Outbound edge extraction.** `ProxyResponder`, `StubRecorder`, and the new `RecordingSession` live
+  in a dedicated **`Mockifyr.Outbound`** project (references Core + the WireMock JSON adapter, no
+  transport). Both the library facade (in-process, G8/G9) and the HTTP facade (over the wire, G12d)
+  depend on it — so the wire path reuses the *same* responder/recorder the in-process differentials
+  already proved, and neither facade depends on the other (the architecture's facade→facade ban).
+- **Proxy over the wire.** A `proxyBaseUrl` stub, when matched, forwards the request to the upstream
+  over HTTP and relays the upstream response **verbatim** — status, headers (minus the transport
+  headers Kestrel reframes), and body with no re-encoding (the upstream already set its own
+  `Content-Encoding`; the facade does **not** re-gzip a proxied body). This closes the wire gap G8
+  left open (G8 proved proxying only in-process). Validated by driving the same `proxyBaseUrl` stub
+  over HTTP against both sides (each pointed at the shared upstream by the host it can reach) and
+  diffing status + body + the upstream's `X-Upstream` marker.
+- **Record-through-proxy mode.** WireMock's recording is a stateful *mode* on the server: while a
+  session is live, every incoming request is proxied to the target and a stub generated from the
+  exchange. Modeled with a singleton `RecordingSession` shared between the admin control endpoints and
+  the mock-serving fallback: `POST /__admin/recordings/start` (`{"targetBaseUrl":…}`) begins,
+  `GET /__admin/recordings/status` reports `Recording`/`Stopped`, `POST /__admin/recordings/snapshot`
+  returns the stubs captured so far, and `POST /__admin/recordings/stop` ends and returns the
+  `{"mappings":[…]}` envelope. The recorder *logic* was proven in G9; G12d proves the wire *mode* —
+  the fallback intercepts while recording, and the stubs it generates over HTTP load into the **real
+  oracle** and replay the captured response (status + body + `X-Upstream`).
+- **Deferred to G12e (explicitly tracked — not a silent gap):** `/__admin/ext/*` admin-extension
+  routing (the `IAdminApiExtension` seam is public; dispatching it over HTTP is a small follow-up) and
+  standalone/deploy + config (host config, `--port`/`--https-port`, mappings-dir load). Then G11
+  (HTTPS/TLS + HTTP/2). Recording refinements from WireMock — filters, body-file extraction, and
+  repeat-request → scenario generation — remain deferred (noted on `StubRecorder` since G9).
+- **Regression cases:** `G12dProxyRecordTests.Proxy_OverTheWire_MatchesOracle`,
+  `G12dProxyRecordTests.Record_OverTheWire_GeneratesStubsThatReplayOnOracle`.

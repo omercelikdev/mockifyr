@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mockifyr.Core\Mockifyr.Core.csproj" />
+    <!-- Recording generates WireMock stub JSON from a captured exchange. -->
+    <ProjectReference Include="..\Mockifyr.Adapters.WireMockJson\Mockifyr.Adapters.WireMockJson.csproj" />
+  </ItemGroup>
+
+</Project>

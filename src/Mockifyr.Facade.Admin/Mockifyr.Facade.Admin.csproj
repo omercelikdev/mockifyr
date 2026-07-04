@@ -4,6 +4,8 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\Mockifyr.Core\Mockifyr.Core.csproj" />
     <ProjectReference Include="..\Mockifyr.Application\Mockifyr.Application.csproj" />
+    <!-- Recording control (start/stop/snapshot) manipulates the shared edge RecordingSession. -->
+    <ProjectReference Include="..\Mockifyr.Outbound\Mockifyr.Outbound.csproj" />
   </ItemGroup>
 
 </Project>

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Mockifyr.Application;
 using Mockifyr.Core;
+using Mockifyr.Outbound;
 
 namespace Mockifyr.Facade.Admin;
 
@@ -87,8 +88,35 @@ public static class AdminEndpoints
             return Results.Ok();
         });
 
+        // Record mode (G12d): WireMock's record-through-proxy admin API. While a session is live, the
+        // mock-serving fallback proxies every request to the target and captures a generated stub.
+        admin.MapPost("/recordings/start", async (HttpRequest request, RecordingSession session) =>
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(await ReadBody(request));
+            var target = doc.RootElement.TryGetProperty("targetBaseUrl", out var t) ? t.GetString() : null;
+            if (string.IsNullOrWhiteSpace(target))
+            {
+                return Results.StatusCode(StatusCodes.Status422UnprocessableEntity);
+            }
+
+            session.Start(target);
+            return Results.Ok();
+        });
+
+        admin.MapGet("/recordings/status", (RecordingSession session) =>
+            Results.Json(new { status = session.TargetBaseUrl is null ? "Stopped" : "Recording" }));
+
+        admin.MapPost("/recordings/snapshot", (RecordingSession session) => Mappings(session.Snapshot()));
+
+        admin.MapPost("/recordings/stop", (RecordingSession session) => Mappings(session.Stop()));
+
         return endpoints;
     }
+
+    // WireMock's recording responses return a {"mappings":[…]} envelope of the generated stub JSON. The
+    // captured stubs are already JSON, so they are spliced in raw rather than re-serialized.
+    private static IResult Mappings(IReadOnlyList<string> stubs) =>
+        Results.Content("{\"mappings\":[" + string.Join(",", stubs) + "]}", "application/json");
 
     private static async Task<string> ReadBody(HttpRequest request)
     {

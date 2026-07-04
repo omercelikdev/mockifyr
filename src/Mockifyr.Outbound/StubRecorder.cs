@@ -1,7 +1,7 @@
 using Mockifyr.Adapters.WireMockJson;
 using Mockifyr.Core;
 
-namespace Mockifyr.Facade.Library;
+namespace Mockifyr.Outbound;
 
 /// <summary>A recorded exchange: the generated stub JSON plus the response that was captured.</summary>
 public sealed record RecordedExchange(string StubJson, CanonicalResponse CapturedResponse);

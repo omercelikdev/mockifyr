@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Mockifyr.Core;
+using Mockifyr.Outbound;
 
 namespace Mockifyr.Facade.Http;
 
@@ -30,8 +31,22 @@ public static class MockServingEndpoints
 
     private static async Task ServeAsync(HttpContext context)
     {
-        var engine = context.RequestServices.GetRequiredService<StubEngine>();
         var request = await BuildRequestAsync(context);
+
+        // Record mode (G12d): while a session is live, every incoming request is proxied to the target
+        // upstream, a WireMock stub is generated from the exchange and captured, and the upstream's
+        // response is returned to the caller — the same behavior WireMock's record-through-proxy has.
+        var recording = context.RequestServices.GetRequiredService<RecordingSession>();
+        if (recording.TargetBaseUrl is { } target)
+        {
+            var recorder = context.RequestServices.GetRequiredService<StubRecorder>();
+            var exchange = await recorder.RecordAsync(target, request, context.RequestAborted);
+            recording.Record(exchange.StubJson);
+            await WriteUpstreamAsync(context, exchange.CapturedResponse);
+            return;
+        }
+
+        var engine = context.RequestServices.GetRequiredService<StubEngine>();
         var tenant = context.Request.Headers.TryGetValue(TenantHeader, out var t) && !string.IsNullOrEmpty(t)
             ? new TenantId(t!)
             : TenantId.Default;
@@ -63,6 +78,16 @@ public static class MockServingEndpoints
             return;
         }
 
+        // Proxy directive (G12d): forward the matched request to the upstream over HTTP and stream its
+        // response back verbatim — closing the wire gap left by G8 (proxying was validated in-process).
+        if (response.Proxy is { } proxy)
+        {
+            var responder = context.RequestServices.GetRequiredService<ProxyResponder>();
+            var upstream = await responder.ProxyAsync(proxy, request, context.RequestAborted);
+            await WriteUpstreamAsync(context, upstream);
+            return;
+        }
+
         context.Response.StatusCode = response.Status;
         if (!string.IsNullOrEmpty(response.StatusMessage))
         {
@@ -87,6 +112,24 @@ public static class MockServingEndpoints
         }
 
         await context.Response.Body.WriteAsync(body);
+    }
+
+    // Writes a proxied/recorded upstream response back to the caller verbatim: status, the upstream's
+    // headers (minus the transport headers Kestrel reframes), and the body exactly as received — no
+    // re-encoding, since the upstream already set its own Content-Encoding. This is pass-through,
+    // matching how WireMock relays a proxied response.
+    private static async Task WriteUpstreamAsync(HttpContext context, CanonicalResponse response)
+    {
+        context.Response.StatusCode = response.Status;
+        foreach (var group in response.Headers)
+        {
+            if (!SkipHeaders.Contains(group.Key))
+            {
+                context.Response.Headers.Append(group.Key, group.ToArray());
+            }
+        }
+
+        await context.Response.Body.WriteAsync(response.Body);
     }
 
     private static bool AcceptsGzip(HttpRequest request) =>

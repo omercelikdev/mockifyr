@@ -162,9 +162,14 @@ Detailed rationale and per-group contents:
   - [x] G12c Scenarios admin + gzip — `GET /__admin/scenarios` (state + `possibleStates`), set-state,
     reset; and gzip response encoding when the client accepts it. Validated over HTTP against the
     oracle. See docs/parity/g12-transport.md
-  - [ ] G12d `/__admin/recordings/*` (HTTP recording mode) + `/__admin/ext/*` (admin-extension routing)
-  - Standalone/deploy + config (host config, `--port`, mappings dir load) — final G12 slice
-  - Standalone/deploy + config (host config, `--port`, mappings dir load) — final G12 slice
+  - [x] G12d Proxy-over-wire + `/__admin/recordings/*` (HTTP recording mode) — the outbound edge
+    (`ProxyResponder`/`StubRecorder`/`RecordingSession`) extracted to `Mockifyr.Outbound` (shared by
+    both facades, no facade→facade dep); a `proxyBaseUrl` stub now proxies **over the wire** (closes
+    the G8 wire gap, previously validated only in-process) and record-through-proxy (`start`/`stop`/
+    `status`/`snapshot`) captures generated stubs that replay on the real oracle. Validated over HTTP.
+    See docs/parity/g12-transport.md
+  - [ ] G12e `/__admin/ext/*` (admin-extension routing) + standalone/deploy & config (host config,
+    `--port`/`--https-port`, mappings-dir load) — final G12 slice
 - [ ] **G13** gRPC extension
 - [ ] **G14** GraphQL extension
 - [ ] **G15** Message-based/WebSocket + JWT + Faker + multi-domain
