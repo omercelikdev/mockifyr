@@ -46,6 +46,19 @@ public static class MockifyrHost
             builder.Services.AddSingleton<IStubPersistence>(new FileSystemStubPersistence(mappingsDir));
         }
 
+        // LiteDB persistence (G16b): stubs persist to an embedded single-file database and reload on
+        // startup. The LiteDatabase is a DI-created singleton so the container disposes it on shutdown
+        // (flushing the file before the next process opens it).
+        var liteDbPath = builder.Configuration["litedb"];
+        if (!string.IsNullOrWhiteSpace(liteDbPath))
+        {
+            builder.Services.AddSingleton(_ => new LiteDB.LiteDatabase(liteDbPath));
+            builder.Services.AddSingleton<IStubPersistence>(sp =>
+                new LiteDbStubPersistence(sp.GetRequiredService<LiteDB.LiteDatabase>()));
+            builder.Services.AddSingleton<IMappingsLoader>(sp =>
+                new LiteDbMappingsLoader(sp.GetRequiredService<LiteDB.LiteDatabase>(), sp.GetRequiredService<IMatcherRegistry>()));
+        }
+
         // Port 0 asks Kestrel for an ephemeral port (used by tests).
         var port = builder.Configuration.GetValue("port", DefaultPort);
         var httpsPort = builder.Configuration.GetValue<int?>("https-port");

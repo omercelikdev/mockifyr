@@ -199,8 +199,13 @@ Detailed rationale and per-group contents:
     handlers call; `--root-dir` registers `FileSystemStubPersistence`, writing each stub as an
     id-stamped WireMock JSON file to the **same** `<root>/mappings` the G12f loader reloads, so
     create/import/delete/reset survive a restart with stable ids. Durability validated over the admin
-    API; the reloaded stub's served response is diffed against the oracle. Multi-tenant reload, LiteDB
-    (G16b)/Postgres (G16c)/Redis (G16d), and change-feed (G16e) deferred. See docs/parity/g16-persistence.md
+    API; the reloaded stub's served response is diffed against the oracle. Multi-tenant reload,
+    Postgres (G16c)/Redis (G16d), and change-feed (G16e) deferred. See docs/parity/g16-persistence.md
+  - [x] G16b LiteDB persistence — `LiteDbStubPersistence` + `LiteDbMappingsLoader` behind the same
+    `IStubPersistence`/`IMappingsLoader` seams (proving multi-provider), each stub a document in an
+    embedded single-file db; `--litedb <path>` turns it on (DI-owned `LiteDatabase` singleton).
+    Durability validated over the admin API; reloaded response diffed against the oracle. Postgres
+    (G16c)/Redis (G16d)/change-feed (G16e) deferred. See docs/parity/g16-persistence.md
 
 ## Post-phase (not now — architecture is ready for it)
 
