@@ -35,3 +35,22 @@ ARCHITECTURE.md called for. Validated against the **official WireMock gRPC exten
   scalars, **maps, enums, oneofs**, and the well-known wrapper types in the codec; gRPC **status/error**
   responses and no-match semantics; and gRPC admin reset. Each builds on this codec + middleware.
 - **Regression case:** `G13aGrpcTests.UnaryCall_MatchesTheOracle`.
+
+## Codec expansion — enum / map / repeated (G13b)
+
+- **Group / item:** G13b — validated over the wire against WireMock + its gRPC extension.
+- **More proto3 field kinds.** `ProtobufJsonCodec` now covers, driven by the descriptor:
+  - **`enum`** — decoded to its value *name* (proto3 JSON), encoded from name (or number).
+  - **`map<k,v>`** — a map field is repeated entry messages on the wire; decoded to a JSON object and
+    encoded back to entries. (A decoded entry value is detached from its entry before being placed in
+    the map — a `JsonNode` may have only one parent.)
+  - **repeated** — both **packed** scalar/enum (a single length-delimited run, decoded until the
+    sub-stream ends) and **unpacked** (repeated tags); written unpacked, which every reader accepts.
+- **Validation.** A `Describe` call carries a repeated `string`, an `enum` (`GREEN`), and a
+  `map<string,int32>` in the request, and a repeated (packed) `int32` in the reply. The same stub is
+  served by the oracle and Mockifyr; the decoded replies (`summary`, `codes`) must match — so the
+  request JSON Mockifyr decodes matches the stub's `equalToJson` exactly as the reference extension's
+  does, across all these field kinds.
+- **Deferred (tracked):** `oneof` and the well-known wrapper types in the codec; streaming; gRPC
+  status/error responses; gRPC admin reset.
+- **Regression case:** `G13bGrpcCodecTests.Describe_WithEnumMapRepeated_MatchesTheOracle`.
