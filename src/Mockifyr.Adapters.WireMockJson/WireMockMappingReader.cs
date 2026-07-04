@@ -21,7 +21,16 @@ public static class WireMockMappingReader
     /// Reads one or more mappings (a single object or a <c>{"mappings":[...]}</c> wrapper). A matcher
     /// registry, when supplied, resolves <c>customMatcher</c> references to extension matchers (G10).
     /// </summary>
-    public static IReadOnlyList<StubMapping> Read(string json, TenantId tenant, IMatcherRegistry? matchers = null)
+    public static IReadOnlyList<StubMapping> Read(string json, TenantId tenant, IMatcherRegistry? matchers = null) =>
+        [.. ReadWithSource(json, tenant, matchers).Select(pair => pair.Stub)];
+
+    /// <summary>
+    /// Like <see cref="Read"/> but also returns each mapping's own source JSON (a single mapping, even
+    /// when read from a <c>{"mappings":[…]}</c> bundle). Persistence (G16) uses the source to write the
+    /// stub back to disk faithfully.
+    /// </summary>
+    public static IReadOnlyList<(StubMapping Stub, string Source)> ReadWithSource(
+        string json, TenantId tenant, IMatcherRegistry? matchers = null)
     {
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
@@ -30,10 +39,10 @@ public static class WireMockMappingReader
             root.TryGetProperty("mappings", out var mappings) &&
             mappings.ValueKind == JsonValueKind.Array)
         {
-            return [.. mappings.EnumerateArray().Select(m => ReadOne(m, tenant, matchers))];
+            return [.. mappings.EnumerateArray().Select(m => (ReadOne(m, tenant, matchers), m.GetRawText()))];
         }
 
-        return [ReadOne(root, tenant, matchers)];
+        return [(ReadOne(root, tenant, matchers), root.GetRawText())];
     }
 
     /// <summary>

@@ -29,6 +29,10 @@ public static class MockifyrServiceCollectionExtensions
         services.AddSingleton<IScenarioStateStore, InMemoryScenarioStateStore>();
         services.AddSingleton<IRequestJournal, InMemoryRequestJournal>();
 
+        // Persistence (G16): no-op by default (purely in-memory). A file/db-backed provider is
+        // registered on top (e.g. by MockifyrHost when --root-dir is set) and wins the resolution.
+        services.AddSingleton<IStubPersistence, NullStubPersistence>();
+
         // Custom matcher registry (G10), populated with the user's named matchers.
         var registry = new InMemoryMatcherRegistry();
         foreach (var (name, matcher) in extensions.Matchers)

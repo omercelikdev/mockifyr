@@ -40,6 +40,10 @@ public static class MockifyrHost
             var mappingsDir = Path.Combine(rootDir, "mappings");
             builder.Services.AddSingleton<IMappingsLoader>(sp =>
                 new DirectoryMappingsLoader(mappingsDir, sp.GetRequiredService<IMatcherRegistry>()));
+
+            // A root-dir also makes stub mutations durable (G16a): they persist to the same mappings
+            // directory the loader reads on startup. Registered last so it wins over the no-op default.
+            builder.Services.AddSingleton<IStubPersistence>(new FileSystemStubPersistence(mappingsDir));
         }
 
         // Port 0 asks Kestrel for an ephemeral port (used by tests).
