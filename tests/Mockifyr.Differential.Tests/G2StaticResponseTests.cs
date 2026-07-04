@@ -23,6 +23,9 @@ public sealed class G2StaticResponseTests : IAsyncLifetime
     public Task Templating_ResponseTemplate() => Verify(TemplatingScenarios.ResponseTemplate());
 
     [Fact]
+    public Task Templating_PathVariables() => Verify(TemplatingScenarios.PathVariables());
+
+    [Fact]
     public Task Templating_DataHelpers() => Verify(TemplatingScenarios.DataHelpers());
 
     [Fact]

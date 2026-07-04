@@ -151,6 +151,14 @@ public sealed record RequestPattern
     /// <summary>Matcher for the URL/path.</summary>
     public IMatcher? Url { get; init; }
 
+    /// <summary>
+    /// The raw <c>urlPathTemplate</c> string (e.g. <c>/users/{id}</c>) when the stub matched by URI
+    /// template, else null. Carried so response templating can expose named path variables as
+    /// <c>{{request.path.&lt;name&gt;}}</c> (WireMock parity). The engine records it; extraction happens
+    /// at render time.
+    /// </summary>
+    public string? UrlPathTemplate { get; init; }
+
     /// <summary>Matcher for the HTTP method.</summary>
     public IMatcher? Method { get; init; }
 
@@ -328,4 +336,10 @@ public sealed record RenderContext
 
     /// <summary>The originating request (the <c>originalRequest</c> model), for webhooks.</summary>
     public CanonicalRequest? OriginalRequest { get; init; }
+
+    /// <summary>
+    /// The matched stub's <c>urlPathTemplate</c> (e.g. <c>/users/{id}</c>), when it matched by URI
+    /// template — used to expose <c>{{request.path.&lt;name&gt;}}</c> named path variables.
+    /// </summary>
+    public string? UrlPathTemplate { get; init; }
 }

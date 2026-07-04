@@ -47,7 +47,7 @@ public sealed class TemplatingResponseRenderer : IResponseRenderer
             };
         }
 
-        var model = BuildModel(context.Request);
+        var model = BuildModel(context);
 
         var body = definition.Body is { } raw
             ? Encoding.UTF8.GetBytes(RenderTemplate(Encoding.UTF8.GetString(raw), model))
@@ -73,6 +73,6 @@ public sealed class TemplatingResponseRenderer : IResponseRenderer
 
     private string RenderTemplate(string template, object model) => _handlebars.Compile(template)(model);
 
-    private static Dictionary<string, object?> BuildModel(CanonicalRequest request) =>
-        new() { ["request"] = RequestModel.Build(request) };
+    private static Dictionary<string, object?> BuildModel(RenderContext context) =>
+        new() { ["request"] = RequestModel.Build(context.Request, context.UrlPathTemplate) };
 }
