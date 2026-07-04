@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Mockifyr.Core;
@@ -52,8 +53,15 @@ public static class MockifyrHost
             var certificate = SelfSignedCertificate.Create();
             builder.WebHost.ConfigureKestrel(options =>
             {
-                options.ListenAnyIP(port);
-                options.ListenAnyIP(securePort, listen => listen.UseHttps(certificate));
+                // HTTP/2 (G11b): both listeners speak HTTP/1.1 and HTTP/2 — ALPN-negotiated h2 on TLS,
+                // and prior-knowledge h2c on plaintext — matching WireMock, which serves HTTP/2 on both
+                // its ports by default. See docs/parity/g11-tls-http2.md.
+                options.ListenAnyIP(port, listen => listen.Protocols = HttpProtocols.Http1AndHttp2);
+                options.ListenAnyIP(securePort, listen =>
+                {
+                    listen.Protocols = HttpProtocols.Http1AndHttp2;
+                    listen.UseHttps(certificate);
+                });
             });
         }
 

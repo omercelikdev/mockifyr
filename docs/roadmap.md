@@ -149,12 +149,16 @@ Detailed rationale and per-group contents:
   `ITemplateModelProvider`, `IAdminApiExtension`, `IMappingsLoader`) are wired incrementally.
   Validated in-process (not oracle-differential — custom extensions have no WireMock equivalent). See
   docs/parity/g10-extensibility.md
-- [ ] **G11** HTTPS/TLS + HTTP/2
+- [x] **G11** HTTPS/TLS + HTTP/2
   - [x] G11a HTTPS/TLS serving — `MockifyrHost` binds `--https-port` on Kestrel with an ephemeral
     self-signed cert (`SelfSignedCertificate`), like WireMock's default. Validated over a **real TLS
     connection** against the oracle's own `--https-port` listener (status/body/headers diff). The
     `--https-port` hook deferred from G12f. See docs/parity/g11-tls-http2.md
-  - [ ] G11b HTTP/2 (ALPN over TLS + h2c) + configured keystore / mTLS
+  - [x] G11b HTTP/2 — both Kestrel listeners `Http1AndHttp2`; **h2 over TLS (ALPN)** validated against
+    the oracle (both negotiate `response.Version` == 2.0, matching body). Plaintext prior-knowledge
+    h2c is *not* asserted — the oracle answers it nondeterministically (h2 vs `HTTP_1_1_REQUIRED`); the
+    plaintext listener is left h2c-capable to match. Configured keystore / mTLS deferred. See
+    docs/parity/g11-tls-http2.md
 - [x] **G12** Transport HTTP facade + standalone/deploy + config
   - [x] G12a Mock-serving HTTP facade — `Mockifyr.Facade.Http` fallback (request → engine → wire),
     hosted by `Mockifyr.Server`. Validated **over the wire** against the oracle (status, reason
