@@ -149,7 +149,15 @@ Detailed rationale and per-group contents:
   Validated in-process (not oracle-differential — custom extensions have no WireMock equivalent). See
   docs/parity/g10-extensibility.md
 - [ ] **G11** HTTPS/TLS + HTTP/2
-- [ ] **G12** Standalone/deploy + config
+- [ ] **G12** Transport HTTP facade + standalone/deploy + config
+  - [x] G12a Mock-serving HTTP facade — `Mockifyr.Facade.Http` fallback (request → engine → wire),
+    hosted by `Mockifyr.Server`. Validated **over the wire** against the oracle (status, reason
+    phrase/`statusMessage`, multi-value headers, body, `jsonBody`). Closes mock-serving-over-HTTP +
+    `statusMessage`; `delay` applied by the facade; tenant via `X-Mockifyr-Tenant`/default. See
+    docs/parity/g12-transport.md
+  - [ ] G12b Socket faults (4 kinds) + `delayDistribution` over the wire
+  - [ ] G12c `/__admin/scenarios*` + `/__admin/recordings/*` + `/__admin/ext/*` + gzip
+  - Standalone/deploy + config (host config, `--port`, mappings dir load) — final G12 slice
 - [ ] **G13** gRPC extension
 - [ ] **G14** GraphQL extension
 - [ ] **G15** Message-based/WebSocket + JWT + Faker + multi-domain

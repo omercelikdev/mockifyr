@@ -121,16 +121,34 @@ tests, all green.
   (`IResponseDefinitionTransformer`/`ITemplateModelProvider`/`IAdminApiExtension`/`IMappingsLoader`)
   stay public + wired incrementally.
 
-**Next item: G11 — HTTPS/TLS + HTTP/2.** This is squarely a **transport-facade** item (Kestrel
-config: TLS cert, HTTP/2/ALPN) — it belongs with the mock-serving-over-HTTP path that has been
-deferred to **G12** throughout (delay timing, fault emission, `/__admin/scenarios*`, admin-ext
-routing, and the recorder admin endpoints all wait on it). **Recommend doing G12 (the transport HTTP
-facade — `Mockifyr.Facade.Http`, Kestrel catch-all → engine → wire delivery) before or together with
-G11**, since G11's TLS/HTTP2 is configuration *on top of* that facade, and G12 also unblocks the
-several deferred socket/wire behaviors. Validation shifts from in-process to **over-the-wire** (drive
-real HTTP against a hosted Mockifyr, like the G7b `WebApplicationFactory` pattern but for the mock
-port). Flag this ordering to the maintainer — it's the last big architectural piece before the
-extension/protocol groups (gRPC/GraphQL/messaging) and persistence.
+- **G12a** mock-serving HTTP facade — done. `Mockifyr.Facade.Http.MapMockServing` (a `MapFallback`)
+  turns every non-admin request into a `CanonicalRequest`, resolves it through the pure `StubEngine`,
+  and writes the response to the wire (status, reason phrase/`statusMessage` via
+  `IHttpResponseFeature`, declared headers, body); `delay` applied by the facade; tenant via
+  `X-Mockifyr-Tenant` else default. `Mockifyr.Server` hosts admin + this fallback. Validated
+  **over the wire** with a `DriveOverWire(client)` helper run against both the oracle and a hosted
+  Mockifyr (`WebApplicationFactory<Program>`) — this is the reusable over-the-wire harness pattern.
+  Closed: mock-serving-over-HTTP, `statusMessage`, multi-value headers + `jsonBody` on the wire.
+
+**We are mid-G12 (closing the deferred transport/socket items — the maintainer's "no gaps" mandate).**
+Remaining, in order:
+- **G12b — socket faults + `delayDistribution`.** Emit the four `fault` kinds over the wire
+  (`EMPTY_RESPONSE` → close with no response; `MALFORMED_RESPONSE_CHUNK` → OK line then garbage;
+  `RANDOM_DATA_THEN_CLOSE`; `CONNECTION_RESET_BY_PEER` → RST). The `FaultDirective` is already parsed
+  (G4); wire it into `MockServingEndpoints` (abort the connection / write raw bytes via
+  `IHttpResponseBodyFeature`/`context.Abort()`). Validate over the wire by observing the socket error
+  (`HttpRequestException`/`IOException`) — the oracle exhibits the same; compare the *outcome class*
+  (clean close vs reset vs malformed), not bytes.
+- **G12c — remaining admin endpoints + gzip.** `/__admin/scenarios*` (list + `PUT .../state`),
+  `/__admin/recordings/*` (start/stop/snapshot → drive `StubRecorder`), `/__admin/ext/*`
+  (`IAdminApiExtension` routing), and gzip/`Content-Encoding` response support.
+- **Standalone/deploy + config** — host config (`--port`, `--https-port`, mappings-dir load via
+  `IMappingsLoader`), the final G12 slice.
+- **G11 — HTTPS/TLS + HTTP/2** sits on top of the facade (Kestrel TLS cert + HTTP/2/ALPN); do it
+  after/with G12c.
+
+The over-the-wire harness pattern (host via `WebApplicationFactory<Program>`, `DriveOverWire` against
+both sides) is the template for all of the above.
 
 ## 4. Gotchas learned (save yourself the time)
 
