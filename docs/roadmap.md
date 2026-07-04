@@ -150,6 +150,11 @@ Detailed rationale and per-group contents:
   Validated in-process (not oracle-differential — custom extensions have no WireMock equivalent). See
   docs/parity/g10-extensibility.md
 - [ ] **G11** HTTPS/TLS + HTTP/2
+  - [x] G11a HTTPS/TLS serving — `MockifyrHost` binds `--https-port` on Kestrel with an ephemeral
+    self-signed cert (`SelfSignedCertificate`), like WireMock's default. Validated over a **real TLS
+    connection** against the oracle's own `--https-port` listener (status/body/headers diff). The
+    `--https-port` hook deferred from G12f. See docs/parity/g11-tls-http2.md
+  - [ ] G11b HTTP/2 (ALPN over TLS + h2c) + configured keystore / mTLS
 - [x] **G12** Transport HTTP facade + standalone/deploy + config
   - [x] G12a Mock-serving HTTP facade — `Mockifyr.Facade.Http` fallback (request → engine → wire),
     hosted by `Mockifyr.Server`. Validated **over the wire** against the oracle (status, reason
@@ -181,7 +186,7 @@ Detailed rationale and per-group contents:
     `IMappingsLoader` seam (`DirectoryMappingsLoader`). `Program` is now thin. Deploy/config plumbing
     (the loaded stubs' serving is already oracle-covered), so validated in-process over HTTP: the
     loader parses a temp dir, and a real Kestrel host on an ephemeral port serves a disk-loaded stub.
-    `--https-port` deferred to **G11** (needs TLS). See docs/parity/g12-transport.md
+    `--https-port` landed in **G11a** (needs TLS). See docs/parity/g12-transport.md
 - [ ] **G13** gRPC extension
 - [ ] **G14** GraphQL extension
 - [ ] **G15** Message-based/WebSocket + JWT + Faker + multi-domain

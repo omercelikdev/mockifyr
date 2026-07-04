@@ -8,11 +8,12 @@ using Mockifyr.Facade.Http;
 namespace Mockifyr.Server;
 
 /// <summary>
-/// The standalone-host composition (G12f). Turns command-line/config into a runnable Mockifyr host:
-/// binds the mock-serving port (<c>--port</c>, WireMock's default <c>8080</c>) and, when a
-/// <c>--root-dir</c> is given, loads its <c>mappings/*.json</c> into the default tenant at startup via
-/// the <see cref="IMappingsLoader"/> seam. Kept separate from <c>Program</c> so the same wiring is
-/// exercised by tests (which drive it on an ephemeral port with a temp root-dir).
+/// The standalone-host composition (G12f + G11a). Turns command-line/config into a runnable Mockifyr
+/// host: binds the mock-serving port (<c>--port</c>, WireMock's default <c>8080</c>), optionally an
+/// HTTPS port (<c>--https-port</c>) with a self-signed certificate, and, when a <c>--root-dir</c> is
+/// given, loads its <c>mappings/*.json</c> into the default tenant at startup via the
+/// <see cref="IMappingsLoader"/> seam. Kept separate from <c>Program</c> so the same wiring is
+/// exercised by tests (which drive it on ephemeral ports).
 /// </summary>
 public static class MockifyrHost
 {
@@ -20,9 +21,10 @@ public static class MockifyrHost
     public const int DefaultPort = 8080;
 
     /// <summary>
-    /// Builds the standalone host from <paramref name="args"/> (config keys <c>port</c> and
-    /// <c>root-dir</c>, supplied as <c>--port</c>/<c>--root-dir</c>). The returned app is built but not
-    /// started; startup mappings have already been applied to the store.
+    /// Builds the standalone host from <paramref name="args"/> (config keys <c>port</c>,
+    /// <c>https-port</c>, <c>root-dir</c>, supplied as <c>--port</c>/<c>--https-port</c>/
+    /// <c>--root-dir</c>). The returned app is built but not started; startup mappings have already been
+    /// applied to the store.
     /// </summary>
     public static WebApplication Build(string[] args)
     {
@@ -39,11 +41,28 @@ public static class MockifyrHost
                 new DirectoryMappingsLoader(mappingsDir, sp.GetRequiredService<IMatcherRegistry>()));
         }
 
+        // Port 0 asks Kestrel for an ephemeral port (used by tests).
+        var port = builder.Configuration.GetValue("port", DefaultPort);
+        var httpsPort = builder.Configuration.GetValue<int?>("https-port");
+
+        // When HTTPS is enabled both listeners are configured on Kestrel directly (self-signed cert,
+        // like WireMock's default); otherwise the HTTP port alone is bound via app.Urls.
+        if (httpsPort is { } securePort)
+        {
+            var certificate = SelfSignedCertificate.Create();
+            builder.WebHost.ConfigureKestrel(options =>
+            {
+                options.ListenAnyIP(port);
+                options.ListenAnyIP(securePort, listen => listen.UseHttps(certificate));
+            });
+        }
+
         var app = builder.Build();
 
-        // Bind the mock-serving port. Port 0 asks Kestrel for an ephemeral port (used by tests).
-        var port = builder.Configuration.GetValue("port", DefaultPort);
-        app.Urls.Add($"http://0.0.0.0:{port}");
+        if (httpsPort is null)
+        {
+            app.Urls.Add($"http://0.0.0.0:{port}");
+        }
 
         app.MapAdminEndpoints();
         app.MapMockServing();

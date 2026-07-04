@@ -17,9 +17,13 @@ public sealed class WireMockOracle : IAsyncDisposable
     public const string Image = "wiremock/wiremock:3.10.0";
 
     private const ushort WireMockPort = 8080;
+    private const ushort WireMockHttpsPort = 8443;
 
     private readonly IContainer _container = new ContainerBuilder(Image)
         .WithPortBinding(WireMockPort, assignRandomHostPort: true)
+        .WithPortBinding(WireMockHttpsPort, assignRandomHostPort: true)
+        // Enable the HTTPS listener too (G11a); WireMock serves it with its default self-signed cert.
+        .WithCommand("--https-port", "8443")
         // Lets the container reach a host-side webhook receiver (G3) via host.docker.internal on
         // Linux CI, where — unlike Docker Desktop — it is not resolvable by default.
         .WithExtraHost("host.docker.internal", "host-gateway")
@@ -28,12 +32,24 @@ public sealed class WireMockOracle : IAsyncDisposable
         .Build();
 
     private HttpClient? _client;
+    private HttpClient? _httpsClient;
 
     // UseCookies is disabled so an explicit Cookie request header passes through unmodified
     // (otherwise the handler's cookie container would manage it).
     private HttpClient Client => _client ??= new HttpClient(new SocketsHttpHandler { UseCookies = false })
     {
         BaseAddress = new Uri($"http://{_container.Hostname}:{_container.GetMappedPublicPort(WireMockPort)}"),
+    };
+
+    // Bound to the oracle's HTTPS listener; the self-signed cert is accepted (parity is about the HTTP
+    // response served over TLS, not the certificate). Fresh connection per request, like Client.
+    private HttpClient HttpsClient => _httpsClient ??= new HttpClient(new SocketsHttpHandler
+    {
+        UseCookies = false,
+        SslOptions = { RemoteCertificateValidationCallback = static (_, _, _, _) => true },
+    })
+    {
+        BaseAddress = new Uri($"https://{_container.Hostname}:{_container.GetMappedPublicPort(WireMockHttpsPort)}"),
     };
 
     /// <summary>Starts the oracle container.</summary>
@@ -92,8 +108,13 @@ public sealed class WireMockOracle : IAsyncDisposable
         return doc.RootElement.GetProperty("requests").GetArrayLength();
     }
 
-    /// <summary>Replays a request against the oracle and snapshots the response.</summary>
-    public async Task<HttpResponseSnapshot> SendAsync(RequestSpec spec)
+    /// <summary>Replays a request against the oracle over HTTP and snapshots the response.</summary>
+    public Task<HttpResponseSnapshot> SendAsync(RequestSpec spec) => SendAsync(spec, Client);
+
+    /// <summary>Replays a request against the oracle's HTTPS listener and snapshots the response (G11a).</summary>
+    public Task<HttpResponseSnapshot> SendHttpsAsync(RequestSpec spec) => SendAsync(spec, HttpsClient);
+
+    private static async Task<HttpResponseSnapshot> SendAsync(RequestSpec spec, HttpClient client)
     {
         using var request = new HttpRequestMessage(new HttpMethod(spec.Method), spec.Url);
         if (spec.Body is { } body)
@@ -113,7 +134,7 @@ public sealed class WireMockOracle : IAsyncDisposable
         // receives a mangled (lowercased) Cookie header, which made cookie value matching diverge
         // spuriously. A fresh connection transmits the header verbatim. See docs/parity/g1-matching.md.
         request.Headers.ConnectionClose = true;
-        using var response = await Client.SendAsync(request);
+        using var response = await client.SendAsync(request);
 
         var headers = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
         foreach (var header in response.Headers)
@@ -138,6 +159,7 @@ public sealed class WireMockOracle : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         _client?.Dispose();
+        _httpsClient?.Dispose();
         await _container.DisposeAsync();
     }
 }
