@@ -1,19 +1,10 @@
-// Mockifyr standalone host — the single composition root. Wires the shared engine + stores + the
-// Mediant management path (AddMockifyr), maps the WireMock-compatible admin HTTP surface, then the
-// mock-serving fallback (G12): every non-admin request goes through the engine and is served over the
-// wire.
-using Mockifyr.Facade.Admin;
-using Mockifyr.Facade.Http;
+// Mockifyr standalone host entry point. The composition lives in MockifyrHost.Build (G12f): it wires
+// the shared engine + stores + Mediant management path (AddMockifyr), maps the WireMock-compatible
+// admin surface and the mock-serving fallback, binds the port (--port, default 8080), and loads any
+// --root-dir/mappings/*.json at startup. Kept thin so the same wiring is exercised by tests.
 using Mockifyr.Server;
 
-var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddMockifyr();
+MockifyrHost.Build(args).Run();
 
-var app = builder.Build();
-app.MapAdminEndpoints();
-app.MapMockServing();
-
-app.Run();
-
-// Exposed so the differential test host (WebApplicationFactory) can boot the admin surface.
+// Exposed so the differential test host (WebApplicationFactory) can boot the same composition.
 public partial class Program;

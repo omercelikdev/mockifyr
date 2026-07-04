@@ -149,7 +149,7 @@ Detailed rationale and per-group contents:
   Validated in-process (not oracle-differential — custom extensions have no WireMock equivalent). See
   docs/parity/g10-extensibility.md
 - [ ] **G11** HTTPS/TLS + HTTP/2
-- [ ] **G12** Transport HTTP facade + standalone/deploy + config
+- [x] **G12** Transport HTTP facade + standalone/deploy + config
   - [x] G12a Mock-serving HTTP facade — `Mockifyr.Facade.Http` fallback (request → engine → wire),
     hosted by `Mockifyr.Server`. Validated **over the wire** against the oracle (status, reason
     phrase/`statusMessage`, multi-value headers, body, `jsonBody`). Closes mock-serving-over-HTTP +
@@ -174,8 +174,13 @@ Detailed rationale and per-group contents:
     segment (subpath + query + body lowered, extension owns everything below, unknown prefix → 404).
     Registered via `AddMockifyr(cfg => cfg.AddAdminApiExtension(…))`. Like the other extension seams
     (G10) there is no WireMock oracle, so validated in-process over HTTP. See docs/parity/g12-transport.md
-  - [ ] G12f Standalone/deploy & config (host config, `--port`/`--https-port`, mappings-dir load) —
-    final G12 slice
+  - [x] G12f Standalone/deploy & config — `MockifyrHost.Build(args)` binds the mock-serving port
+    (`--port`, WireMock default `8080`) and, given a `--root-dir`, loads its `mappings/*.json` (single
+    stubs + `{"mappings":[…]}` bundles, filename order) into the default tenant at startup via the
+    `IMappingsLoader` seam (`DirectoryMappingsLoader`). `Program` is now thin. Deploy/config plumbing
+    (the loaded stubs' serving is already oracle-covered), so validated in-process over HTTP: the
+    loader parses a temp dir, and a real Kestrel host on an ephemeral port serves a disk-loaded stub.
+    `--https-port` deferred to **G11** (needs TLS). See docs/parity/g12-transport.md
 - [ ] **G13** gRPC extension
 - [ ] **G14** GraphQL extension
 - [ ] **G15** Message-based/WebSocket + JWT + Faker + multi-domain
