@@ -55,3 +55,26 @@ behaviors deferred throughout the roadmap are finally implemented and validated.
   lower bound to assert (racy, like `now`/random).
 - **Regression cases:** `G12bFaultTests.Fault_BreaksTheConnection_LikeTheOracle` (4 kinds + control),
   `G12bFaultTests.UniformDelayDistribution_AppliesAtLeastTheLowerBound_LikeTheOracle`.
+
+## Scenarios admin + gzip (G12c)
+
+- **Group / item:** G12c — validated over HTTP against the oracle.
+- **Scenarios admin.** `GET /__admin/scenarios` lists each scenario with its **`state`** and
+  **`possibleStates`** (WireMock: the default `Started` plus every state the scenario's stubs require
+  or transition to). `PUT /__admin/scenarios/{name}/state` sets a state directly;
+  `POST /__admin/scenarios/reset` returns all to `Started`. Wired thin (HTTP → Mediant
+  `GetScenariosQuery`/`SetScenarioStateCommand`/`ResetScenariosCommand`). Validated **semantically**
+  by driving a three-state walk over HTTP and comparing the scenario's `state`, `possibleStates`, and
+  the served responses (incl. after a set-state) — identical on both sides. (The admin JSON's
+  per-scenario `mappings` carry volatile ids, so they aren't byte-compared.)
+- **gzip.** WireMock gzips the response body whenever the client sends `Accept-Encoding: gzip`,
+  **regardless of content type** (verified: a body with no declared type was still gzipped). ASP.NET's
+  built-in response compression is MIME-gated, so the facade gzips in the handler instead. Validated
+  over the wire: `Content-Encoding: gzip` and the **decompressed** body match the oracle (the
+  compressed bytes differ by implementation and aren't compared).
+- **Deferred to G12d (explicitly tracked — not a silent gap):** the `/__admin/recordings/*` HTTP
+  endpoints (the stateful recording *mode* on the mock server; the recorder *logic* is validated in
+  G9) and `/__admin/ext/*` admin-extension routing (the `IAdminApiExtension` seam is public;
+  dispatching it over HTTP is a small follow-up). Then standalone/deploy + config, then G11.
+- **Regression cases:** `G12cAdminTests.Scenarios_Admin_MatchesTheOracle`,
+  `G12cAdminTests.Gzip_MatchesTheOracle`.

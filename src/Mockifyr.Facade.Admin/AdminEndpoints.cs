@@ -64,6 +64,29 @@ public static class AdminEndpoints
             return Results.Json(new { count = result.Value });
         });
 
+        admin.MapGet("/scenarios", async (ISender sender) =>
+        {
+            var result = await sender.Send(new GetScenariosQuery(TenantId.Default));
+            return Results.Json(new
+            {
+                scenarios = result.Value.Select(s => new { id = s.Name, name = s.Name, state = s.State, possibleStates = s.PossibleStates }),
+            });
+        });
+
+        admin.MapPost("/scenarios/reset", async (ISender sender) =>
+        {
+            await sender.Send(new ResetScenariosCommand(TenantId.Default));
+            return Results.Ok();
+        });
+
+        admin.MapPut("/scenarios/{name}/state", async (string name, HttpRequest request, ISender sender) =>
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(await ReadBody(request));
+            var state = doc.RootElement.TryGetProperty("state", out var s) ? s.GetString() ?? "Started" : "Started";
+            await sender.Send(new SetScenarioStateCommand(name, state, TenantId.Default));
+            return Results.Ok();
+        });
+
         return endpoints;
     }
 

@@ -140,13 +140,27 @@ tests, all green.
 
 **We are mid-G12 (closing the deferred transport/socket items — the maintainer's "no gaps" mandate).**
 Remaining, in order:
-- **G12c — remaining admin endpoints + gzip.** `/__admin/scenarios*` (list + `PUT .../state`),
-  `/__admin/recordings/*` (start/stop/snapshot → drive `StubRecorder`), `/__admin/ext/*`
-  (`IAdminApiExtension` routing), and gzip/`Content-Encoding` response support.
+- **G12c** scenarios admin + gzip — done. `GET /__admin/scenarios` (state + `possibleStates`),
+  `PUT /__admin/scenarios/{name}/state`, `POST /__admin/scenarios/reset` (thin → Mediant
+  `GetScenariosQuery`/`SetScenarioStateCommand`/`ResetScenariosCommand`), validated semantically over
+  HTTP; and gzip — the facade gzips the body whenever `Accept-Encoding: gzip` (any content type;
+  ASP.NET's MIME-gated compression wouldn't match), diffed on `Content-Encoding` + decompressed body.
+- **G12d — recordings HTTP + admin-ext routing.** `/__admin/recordings/start` (set a recording *mode*
+  with `targetBaseUrl`) / `/stop` (return generated mappings) / `/snapshot`: while recording, the
+  mock fallback proxies unmatched requests to the target and records them via the existing
+  `StubRecorder` (the recorder *logic* is already validated in G9 — this wires the stateful HTTP
+  mode). And `/__admin/ext/*`: dispatch registered admin extensions — needs a facade-level admin-ext
+  registration (Core's `IAdminApiExtension` can't take `HttpContext`; collect `(prefix, RequestDelegate)`
+  in `MockifyrExtensions` and map them). Validate: recordings by a record→replay round-trip over HTTP;
+  ext in-process.
 - **Standalone/deploy + config** — host config (`--port`, `--https-port`, mappings-dir load via
   `IMappingsLoader`), the final G12 slice.
 - **G11 — HTTPS/TLS + HTTP/2** sits on top of the facade (Kestrel TLS cert + HTTP/2/ALPN); do it
-  after/with G12c.
+  after G12d.
+
+**Over-the-wire harness patterns:** `WebApplicationFactory<Program>` for plain response diffs (G12a);
+`MockifyrKestrelHost` (real socket) when the behavior needs genuine transport — faults (G12b),
+scenarios/gzip (G12c). Both drive the oracle + Mockifyr with a real `HttpClient` and one helper.
 
 The over-the-wire harness pattern (host via `WebApplicationFactory<Program>`, `DriveOverWire` against
 both sides) is the template for all of the above.

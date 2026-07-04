@@ -159,7 +159,11 @@ Detailed rationale and per-group contents:
     socket (they surface to an HTTP client identically, as a failed request; diffed as
     failed-vs-succeeded against the oracle) and uniform `delayDistribution` (lower-bound timing).
     Lognormal distribution and byte-level fault fidelity deferred. See docs/parity/g12-transport.md
-  - [ ] G12c `/__admin/scenarios*` + `/__admin/recordings/*` + `/__admin/ext/*` + gzip
+  - [x] G12c Scenarios admin + gzip — `GET /__admin/scenarios` (state + `possibleStates`), set-state,
+    reset; and gzip response encoding when the client accepts it. Validated over HTTP against the
+    oracle. See docs/parity/g12-transport.md
+  - [ ] G12d `/__admin/recordings/*` (HTTP recording mode) + `/__admin/ext/*` (admin-extension routing)
+  - Standalone/deploy + config (host config, `--port`, mappings dir load) — final G12 slice
   - Standalone/deploy + config (host config, `--port`, mappings dir load) — final G12 slice
 - [ ] **G13** gRPC extension
 - [ ] **G14** GraphQL extension

@@ -78,7 +78,29 @@ public static class MockServingEndpoints
             }
         }
 
-        await context.Response.Body.WriteAsync(response.Body);
+        // gzip the body when the client accepts it (WireMock does, for any content type).
+        var body = response.Body;
+        if (body.Length > 0 && AcceptsGzip(context.Request))
+        {
+            body = Gzip(body);
+            context.Response.Headers.ContentEncoding = "gzip";
+        }
+
+        await context.Response.Body.WriteAsync(body);
+    }
+
+    private static bool AcceptsGzip(HttpRequest request) =>
+        request.Headers.AcceptEncoding.Any(value => value is not null && value.Contains("gzip", StringComparison.OrdinalIgnoreCase));
+
+    private static byte[] Gzip(byte[] data)
+    {
+        using var buffer = new MemoryStream();
+        using (var gzip = new System.IO.Compression.GZipStream(buffer, System.IO.Compression.CompressionMode.Compress, leaveOpen: true))
+        {
+            gzip.Write(data);
+        }
+
+        return buffer.ToArray();
     }
 
     // Emits a fault the way it manifests to an HTTP client: a broken connection. Empty-response and

@@ -30,3 +30,15 @@ public sealed record CountRequestsQuery(string PatternJson, TenantId Tenant) : I
 
 /// <summary>Lists the journaled requests that matched no stub.</summary>
 public sealed record FindUnmatchedRequestsQuery(TenantId Tenant) : IQuery<Result<IReadOnlyList<CanonicalRequest>>>;
+
+/// <summary>A scenario's current state and the states it can be in (G12c admin).</summary>
+public sealed record ScenarioView(string Name, string State, IReadOnlyList<string> PossibleStates);
+
+/// <summary>Lists the tenant's scenarios with their current state.</summary>
+public sealed record GetScenariosQuery(TenantId Tenant) : IQuery<Result<IReadOnlyList<ScenarioView>>>;
+
+/// <summary>Sets a scenario's state directly (WireMock's <c>PUT /__admin/scenarios/{name}/state</c>).</summary>
+public sealed record SetScenarioStateCommand(string Name, string State, TenantId Tenant) : ICommand<Result>;
+
+/// <summary>Resets every scenario to <c>Started</c>.</summary>
+public sealed record ResetScenariosCommand(TenantId Tenant) : ICommand<Result>;
