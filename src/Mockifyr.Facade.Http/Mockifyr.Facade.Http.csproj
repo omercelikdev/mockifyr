@@ -3,6 +3,8 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\Mockifyr.Core\Mockifyr.Core.csproj" />
+    <!-- Proxy + record are outbound I/O at the facade edge (shared with the library facade). -->
+    <ProjectReference Include="..\Mockifyr.Outbound\Mockifyr.Outbound.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,6 +1,6 @@
 using Mockifyr.Core;
 
-namespace Mockifyr.Facade.Library;
+namespace Mockifyr.Outbound;
 
 /// <summary>
 /// Applies a <see cref="ProxyDirective"/> (G8): forwards the matched request to the upstream at

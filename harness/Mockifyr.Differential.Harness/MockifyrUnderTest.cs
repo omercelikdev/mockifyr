@@ -2,6 +2,7 @@ using Mockifyr.Adapters.WireMockJson;
 using Mockifyr.Core;
 using Mockifyr.Differential.Generator;
 using Mockifyr.Facade.Library;
+using Mockifyr.Outbound;
 
 namespace Mockifyr.Differential.Harness;
 

@@ -1,0 +1,201 @@
+using System.Text;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Mockifyr.Differential.Generator;
+using Mockifyr.Differential.Harness;
+
+namespace Mockifyr.Differential.Tests;
+
+/// <summary>
+/// Differential validation of the two outbound-at-the-edge facade behaviors over <em>real HTTP</em>
+/// (G12d):
+/// <list type="bullet">
+/// <item>a <c>proxyBaseUrl</c> stub driven over the wire against both the oracle and a hosted Mockifyr
+/// must relay the same upstream response — closing the wire gap left when G8 validated proxying only
+/// in-process;</item>
+/// <item>record-through-proxy driven over the wire: start a recording on the hosted Mockifyr, drive
+/// requests through its mock-serving fallback (each proxied to the upstream and captured), stop, then
+/// replay the generated stubs on the <em>real</em> oracle — proving the wire-recorded stubs are
+/// WireMock-valid and replay the captured response.</item>
+/// </list>
+/// Both sides share one upstream (the oracle reaches it via <c>host.docker.internal</c>, Mockifyr via
+/// <c>127.0.0.1</c>). Requires Docker.
+/// </summary>
+public sealed class G12dProxyRecordTests : IAsyncLifetime
+{
+    private static readonly string[] StableHeaders = ["X-Upstream", "Content-Type"];
+
+    private readonly WireMockOracle _oracle = new();
+    private readonly WebApplicationFactory<Program> _mockifyr = new();
+    private readonly UpstreamServer _upstream = new();
+
+    public Task InitializeAsync() => _oracle.StartAsync();
+
+    public async Task DisposeAsync()
+    {
+        _upstream.Dispose();
+        await _mockifyr.DisposeAsync();
+        await _oracle.DisposeAsync();
+    }
+
+    private sealed record WireResult(int Status, byte[] Body, IReadOnlyDictionary<string, string> Headers);
+
+    [Fact]
+    public async Task Proxy_OverTheWire_MatchesOracle()
+    {
+        using var oracleClient = _oracle.CreateAdminClient();
+        using var mockifyrClient = _mockifyr.CreateClient();
+        var failures = new List<string>();
+
+        foreach (var scenario in ProxyScenarios.All())
+        {
+            // Each side reaches the shared upstream by the host it can address.
+            var oracleStub = scenario.StubTemplate.Replace("__PROXY_HOST__", $"host.docker.internal:{_upstream.Port}");
+            var mockifyrStub = scenario.StubTemplate.Replace("__PROXY_HOST__", $"127.0.0.1:{_upstream.Port}");
+
+            await LoadStubAsync(oracleClient, oracleStub);
+            await LoadStubAsync(mockifyrClient, mockifyrStub);
+
+            var oracle = await DriveAsync(oracleClient, scenario.Request);
+            var mockifyr = await DriveAsync(mockifyrClient, scenario.Request);
+
+            if (oracle.Status != mockifyr.Status)
+            {
+                failures.Add($"{scenario.Description}: status oracle={oracle.Status} mockifyr={mockifyr.Status}");
+            }
+
+            if (!oracle.Body.AsSpan().SequenceEqual(mockifyr.Body))
+            {
+                failures.Add($"{scenario.Description}: body oracle=\"{Text(oracle.Body)}\" mockifyr=\"{Text(mockifyr.Body)}\"");
+            }
+
+            foreach (var header in StableHeaders)
+            {
+                var o = oracle.Headers.GetValueOrDefault(header);
+                var m = mockifyr.Headers.GetValueOrDefault(header);
+                if (!string.Equals(o, m, StringComparison.Ordinal))
+                {
+                    failures.Add($"{scenario.Description}: header[{header}] oracle={o ?? "<absent>"} mockifyr={m ?? "<absent>"}");
+                }
+            }
+
+            // Sanity: the response really came from the upstream, not a stub body.
+            if (!Text(mockifyr.Body).Contains("upstream"))
+            {
+                failures.Add($"{scenario.Description}: mockifyr did not proxy (body=\"{Text(mockifyr.Body)}\")");
+            }
+        }
+
+        Assert.True(failures.Count == 0, $"{failures.Count} proxy-over-wire divergence(s):\n{string.Join("\n", failures)}");
+    }
+
+    [Fact]
+    public async Task Record_OverTheWire_GeneratesStubsThatReplayOnOracle()
+    {
+        using var mockifyrClient = _mockifyr.CreateClient();
+        using var oracleClient = _oracle.CreateAdminClient();
+
+        var requests = new List<RequestSpec>
+        {
+            new() { Method = "GET", Url = "/rec/users/1?full=true" },
+            new() { Method = "POST", Url = "/rec/orders", Body = Encoding.UTF8.GetBytes("{\"item\":\"book\"}") },
+            new() { Method = "GET", Url = "/rec/health" },
+        };
+
+        // Start recording on the hosted Mockifyr, pointed at the upstream it can reach.
+        await StartRecordingAsync(mockifyrClient, $"http://127.0.0.1:{_upstream.Port}");
+
+        // Drive each request through the mock-serving fallback: proxied to the upstream and captured.
+        var captured = new List<WireResult>();
+        foreach (var request in requests)
+        {
+            captured.Add(await DriveAsync(mockifyrClient, request));
+        }
+
+        // Stop recording — the generated stubs come back in a {"mappings":[…]} envelope.
+        var bundle = await StopRecordingAsync(mockifyrClient);
+
+        var failures = new List<string>();
+
+        // Sanity: recording actually captured (one stub per request) and each response came from upstream.
+        var stubCount = bundle.Split("\"request\"").Length - 1;
+        if (stubCount != requests.Count)
+        {
+            failures.Add($"recorded {stubCount} stub(s), expected {requests.Count}");
+        }
+
+        // Load the wire-recorded stubs into the real oracle and replay — proving they are WireMock-valid.
+        await LoadStubAsync(oracleClient, bundle);
+        for (var i = 0; i < requests.Count; i++)
+        {
+            var replay = await DriveAsync(oracleClient, requests[i]);
+            var captureResult = captured[i];
+
+            if (!Text(captureResult.Body).Contains("upstream"))
+            {
+                failures.Add($"{requests[i].Method} {requests[i].Url}: mockifyr did not proxy while recording");
+            }
+
+            if (replay.Status != captureResult.Status)
+            {
+                failures.Add($"{requests[i].Method} {requests[i].Url}: replay status={replay.Status} captured={captureResult.Status}");
+            }
+
+            if (!replay.Body.AsSpan().SequenceEqual(captureResult.Body))
+            {
+                failures.Add($"{requests[i].Method} {requests[i].Url}: oracle replay body != captured — \"{Text(replay.Body)}\" vs \"{Text(captureResult.Body)}\"");
+            }
+
+            var replayUpstream = replay.Headers.GetValueOrDefault("X-Upstream");
+            var capturedUpstream = captureResult.Headers.GetValueOrDefault("X-Upstream");
+            if (!string.Equals(replayUpstream, capturedUpstream, StringComparison.Ordinal))
+            {
+                failures.Add($"{requests[i].Method} {requests[i].Url}: X-Upstream replay={replayUpstream} captured={capturedUpstream}");
+            }
+        }
+
+        Assert.True(failures.Count == 0, $"{failures.Count} record-over-wire divergence(s):\n{string.Join("\n", failures)}");
+    }
+
+    private static async Task LoadStubAsync(HttpClient client, string stubOrBundleJson)
+    {
+        await client.PostAsync("/__admin/mappings/reset", content: null);
+        using var load = new StringContent(stubOrBundleJson, Encoding.UTF8, "application/json");
+        // A single mapping goes to /mappings; a {"mappings":[…]} bundle to /mappings/import.
+        var path = stubOrBundleJson.Contains("\"mappings\"") ? "/__admin/mappings/import" : "/__admin/mappings";
+        await client.PostAsync(path, load);
+    }
+
+    private static async Task StartRecordingAsync(HttpClient client, string targetBaseUrl)
+    {
+        await client.PostAsync("/__admin/mappings/reset", content: null);
+        using var body = new StringContent(
+            "{\"targetBaseUrl\":\"" + targetBaseUrl + "\"}", Encoding.UTF8, "application/json");
+        var response = await client.PostAsync("/__admin/recordings/start", body);
+        response.EnsureSuccessStatusCode();
+    }
+
+    private static async Task<string> StopRecordingAsync(HttpClient client)
+    {
+        var response = await client.PostAsync("/__admin/recordings/stop", content: null);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadAsStringAsync();
+    }
+
+    private static async Task<WireResult> DriveAsync(HttpClient client, RequestSpec request)
+    {
+        using var message = new HttpRequestMessage(new HttpMethod(request.Method), request.Url);
+        if (request.Body is { } body)
+        {
+            message.Content = new ByteArrayContent(body);
+        }
+
+        using var response = await client.SendAsync(message);
+        var headers = response.Headers
+            .Concat(response.Content.Headers)
+            .ToDictionary(h => h.Key, h => string.Join(",", h.Value), StringComparer.OrdinalIgnoreCase);
+
+        return new WireResult((int)response.StatusCode, await response.Content.ReadAsByteArrayAsync(), headers);
+    }
+
+    private static string Text(byte[] bytes) => Encoding.UTF8.GetString(bytes);
+}

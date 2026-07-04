@@ -2,6 +2,7 @@ using Mediant.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 using Mockifyr.Application;
 using Mockifyr.Core;
+using Mockifyr.Outbound;
 using Mockifyr.ServeEvents.Webhook;
 using Mockifyr.Stores.InMemory;
 using Mockifyr.Templating;
@@ -62,6 +63,12 @@ public static class MockifyrServiceCollectionExtensions
             sp.GetRequiredService<IRequestJournal>(),
             sp.GetServices<IServeEventListener>(),
             sp.GetServices<IResponseTransformer>()));
+
+        // Outbound edge (G12d): the proxy responder + recorder for proxy directives and record mode,
+        // and the shared live-recording state the admin control endpoints and the fallback both see.
+        services.AddSingleton<ProxyResponder>(_ => new ProxyResponder());
+        services.AddSingleton<StubRecorder>(_ => new StubRecorder());
+        services.AddSingleton<RecordingSession>();
 
         // Management path: Mediant + the Application command/query handlers (scanned by assembly).
         services.AddMediant(typeof(CreateStubCommand).Assembly);
