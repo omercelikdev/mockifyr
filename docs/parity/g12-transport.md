@@ -110,3 +110,28 @@ behaviors deferred throughout the roadmap are finally implemented and validated.
   repeat-request → scenario generation — remain deferred (noted on `StubRecorder` since G9).
 - **Regression cases:** `G12dProxyRecordTests.Proxy_OverTheWire_MatchesOracle`,
   `G12dProxyRecordTests.Record_OverTheWire_GeneratesStubsThatReplayOnOracle`.
+
+## Admin-extension routing (G12e)
+
+- **Group / item:** G12e — validated **in-process over HTTP** (custom admin endpoints have no WireMock
+  equivalent, so — like the other extension seams in G10 — there is no oracle to diff against; the
+  contract validated is *our* routing/dispatch, not parity with WireMock's Java extension API).
+- **Dispatch shape.** `IAdminApiExtension` gains a transport-agnostic handler:
+  `Task<AdminApiResponse> HandleAsync(AdminApiRequest, CancellationToken)`. The request is *lowered*
+  from HTTP to `AdminApiRequest(Method, Subpath, Query, Body)` — the extension never sees an
+  `HttpContext`, keeping the transport out of the extension contract (mirrors how Core never sees a
+  transport). `AdminApiResponse(Status, ContentType, Body)` (with a `Json(...)` helper) is written
+  back verbatim.
+- **Routing.** The admin facade maps a catch-all `Map("/ext/{**rest}")` under `/__admin`. The first
+  path segment after `/__admin/ext/` selects the extension by exact `RoutePrefix`; the remainder is
+  the `Subpath` (leading slash preserved, empty when the prefix itself is hit). The extension owns
+  everything below its prefix — an unrecognized *subpath* is the extension's own decision (it may
+  return 404), while an unknown *prefix* (or no extensions registered) is a facade 404.
+- **Registration.** `AddMockifyr(cfg => cfg.AddAdminApiExtension(ext))` registers each as a DI
+  singleton; the route resolves `IEnumerable<IAdminApiExtension>`.
+- **Deferred to G12f (explicitly tracked — not a silent gap):** standalone/deploy + config (host
+  config, `--port`/`--https-port`, mappings-dir load) — the final G12 slice. Then G11 (HTTPS/TLS +
+  HTTP/2).
+- **Regression cases:** `G12eAdminExtensionTests.RegisteredExtension_ServesUnderItsPrefix`,
+  `G12eAdminExtensionTests.UnknownPrefix_Returns404`,
+  `G12eAdminExtensionTests.ExtBaseWithNoRegistration_Returns404`.

@@ -20,6 +20,8 @@ public sealed class MockifyrExtensions
 
     internal List<(string Name, IMatcher Matcher)> Matchers { get; } = [];
 
+    internal List<IAdminApiExtension> AdminApiExtensions { get; } = [];
+
     /// <summary>Registers a named custom matcher, referenced from stub JSON via <c>customMatcher</c>.</summary>
     public MockifyrExtensions AddMatcher(string name, IMatcher matcher)
     {
@@ -38,6 +40,13 @@ public sealed class MockifyrExtensions
     public MockifyrExtensions AddTemplateHelper(string name, Func<IReadOnlyList<object?>, string> render)
     {
         TemplateHelpers.Add(new TemplateHelperExtension(name, render));
+        return this;
+    }
+
+    /// <summary>Registers a custom admin API extension served under <c>/__admin/ext/&lt;prefix&gt;/*</c>.</summary>
+    public MockifyrExtensions AddAdminApiExtension(IAdminApiExtension extension)
+    {
+        AdminApiExtensions.Add(extension);
         return this;
     }
 

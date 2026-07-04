@@ -110,6 +110,39 @@ public static class AdminEndpoints
 
         admin.MapPost("/recordings/stop", (RecordingSession session) => Mappings(session.Stop()));
 
+        // Custom admin API extensions (G12e): any request under /__admin/ext/<prefix>/… is dispatched
+        // to the extension whose RoutePrefix is that first segment. The extension owns everything below
+        // it and never sees an HttpContext — the request is lowered to a transport-agnostic shape.
+        admin.Map("/ext/{**rest}", async (string? rest, HttpContext http, IEnumerable<IAdminApiExtension> extensions) =>
+        {
+            var path = rest ?? string.Empty;
+            var slash = path.IndexOf('/');
+            var prefix = slash < 0 ? path : path[..slash];
+            var subpath = slash < 0 ? string.Empty : path[slash..];
+
+            var extension = extensions.FirstOrDefault(e =>
+                string.Equals(e.RoutePrefix, prefix, StringComparison.Ordinal));
+            if (extension is null)
+            {
+                http.Response.StatusCode = StatusCodes.Status404NotFound;
+                return;
+            }
+
+            byte[] body;
+            using (var buffer = new MemoryStream())
+            {
+                await http.Request.Body.CopyToAsync(buffer);
+                body = buffer.ToArray();
+            }
+
+            var apiRequest = new AdminApiRequest(http.Request.Method, subpath, http.Request.QueryString.Value ?? string.Empty, body);
+            var response = await extension.HandleAsync(apiRequest, http.RequestAborted);
+
+            http.Response.StatusCode = response.Status;
+            http.Response.ContentType = response.ContentType;
+            await http.Response.Body.WriteAsync(response.Body);
+        });
+
         return endpoints;
     }
 

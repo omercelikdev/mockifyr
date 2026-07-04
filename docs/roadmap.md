@@ -168,8 +168,14 @@ Detailed rationale and per-group contents:
     the G8 wire gap, previously validated only in-process) and record-through-proxy (`start`/`stop`/
     `status`/`snapshot`) captures generated stubs that replay on the real oracle. Validated over HTTP.
     See docs/parity/g12-transport.md
-  - [ ] G12e `/__admin/ext/*` (admin-extension routing) + standalone/deploy & config (host config,
-    `--port`/`--https-port`, mappings-dir load) — final G12 slice
+  - [x] G12e `/__admin/ext/*` admin-extension routing — `IAdminApiExtension` made dispatchable
+    (transport-agnostic `AdminApiRequest`/`AdminApiResponse` + `HandleAsync`); the admin facade routes
+    any request under `/__admin/ext/<prefix>/*` to the extension whose `RoutePrefix` is that first
+    segment (subpath + query + body lowered, extension owns everything below, unknown prefix → 404).
+    Registered via `AddMockifyr(cfg => cfg.AddAdminApiExtension(…))`. Like the other extension seams
+    (G10) there is no WireMock oracle, so validated in-process over HTTP. See docs/parity/g12-transport.md
+  - [ ] G12f Standalone/deploy & config (host config, `--port`/`--https-port`, mappings-dir load) —
+    final G12 slice
 - [ ] **G13** gRPC extension
 - [ ] **G14** GraphQL extension
 - [ ] **G15** Message-based/WebSocket + JWT + Faker + multi-domain
