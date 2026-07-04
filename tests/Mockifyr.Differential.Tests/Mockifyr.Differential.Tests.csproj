@@ -10,6 +10,8 @@
     <PackageReference Include="xunit.runner.visualstudio" />
     <!-- In-memory admin HTTP host for the G7b differential. -->
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <!-- Real PostgreSQL container for the G16c persistence differential. -->
+    <PackageReference Include="Testcontainers.PostgreSql" />
   </ItemGroup>
 
   <!-- WebApplicationFactory needs the ASP.NET shared framework in this (non-web) test project. -->

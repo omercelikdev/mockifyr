@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <PackageReference Include="LiteDB" />
+    <PackageReference Include="Npgsql" />
   </ItemGroup>
 
   <ItemGroup>
