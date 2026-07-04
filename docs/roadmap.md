@@ -204,8 +204,13 @@ Detailed rationale and per-group contents:
   - [x] G16b LiteDB persistence — `LiteDbStubPersistence` + `LiteDbMappingsLoader` behind the same
     `IStubPersistence`/`IMappingsLoader` seams (proving multi-provider), each stub a document in an
     embedded single-file db; `--litedb <path>` turns it on (DI-owned `LiteDatabase` singleton).
-    Durability validated over the admin API; reloaded response diffed against the oracle. Postgres
-    (G16c)/Redis (G16d)/change-feed (G16e) deferred. See docs/parity/g16-persistence.md
+    Durability validated over the admin API; reloaded response diffed against the oracle. Redis
+    (G16d)/change-feed (G16e) deferred. See docs/parity/g16-persistence.md
+  - [x] G16c PostgreSQL persistence — `PostgresStubPersistence` + `PostgresMappingsLoader` (Npgsql)
+    behind the same seams; each stub a row, upserted, with a shared `CREATE TABLE IF NOT EXISTS`.
+    `--postgres <connstr>` turns it on. Durability validated against a **real Postgres container**
+    (Testcontainers); reloaded response diffed against the oracle. Redis (G16d)/change-feed (G16e)
+    deferred. See docs/parity/g16-persistence.md
 
 ## Post-phase (not now — architecture is ready for it)
 

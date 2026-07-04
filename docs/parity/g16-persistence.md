@@ -57,3 +57,25 @@ the same seam.
   G16a.
 - **Regression cases:** `G16bLiteDbPersistenceTests.CreatedStub_SurvivesRestart_AndMatchesOracle`,
   `G16bLiteDbPersistenceTests.DeletedStub_And_Reset_StayGoneAfterRestart`.
+
+## PostgreSQL persistence (G16c)
+
+- **Group / item:** G16c — durability validated against a real Postgres container; reloaded-response parity diffed against the oracle.
+- **Third provider, a SQL backend.** `PostgresStubPersistence` implements the same `IStubPersistence`
+  seam via Npgsql. Each stub is a row `(id uuid, tenant text, json text)`; the stored JSON is
+  id-stamped (shared `PersistableJson`) so ids round-trip identically to the file/LiteDB backends.
+  `Save` is an `INSERT … ON CONFLICT (id) DO UPDATE` upsert; connections open per operation from
+  Npgsql's pool (thread-safe). `PostgresMappingsLoader` reloads the tenant's rows on startup.
+- **Schema.** A shared `PostgresSchema.Ensure` runs `CREATE TABLE IF NOT EXISTS` from both the provider
+  and the loader constructors, so whichever is resolved first (the loader runs at startup, before any
+  mutation) finds the table in place.
+- **`--postgres <connection-string>` turns it on.** Unlike the file/LiteDB backends, the durable store
+  is an external database that outlives the app process — so a "restart" is just a fresh host pointed
+  at the same connection string; the data was never in-process.
+- **Validation.** A real `postgres:16-alpine` container (Testcontainers) alongside the WireMock oracle:
+  create on a host with `--postgres`, shut it down, start a fresh host on the same database, serve the
+  reloaded stub — its response matches the oracle. Delete + reset stay gone after a restart.
+- **Deferred (tracked):** **Redis (G16d)** and **change-feed reload (G16e)**; connection-string
+  secrets/config hardening is a deploy concern.
+- **Regression cases:** `G16cPostgresPersistenceTests.CreatedStub_SurvivesRestart_AndMatchesOracle`,
+  `G16cPostgresPersistenceTests.DeletedStub_And_Reset_StayGoneAfterRestart`.

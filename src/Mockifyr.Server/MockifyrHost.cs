@@ -59,6 +59,15 @@ public static class MockifyrHost
                 new LiteDbMappingsLoader(sp.GetRequiredService<LiteDB.LiteDatabase>(), sp.GetRequiredService<IMatcherRegistry>()));
         }
 
+        // PostgreSQL persistence (G16c): stubs persist to a SQL table and reload on startup.
+        var postgres = builder.Configuration["postgres"];
+        if (!string.IsNullOrWhiteSpace(postgres))
+        {
+            builder.Services.AddSingleton<IStubPersistence>(new PostgresStubPersistence(postgres));
+            builder.Services.AddSingleton<IMappingsLoader>(sp =>
+                new PostgresMappingsLoader(postgres, sp.GetRequiredService<IMatcherRegistry>()));
+        }
+
         // Port 0 asks Kestrel for an ephemeral port (used by tests).
         var port = builder.Configuration.GetValue("port", DefaultPort);
         var httpsPort = builder.Configuration.GetValue<int?>("https-port");
