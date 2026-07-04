@@ -264,13 +264,13 @@ public static class WireMockMappingReader
     }
 
     /// <summary>
-    /// Resolves a <c>customMatcher</c> (or <c>customMatcher.name</c>) reference to an extension matcher
-    /// via the registry (G10). An unknown or unregistered name contributes no matcher.
+    /// Resolves a <c>customMatcher</c> reference. The built-in <c>graphql-body-matcher</c> (G14) is
+    /// parameterized per stub (<c>parameters.query</c>) and built directly; any other name resolves to
+    /// a user extension matcher via the registry (G10). An unknown name contributes no matcher.
     /// </summary>
     private static IReadOnlyList<IMatcher> ReadCustomMatchers(JsonElement request, IMatcherRegistry? matchers)
     {
-        if (matchers is null ||
-            request.ValueKind != JsonValueKind.Object ||
+        if (request.ValueKind != JsonValueKind.Object ||
             !request.TryGetProperty("customMatcher", out var custom) ||
             custom.ValueKind != JsonValueKind.Object ||
             !custom.TryGetProperty("name", out var name) || name.ValueKind != JsonValueKind.String)
@@ -278,7 +278,19 @@ public static class WireMockMappingReader
             return [];
         }
 
-        return matchers.Resolve(name.GetString()!) is { } matcher ? [matcher] : [];
+        var matcherName = name.GetString()!;
+
+        // GraphQL query matcher: customMatcher name "graphql-body-matcher", parameters.query = the
+        // expected query (compared whitespace/field-order-insensitively). See docs/parity/g14-graphql.md.
+        if (matcherName == "graphql-body-matcher" &&
+            custom.TryGetProperty("parameters", out var parameters) &&
+            parameters.ValueKind == JsonValueKind.Object &&
+            parameters.TryGetProperty("query", out var query) && query.ValueKind == JsonValueKind.String)
+        {
+            return [new GraphqlQueryMatcher(query.GetString()!)];
+        }
+
+        return matchers?.Resolve(matcherName) is { } matcher ? [matcher] : [];
     }
 
     private static IReadOnlyList<IMatcher> ReadBodyMatchers(JsonElement request)
