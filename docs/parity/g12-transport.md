@@ -135,3 +135,25 @@ behaviors deferred throughout the roadmap are finally implemented and validated.
 - **Regression cases:** `G12eAdminExtensionTests.RegisteredExtension_ServesUnderItsPrefix`,
   `G12eAdminExtensionTests.UnknownPrefix_Returns404`,
   `G12eAdminExtensionTests.ExtBaseWithNoRegistration_Returns404`.
+
+## Standalone host + config (G12f)
+
+- **Group / item:** G12f — validated **in-process over HTTP** (deploy/config plumbing; the loaded
+  stubs' *serving* semantics are already oracle-covered throughout the roadmap, so there is nothing
+  new to diff against WireMock — the contract validated is "read a mappings dir and bind a port").
+- **`MockifyrHost.Build(args)`.** The standalone composition, separated from `Program` (now a
+  one-liner) so tests exercise the exact wiring. Reads config keys `port` and `root-dir` from the
+  command line (`--port`, `--root-dir`). Binds `http://0.0.0.0:<port>` (WireMock's default **8080**;
+  port `0` asks Kestrel for an ephemeral port, which the tests use).
+- **Mappings-dir load.** Given `--root-dir <path>`, a `DirectoryMappingsLoader` (the `IMappingsLoader`
+  seam, public since G10, wired here) reads `<path>/mappings/*.json` — each file a single stub or a
+  `{"mappings":[…]}` bundle — in **filename order** (deterministic ids / equal-priority tie-breaks) and
+  imports them into the default tenant at startup. Non-`.json` files and a missing directory are
+  ignored (empty load). It does file I/O, so it lives at the host edge, never in Core. `customMatcher`
+  references in files resolve against the DI `IMatcherRegistry`.
+- **Deferred to G11 (explicitly tracked — not a silent gap):** `--https-port` and the rest of
+  HTTPS/TLS + HTTP/2 (a real TLS listener needs a certificate — that is G11's scope, kept out of G12f
+  to avoid a no-op flag). This closes the **G12** group.
+- **Regression cases:** `G12fStandaloneHostTests.DirectoryMappingsLoader_ReadsSingleStubsAndBundles_InFilenameOrder`,
+  `G12fStandaloneHostTests.DirectoryMappingsLoader_MissingDirectory_ReturnsEmpty`,
+  `G12fStandaloneHostTests.Host_LoadsRootDirMappings_AndServesThemOverHttp`.
