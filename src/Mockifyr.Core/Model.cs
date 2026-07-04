@@ -85,6 +85,10 @@ public enum FaultKind
 /// <summary>Directive asking the facade to delay before responding.</summary>
 public sealed record DelayDirective(int Milliseconds);
 
+/// <summary>A random response delay drawn uniformly from <c>[LowerMs, UpperMs]</c> (G12b uniform
+/// <c>delayDistribution</c>). Lognormal distributions are deferred (no reliable lower bound to test).</summary>
+public sealed record DelayDistribution(int LowerMs, int UpperMs);
+
 /// <summary>Directive asking the facade to inject a low-level fault.</summary>
 public sealed record FaultDirective(FaultKind Kind);
 
@@ -111,6 +115,9 @@ public sealed record CanonicalResponse
 
     /// <summary>Optional delay directive.</summary>
     public DelayDirective? Delay { get; init; }
+
+    /// <summary>Optional random (uniform) delay directive.</summary>
+    public DelayDistribution? DelayDistribution { get; init; }
 
     /// <summary>Optional fault directive.</summary>
     public FaultDirective? Fault { get; init; }
@@ -186,6 +193,9 @@ public sealed record ResponseDefinition
 
     /// <summary>Optional response delay directive (applied by the facade, not the engine).</summary>
     public DelayDirective? Delay { get; init; }
+
+    /// <summary>Optional random (uniform) delay directive (applied by the facade).</summary>
+    public DelayDistribution? DelayDistribution { get; init; }
 
     /// <summary>Optional low-level fault directive (applied by the transport facade — G12).</summary>
     public FaultDirective? Fault { get; init; }

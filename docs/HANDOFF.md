@@ -130,15 +130,16 @@ tests, all green.
   Mockifyr (`WebApplicationFactory<Program>`) — this is the reusable over-the-wire harness pattern.
   Closed: mock-serving-over-HTTP, `statusMessage`, multi-value headers + `jsonBody` on the wire.
 
+- **G12b** socket faults + `delayDistribution` — done. All four `fault` kinds are emitted by
+  `MockServingEndpoints` (abort the connection; malformed/random write a few bytes first). Validated
+  over a **real Kestrel socket** (`MockifyrKestrelHost`, since the in-memory test server can't
+  reproduce a reset): all four surface to `HttpClient` identically as a failed request, so the diff
+  compares **failed-vs-succeeded** against the oracle (fault stubs fail on both, a control succeeds on
+  both). Uniform `delayDistribution` applied + lower-bound-timed. Lognormal + byte-level fault
+  fidelity deferred (not client-observable / racy).
+
 **We are mid-G12 (closing the deferred transport/socket items — the maintainer's "no gaps" mandate).**
 Remaining, in order:
-- **G12b — socket faults + `delayDistribution`.** Emit the four `fault` kinds over the wire
-  (`EMPTY_RESPONSE` → close with no response; `MALFORMED_RESPONSE_CHUNK` → OK line then garbage;
-  `RANDOM_DATA_THEN_CLOSE`; `CONNECTION_RESET_BY_PEER` → RST). The `FaultDirective` is already parsed
-  (G4); wire it into `MockServingEndpoints` (abort the connection / write raw bytes via
-  `IHttpResponseBodyFeature`/`context.Abort()`). Validate over the wire by observing the socket error
-  (`HttpRequestException`/`IOException`) — the oracle exhibits the same; compare the *outcome class*
-  (clean close vs reset vs malformed), not bytes.
 - **G12c — remaining admin endpoints + gzip.** `/__admin/scenarios*` (list + `PUT .../state`),
   `/__admin/recordings/*` (start/stop/snapshot → drive `StubRecorder`), `/__admin/ext/*`
   (`IAdminApiExtension` routing), and gzip/`Content-Encoding` response support.
