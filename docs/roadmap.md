@@ -155,7 +155,10 @@ Detailed rationale and per-group contents:
     phrase/`statusMessage`, multi-value headers, body, `jsonBody`). Closes mock-serving-over-HTTP +
     `statusMessage`; `delay` applied by the facade; tenant via `X-Mockifyr-Tenant`/default. See
     docs/parity/g12-transport.md
-  - [ ] G12b Socket faults (4 kinds) + `delayDistribution` over the wire
+  - [x] G12b Socket faults + `delayDistribution` — all four `fault` kinds emitted over a real Kestrel
+    socket (they surface to an HTTP client identically, as a failed request; diffed as
+    failed-vs-succeeded against the oracle) and uniform `delayDistribution` (lower-bound timing).
+    Lognormal distribution and byte-level fault fidelity deferred. See docs/parity/g12-transport.md
   - [ ] G12c `/__admin/scenarios*` + `/__admin/recordings/*` + `/__admin/ext/*` + gzip
   - Standalone/deploy + config (host config, `--port`, mappings dir load) — final G12 slice
 - [ ] **G13** gRPC extension

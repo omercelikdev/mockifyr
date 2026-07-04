@@ -49,6 +49,20 @@ public static class MockServingEndpoints
             await Task.Delay(delay.Milliseconds);
         }
 
+        if (response.DelayDistribution is { } distribution && distribution.UpperMs > distribution.LowerMs)
+        {
+            await Task.Delay(Random.Shared.Next(distribution.LowerMs, distribution.UpperMs + 1));
+        }
+
+        // Fault injection (G12b): a low-level fault breaks the connection, so the client sees a failed
+        // request rather than a valid response — the same observable outcome as WireMock (all four
+        // kinds surface to an HTTP client as a connection error).
+        if (response.Fault is { } fault)
+        {
+            await EmitFaultAsync(context, fault);
+            return;
+        }
+
         context.Response.StatusCode = response.Status;
         if (!string.IsNullOrEmpty(response.StatusMessage))
         {
@@ -65,6 +79,26 @@ public static class MockServingEndpoints
         }
 
         await context.Response.Body.WriteAsync(response.Body);
+    }
+
+    // Emits a fault the way it manifests to an HTTP client: a broken connection. Empty-response and
+    // reset abort with nothing written; the malformed/random kinds write some bytes first, then abort
+    // mid-response. HttpClient surfaces all of them as a request failure (verified against the oracle).
+    private static async Task EmitFaultAsync(HttpContext context, FaultDirective fault)
+    {
+        switch (fault.Kind)
+        {
+            case FaultKind.MalformedResponseChunk:
+                context.Response.StatusCode = StatusCodes.Status200OK;
+                await context.Response.Body.WriteAsync(new byte[] { 0x00, 0xFF, 0x00, 0xFF });
+                break;
+
+            case FaultKind.RandomDataThenClose:
+                await context.Response.Body.WriteAsync(new byte[] { 0xDE, 0xAD, 0xBE, 0xEF });
+                break;
+        }
+
+        context.Abort();
     }
 
     private static async Task<CanonicalRequest> BuildRequestAsync(HttpContext context)

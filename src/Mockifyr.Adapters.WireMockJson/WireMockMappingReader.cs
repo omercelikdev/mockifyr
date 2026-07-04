@@ -637,9 +637,25 @@ public static class WireMockMappingReader
             Body = body,
             Transformers = transformers,
             Delay = ReadDelay(response),
+            DelayDistribution = ReadDelayDistribution(response),
             Fault = ReadFault(response),
             Proxy = ReadProxy(response),
         };
+    }
+
+    /// <summary>Reads a <c>uniform</c> <c>delayDistribution</c>; lognormal is deferred (racy to test).</summary>
+    private static DelayDistribution? ReadDelayDistribution(JsonElement response)
+    {
+        if (response.ValueKind != JsonValueKind.Object ||
+            !response.TryGetProperty("delayDistribution", out var dist) || dist.ValueKind != JsonValueKind.Object ||
+            !dist.TryGetProperty("type", out var type) || type.GetString() != "uniform" ||
+            !dist.TryGetProperty("lower", out var lower) || !lower.TryGetInt32(out var lo) ||
+            !dist.TryGetProperty("upper", out var upper) || !upper.TryGetInt32(out var hi))
+        {
+            return null;
+        }
+
+        return new DelayDistribution(lo, hi);
     }
 
     /// <summary>Reads the <c>proxyBaseUrl</c> directive (G8); the facade performs the outbound call.</summary>
