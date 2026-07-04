@@ -1,3 +1,5 @@
+using System.Linq;
+using Microsoft.Extensions.Hosting;
 using Mockifyr.Adapters.WireMockJson;
 using Mockifyr.Core;
 using StackExchange.Redis;
@@ -13,19 +15,82 @@ namespace Mockifyr.Server;
 /// </summary>
 public sealed class RedisStubPersistence(IConnectionMultiplexer redis) : IStubPersistence
 {
+    /// <summary>The pub/sub channel a mutation announces on, so other instances can reload (G16e).</summary>
+    internal static readonly RedisChannel ChangeChannel = RedisChannel.Literal("mockifyr:changes");
+
     internal static string HashKey(TenantId tenant) => $"mockifyr:stubs:{tenant.Value}";
 
     /// <inheritdoc />
-    public void Save(StubMapping stub, string mappingJson) =>
+    public void Save(StubMapping stub, string mappingJson)
+    {
         redis.GetDatabase().HashSet(
             HashKey(stub.TenantId), stub.Id.ToString(), PersistableJson.WithId(mappingJson, stub.Id));
+        Announce();
+    }
 
     /// <inheritdoc />
-    public void Remove(TenantId tenant, Guid id) =>
+    public void Remove(TenantId tenant, Guid id)
+    {
         redis.GetDatabase().HashDelete(HashKey(tenant), id.ToString());
+        Announce();
+    }
 
     /// <inheritdoc />
-    public void Clear(TenantId tenant) => redis.GetDatabase().KeyDelete(HashKey(tenant));
+    public void Clear(TenantId tenant)
+    {
+        redis.GetDatabase().KeyDelete(HashKey(tenant));
+        Announce();
+    }
+
+    // Announce a change so change-feed subscribers (G16e) reload. A publish with no subscribers is a
+    // cheap no-op, so this is always safe to emit whether or not the change feed is enabled.
+    private void Announce() => redis.GetSubscriber().Publish(ChangeChannel, RedisValue.EmptyString);
+}
+
+/// <summary>
+/// The change-feed reloader (G16e): keeps a live host's in-memory store coherent with a shared Redis
+/// backend across instances. On any change another instance announces (see
+/// <see cref="RedisStubPersistence.ChangeChannel"/>), it reloads the default tenant from the mappings
+/// loaders and reconciles the store — upserting what's persisted and pruning what's gone — so a stub
+/// created (or deleted) on one instance is served (or stopped) by the others without a restart.
+/// </summary>
+public sealed class RedisChangeFeedReloader(
+    IConnectionMultiplexer redis, IStubStore store, IEnumerable<IMappingsLoader> loaders) : IHostedService
+{
+    /// <inheritdoc />
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        redis.GetSubscriber().Subscribe(RedisStubPersistence.ChangeChannel, (_, _) => Reload());
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public Task StopAsync(CancellationToken cancellationToken)
+    {
+        redis.GetSubscriber().Unsubscribe(RedisStubPersistence.ChangeChannel);
+        return Task.CompletedTask;
+    }
+
+    private void Reload()
+    {
+        var tenant = TenantId.Default;
+        var loaded = loaders.SelectMany(loader => loader.Load(tenant)).ToList();
+        var loadedIds = loaded.Select(stub => stub.Id).ToHashSet();
+
+        // Upsert first (no empty window where a live request could miss a match), then prune the gone.
+        foreach (var stub in loaded)
+        {
+            store.Put(stub);
+        }
+
+        foreach (var existing in store.GetStubs(tenant).ToList())
+        {
+            if (!loadedIds.Contains(existing.Id))
+            {
+                store.Remove(tenant, existing.Id);
+            }
+        }
+    }
 }
 
 /// <summary>

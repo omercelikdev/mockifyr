@@ -79,6 +79,14 @@ public static class MockifyrHost
                 new RedisStubPersistence(sp.GetRequiredService<StackExchange.Redis.IConnectionMultiplexer>()));
             builder.Services.AddSingleton<IMappingsLoader>(sp =>
                 new RedisMappingsLoader(sp.GetRequiredService<StackExchange.Redis.IConnectionMultiplexer>(), sp.GetRequiredService<IMatcherRegistry>()));
+
+            // Change-feed reload (G16e): opt-in multi-instance coherence. Each host subscribes to Redis
+            // change announcements and reloads its in-memory store, so a mutation on one instance is
+            // reflected by the others without a restart.
+            if (builder.Configuration.GetValue<bool>("change-feed"))
+            {
+                builder.Services.AddHostedService<RedisChangeFeedReloader>();
+            }
         }
 
         // Port 0 asks Kestrel for an ephemeral port (used by tests).
