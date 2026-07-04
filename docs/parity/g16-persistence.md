@@ -79,3 +79,23 @@ the same seam.
   secrets/config hardening is a deploy concern.
 - **Regression cases:** `G16cPostgresPersistenceTests.CreatedStub_SurvivesRestart_AndMatchesOracle`,
   `G16cPostgresPersistenceTests.DeletedStub_And_Reset_StayGoneAfterRestart`.
+
+## Redis persistence (G16d)
+
+- **Group / item:** G16d — durability validated against a real Redis container; reloaded-response parity diffed against the oracle.
+- **Fourth provider, a key-value backend.** `RedisStubPersistence` implements the same
+  `IStubPersistence` seam via StackExchange.Redis. Each tenant's stubs live in one Redis hash
+  (`mockifyr:stubs:{tenant}`) keyed by stub id, the value being the id-stamped WireMock JSON (shared
+  `PersistableJson`) so ids round-trip identically to the file/LiteDB/SQL backends. `Save` → `HSET`,
+  `Remove` → `HDEL`, `Clear` → `DEL` the tenant's hash. `RedisMappingsLoader` `HGETALL`s the tenant's
+  hash on startup.
+- **`--redis <connection-string>` turns it on.** The `IConnectionMultiplexer` (thread-safe, long-lived)
+  is a DI-created singleton so the container disposes it on shutdown. Like Postgres, the store is
+  external and outlives the app process — a "restart" is a fresh host on the same connection string.
+- **Validation.** A real `redis:7-alpine` container (Testcontainers) alongside the WireMock oracle:
+  create on a host with `--redis`, shut it down, start a fresh host on the same instance, serve the
+  reloaded stub — its response matches the oracle. Delete + reset stay gone after a restart.
+- **Deferred (tracked):** **change-feed reload (G16e)** — the last G16 slice: a live host reloading its
+  store when another writer changes it (multi-instance coherence).
+- **Regression cases:** `G16dRedisPersistenceTests.CreatedStub_SurvivesRestart_AndMatchesOracle`,
+  `G16dRedisPersistenceTests.DeletedStub_And_Reset_StayGoneAfterRestart`.

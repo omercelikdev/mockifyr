@@ -68,6 +68,19 @@ public static class MockifyrHost
                 new PostgresMappingsLoader(postgres, sp.GetRequiredService<IMatcherRegistry>()));
         }
 
+        // Redis persistence (G16d): stubs persist to a Redis hash and reload on startup. The
+        // multiplexer is a DI-created singleton so the container disposes it on shutdown.
+        var redis = builder.Configuration["redis"];
+        if (!string.IsNullOrWhiteSpace(redis))
+        {
+            builder.Services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(
+                _ => StackExchange.Redis.ConnectionMultiplexer.Connect(redis));
+            builder.Services.AddSingleton<IStubPersistence>(sp =>
+                new RedisStubPersistence(sp.GetRequiredService<StackExchange.Redis.IConnectionMultiplexer>()));
+            builder.Services.AddSingleton<IMappingsLoader>(sp =>
+                new RedisMappingsLoader(sp.GetRequiredService<StackExchange.Redis.IConnectionMultiplexer>(), sp.GetRequiredService<IMatcherRegistry>()));
+        }
+
         // Port 0 asks Kestrel for an ephemeral port (used by tests).
         var port = builder.Configuration.GetValue("port", DefaultPort);
         var httpsPort = builder.Configuration.GetValue<int?>("https-port");

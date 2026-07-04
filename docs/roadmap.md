@@ -211,6 +211,10 @@ Detailed rationale and per-group contents:
     `--postgres <connstr>` turns it on. Durability validated against a **real Postgres container**
     (Testcontainers); reloaded response diffed against the oracle. Redis (G16d)/change-feed (G16e)
     deferred. See docs/parity/g16-persistence.md
+  - [x] G16d Redis persistence — `RedisStubPersistence` + `RedisMappingsLoader` (StackExchange.Redis)
+    behind the same seams; each tenant's stubs a Redis hash keyed by id. `--redis <connstr>` turns it
+    on. Durability validated against a **real Redis container** (Testcontainers); reloaded response
+    diffed against the oracle. Change-feed (G16e) deferred. See docs/parity/g16-persistence.md
 
 ## Post-phase (not now — architecture is ready for it)
 
