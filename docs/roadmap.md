@@ -204,6 +204,12 @@ Detailed rationale and per-group contents:
     repeated `int32` out. `oneof`/wrappers, streaming, status responses, and gRPC admin reset deferred.
     See docs/parity/g13-grpc.md
 - [ ] **G14** GraphQL extension
+  - [x] G14a Query matching — a `GraphqlQueryMatcher` (parse + AST-sort + canonical print, so equal
+    queries match regardless of whitespace and field/argument order) via GraphQL-Parser; the adapter
+    recognizes the `graphql-body-matcher` `customMatcher` (`parameters.query`). Validated against the
+    **community WireMock GraphQL extension** oracle across five query variants (exact/reformatted/
+    reordered/different/invalid all agree). `variables`/`operationName` matching deferred. See
+    docs/parity/g14-graphql.md
 - [ ] **G15** Message-based/WebSocket + JWT + Faker + multi-domain
 - [x] **G16** Persistence providers (FileBased/LiteDB/Postgres/Redis) + change-feed reload
   - [x] G16a File-based persistence — an `IStubPersistence` seam (no-op default) the management-path
