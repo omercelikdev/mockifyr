@@ -8,6 +8,9 @@ public sealed record HttpResponseSnapshot
     /// <summary>Status code.</summary>
     public required int Status { get; init; }
 
+    /// <summary>The HTTP reason phrase (WireMock's <c>statusMessage</c>); only captured over the wire (G12).</summary>
+    public string? ReasonPhrase { get; init; }
+
     /// <summary>Response headers (multi-valued, case-insensitive keys).</summary>
     public required IReadOnlyDictionary<string, string[]> Headers { get; init; }
 
