@@ -221,6 +221,11 @@ Detailed rationale and per-group contents:
     expression → WireMock's error string. Racy output, so **structurally** validated against the
     WireMock faker-extension oracle (each field satisfies a format contract on both sides over many
     iterations). See docs/parity/g15-extras.md
+  - [x] G15b JWT / `jwt` helper — `{{jwt sub=… role=…}}` renders an HS256-signed JWT with claim defaults
+    matching WireMock (`iss`/`aud`/`sub`/`iat`/`exp`, default maxAge 36500 days) + custom claims;
+    hand-rolled HMAC (no new dep). Random secret + racy `iat`, so validated by **content parity**
+    (decoded header + non-time claims match the JWT-extension oracle; `iat`/`exp`/signature structural).
+    RS256/JWKS, configurable secret, `nbf`, array claims deferred. See docs/parity/g15-extras.md
 - [x] **G16** Persistence providers (FileBased/LiteDB/Postgres/Redis) + change-feed reload
   - [x] G16a File-based persistence — an `IStubPersistence` seam (no-op default) the management-path
     handlers call; `--root-dir` registers `FileSystemStubPersistence`, writing each stub as an
