@@ -64,6 +64,24 @@ public sealed record CanonicalRequest
 
     /// <summary>The originating client IP, when known.</summary>
     public string? ClientIp { get; init; }
+
+    /// <summary>
+    /// The request scheme (<c>http</c>/<c>https</c>), when the transport supplied it. Null when
+    /// unknown. Drives WireMock's <c>request.scheme</c> matching (multi-domain, G15c).
+    /// </summary>
+    public string? Scheme { get; init; }
+
+    /// <summary>
+    /// The request host — the hostname from the <c>Host</c> header — when known. Drives WireMock's
+    /// <c>request.host</c> matching (multi-domain, G15c).
+    /// </summary>
+    public string? Host { get; init; }
+
+    /// <summary>
+    /// The request port — the port from the <c>Host</c> header — when known. Drives WireMock's
+    /// <c>request.port</c> matching (multi-domain, G15c).
+    /// </summary>
+    public int? Port { get; init; }
 }
 
 /// <summary>Kinds of low-level fault the facade can inject on behalf of the engine.</summary>
@@ -176,6 +194,15 @@ public sealed record RequestPattern
 
     /// <summary>Custom request-level matchers contributed by extensions (G10, <c>customMatcher</c>).</summary>
     public IReadOnlyList<IMatcher> Custom { get; init; } = [];
+
+    /// <summary>Matcher for the request scheme (WireMock's <c>request.scheme</c>; multi-domain, G15c).</summary>
+    public IMatcher? Scheme { get; init; }
+
+    /// <summary>Matcher for the request host (WireMock's <c>request.host</c>; multi-domain, G15c).</summary>
+    public IMatcher? Host { get; init; }
+
+    /// <summary>Matcher for the request port (WireMock's <c>request.port</c>; multi-domain, G15c).</summary>
+    public IMatcher? Port { get; init; }
 }
 
 /// <summary>

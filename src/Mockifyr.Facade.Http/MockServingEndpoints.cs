@@ -176,6 +176,10 @@ public static class MockServingEndpoints
             .ToList();
 
         var url = context.Request.Path + context.Request.QueryString;
-        return CanonicalRequestBuilder.Build(context.Request.Method, url, headers, buffer.ToArray());
+
+        // Scheme is supplied here (not header-borne); host/port derive from the Host header inside the
+        // builder, so WireMock's multi-domain matching (G15c) sees the same values the transport did.
+        return CanonicalRequestBuilder.Build(
+            context.Request.Method, url, headers, buffer.ToArray(), context.Request.Scheme);
     }
 }

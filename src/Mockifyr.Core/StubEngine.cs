@@ -214,6 +214,21 @@ public sealed class StubEngine
             yield return pattern.Method;
         }
 
+        if (pattern.Scheme is not null)
+        {
+            yield return pattern.Scheme;
+        }
+
+        if (pattern.Host is not null)
+        {
+            yield return pattern.Host;
+        }
+
+        if (pattern.Port is not null)
+        {
+            yield return pattern.Port;
+        }
+
         foreach (var matcher in pattern.Headers)
         {
             yield return matcher;

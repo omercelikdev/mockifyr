@@ -182,7 +182,7 @@ public sealed class DifferentialRunner : IAsyncDisposable
         // A fresh Mockifyr replays them too.
         var mockifyr = new MockifyrUnderTest();
         mockifyr.ImportWireMockJson(bundle);
-        var mockifyrReplay = requests.Select(mockifyr.Send).ToList();
+        var mockifyrReplay = requests.Select(spec => mockifyr.Send(spec)).ToList();
 
         return new RecordPlaybackOutcome(captured, oracleReplay, mockifyrReplay);
     }
@@ -204,6 +204,24 @@ public sealed class DifferentialRunner : IAsyncDisposable
 
         var oracle = await _oracle.SendAsync(request);
         var mockifyr = _mockifyr.Send(request);
+        var diff = ResponseDiffer.Compare(oracle, mockifyr, mockifyr.Headers.Keys);
+        return new ProbeOutcome(oracle, mockifyr, diff);
+    }
+
+    /// <summary>
+    /// Like <see cref="ProbeAsync"/> but drives the request over the oracle's HTTP or HTTPS listener
+    /// and mirrors that scheme into Mockifyr's request, so WireMock's <c>request.scheme</c> matching
+    /// (multi-domain, G15c) can be diffed. Host/port derive from the request's <c>Host</c> header.
+    /// </summary>
+    public async Task<ProbeOutcome> ProbeSchemeAsync(RequestSpec request, bool https)
+    {
+        if (_mockifyr is null)
+        {
+            throw new InvalidOperationException("Call LoadAsync before ProbeSchemeAsync.");
+        }
+
+        var oracle = https ? await _oracle.SendHttpsAsync(request) : await _oracle.SendAsync(request);
+        var mockifyr = _mockifyr.Send(request, https ? "https" : "http");
         var diff = ResponseDiffer.Compare(oracle, mockifyr, mockifyr.Headers.Keys);
         return new ProbeOutcome(oracle, mockifyr, diff);
     }
