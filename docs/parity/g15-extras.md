@@ -42,3 +42,33 @@ oracle and will use alternative validation. Each slice states its method.
   helpers. WireMock also (quirkily) leaks `maxAge`/`alg` into the payload as claims; Mockifyr consumes
   them instead — a deliberate, documented deviation.
 - **Regression case:** `G15bJwtTests.Jwt_ContentMatchesTheOracle`.
+
+## Multi-domain matching — `host` / `port` / `scheme` (G15c)
+
+- **Group / item:** G15c — validated **byte-for-byte** against the oracle (deterministic, so no
+  structural fallback is needed).
+- **What it is.** WireMock 3.x lets one instance serve many domains by matching on the request's
+  `host`, `port`, and `scheme` in the `request` block. `scheme` is a plain string (`"http"`/`"https"`);
+  `host` is a full **StringValuePattern** (so `equalTo`, `matches`, `contains`, … all apply); `port`
+  is an integer. Mockifyr parses all three in the WireMock JSON adapter and evaluates them as ordinary
+  request matchers.
+- **Where the values come from (learned from the oracle).** The differential run **empirically
+  confirmed** how real WireMock derives each field — this was the open question the tests resolved:
+  - **`host`** = the hostname from the request's **`Host` header** (not the TCP peer / listener name).
+    Overriding the `Host` header on the client is enough to route to a different domain's stub.
+  - **`port`** = the **port component of the `Host` header** (e.g. `svc.internal:4321` → port `4321`),
+    independent of the actual TCP port the request arrived on. (When the `Host` header carries no port,
+    WireMock falls back to the listener port — untested here and left to the transport; see Deferred.)
+  - **`scheme`** = the listener the request arrived on — `http` over the plaintext port, `https` over
+    the TLS port. A stub requiring `scheme: "https"` does **not** match a plaintext request (→ 404).
+  - `scheme` comparison is case-insensitive (schemes are canonically lower-case); `host`/`port` use
+    their value-matcher / exact-integer semantics.
+- **How Mockifyr mirrors it.** `CanonicalRequest` gained `Scheme`/`Host`/`Port`. The request builder
+  derives host+port by splitting the `Host` header, exactly as WireMock does, so the in-process
+  differential drive and the real HTTP facade (which additionally supplies `scheme` from the
+  connection) see the same values the oracle did.
+- **Deferred (tracked):** the no-port-in-`Host` listener-port fallback (needs a wire-level facade test,
+  not the in-process drive); IPv6-literal `Host` headers (`[::1]:8080`) are passed through unsplit;
+  matching on the port a TLS request's `Host` header omits.
+- **Regression cases:** `G15cMultiDomainTests` (host equalTo/regex, multi-domain routing, port,
+  http/https scheme — 8 cases).

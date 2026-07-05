@@ -226,6 +226,11 @@ Detailed rationale and per-group contents:
     hand-rolled HMAC (no new dep). Random secret + racy `iat`, so validated by **content parity**
     (decoded header + non-time claims match the JWT-extension oracle; `iat`/`exp`/signature structural).
     RS256/JWKS, configurable secret, `nbf`, array claims deferred. See docs/parity/g15-extras.md
+  - [x] G15c Multi-domain — `request.host` / `request.port` / `request.scheme` matching so one instance
+    serves many domains. `scheme` is a plain string, `host` a full StringValuePattern (equalTo/matches/…),
+    `port` an integer. Byte-diffed against the oracle; the run **confirmed** WireMock derives host+port
+    from the `Host` header and scheme from the listener. `Host`-header-less port fallback + IPv6 literals
+    deferred. See docs/parity/g15-extras.md
 - [x] **G16** Persistence providers (FileBased/LiteDB/Postgres/Redis) + change-feed reload
   - [x] G16a File-based persistence — an `IStubPersistence` seam (no-op default) the management-path
     handlers call; `--root-dir` registers `FileSystemStubPersistence`, writing each stub as an

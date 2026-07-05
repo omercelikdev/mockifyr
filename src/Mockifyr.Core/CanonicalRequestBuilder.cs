@@ -8,16 +8,23 @@ namespace Mockifyr.Core;
 public static class CanonicalRequestBuilder
 {
     /// <summary>Builds a canonical request from a method, a URL (path + optional query), headers, and a body.</summary>
+    /// <remarks>
+    /// The <c>Host</c> header drives the request host and port (for WireMock's multi-domain matching,
+    /// G15c), mirroring how the real transport derives them. <paramref name="scheme"/> is supplied by
+    /// the caller since it is not carried in a header.
+    /// </remarks>
     public static CanonicalRequest Build(
         string method,
         string url,
         IEnumerable<KeyValuePair<string, string>>? headers = null,
-        byte[]? body = null)
+        byte[]? body = null,
+        string? scheme = null)
     {
         var queryIndex = url.IndexOf('?', StringComparison.Ordinal);
         var path = queryIndex >= 0 ? url[..queryIndex] : url;
         var queryString = queryIndex >= 0 ? url[(queryIndex + 1)..] : string.Empty;
         var headerLookup = (headers ?? []).ToLookup(h => h.Key, h => h.Value, StringComparer.OrdinalIgnoreCase);
+        var (host, port) = ParseHost(headerLookup["Host"].FirstOrDefault());
 
         return new CanonicalRequest
         {
@@ -32,7 +39,30 @@ public static class CanonicalRequestBuilder
             Body = body ?? [],
             Parts = MultipartBodyParser.Parse(body ?? [], headerLookup["Content-Type"].FirstOrDefault()),
             ClientIp = null,
+            Scheme = scheme,
+            Host = host,
+            Port = port,
         };
+    }
+
+    /// <summary>
+    /// Splits a <c>Host</c> header (<c>host</c> or <c>host:port</c>) into its host and optional port.
+    /// IPv6 literals are not split (deferred). Returns nulls when the header is absent.
+    /// </summary>
+    private static (string? Host, int? Port) ParseHost(string? hostHeader)
+    {
+        if (string.IsNullOrEmpty(hostHeader) || hostHeader.Contains('[', StringComparison.Ordinal))
+        {
+            return (string.IsNullOrEmpty(hostHeader) ? null : hostHeader, null);
+        }
+
+        var colon = hostHeader.LastIndexOf(':');
+        if (colon >= 0 && int.TryParse(hostHeader[(colon + 1)..], out var port))
+        {
+            return (hostHeader[..colon], port);
+        }
+
+        return (hostHeader, null);
     }
 
     private static IReadOnlyDictionary<string, string> ParseCookies(ILookup<string, string> headers)

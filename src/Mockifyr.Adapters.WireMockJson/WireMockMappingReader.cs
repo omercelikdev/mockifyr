@@ -243,6 +243,30 @@ public static class WireMockMappingReader
             ? m.GetString()!
             : "ANY";
 
+        // Multi-domain matching (G15c): `scheme` is a plain string, `host` a StringValuePattern, and
+        // `port` an integer. One instance can thus serve many domains. See docs/parity/g15-extras.md.
+        IMatcher? scheme = null;
+        IMatcher? host = null;
+        IMatcher? port = null;
+        if (request.ValueKind == JsonValueKind.Object)
+        {
+            if (request.TryGetProperty("scheme", out var sch) && sch.ValueKind == JsonValueKind.String)
+            {
+                scheme = new SchemeMatcher(sch.GetString()!);
+            }
+
+            if (request.TryGetProperty("host", out var hst) && BuildValueMatcher(hst) is { } hostValue)
+            {
+                host = new HostMatcher(hostValue);
+            }
+
+            if (request.TryGetProperty("port", out var prt) &&
+                prt.ValueKind == JsonValueKind.Number && prt.TryGetInt32(out var portNum))
+            {
+                port = new PortMatcher(portNum);
+            }
+        }
+
         var headers = new List<IMatcher>(
             ReadNamedMatchers(request, "headers", static (name, vm) => new HeaderMatcher(name, vm)));
         if (ReadBasicAuth(request) is { } basicAuth)
@@ -255,6 +279,9 @@ public static class WireMockMappingReader
             Url = url,
             UrlPathTemplate = urlPathTemplate,
             Method = new MethodMatcher(method),
+            Scheme = scheme,
+            Host = host,
+            Port = port,
             Headers = headers,
             Query = ReadNamedMatchers(request, "queryParameters", static (name, vm) => new QueryMatcher(name, vm)),
             Cookies = ReadNamedMatchers(request, "cookies", static (name, vm) => new CookieMatcher(name, vm)),

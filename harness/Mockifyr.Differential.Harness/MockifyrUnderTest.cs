@@ -19,10 +19,14 @@ public sealed class MockifyrUnderTest
     /// <summary>Imports the same WireMock JSON the oracle receives.</summary>
     public void ImportWireMockJson(string wireMockJson) => _server.ImportWireMockJson(wireMockJson);
 
-    /// <summary>Handles a request and snapshots the response.</summary>
-    public HttpResponseSnapshot Send(RequestSpec spec)
+    /// <summary>
+    /// Handles a request and snapshots the response. <paramref name="scheme"/> mirrors the transport
+    /// the oracle was driven over (for WireMock's <c>request.scheme</c> matching, G15c); host/port
+    /// derive from the request's <c>Host</c> header inside the builder.
+    /// </summary>
+    public HttpResponseSnapshot Send(RequestSpec spec, string? scheme = null)
     {
-        var request = CanonicalRequestBuilder.Build(spec.Method, spec.Url, spec.Headers, spec.Body);
+        var request = CanonicalRequestBuilder.Build(spec.Method, spec.Url, spec.Headers, spec.Body, scheme);
         var resolution = _server.Handle(request);
         return resolution.Response is { } response ? Snapshot(response) : NotFound();
     }
