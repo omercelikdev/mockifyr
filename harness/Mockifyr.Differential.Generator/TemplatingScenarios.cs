@@ -181,6 +181,21 @@ public static class TemplatingScenarios
             new Dictionary<string, object> { ["method"] = "POST", ["urlPath"] = "/pj" },
             Templated("{{parseJson request.body 'o'}}name={{o.name}}|deep={{o.a.b}}|arr0={{o.arr.0}}"),
             Json("/pj", "{\"name\":\"neo\",\"a\":{\"b\":5},\"arr\":[7,8]}"));
+
+        // parseJson (block form): the block body is the JSON, assigned to the named variable.
+        yield return Build(
+            "parseJson-block",
+            new Dictionary<string, object> { ["method"] = "POST", ["urlPath"] = "/pjb" },
+            Templated("{{#parseJson 'o'}}{\"name\":\"trinity\",\"a\":{\"b\":9},\"arr\":[1,2]}{{/parseJson}}" +
+                      "name={{o.name}}|deep={{o.a.b}}|arr1={{o.arr.1}}"),
+            Json("/pjb", "{}"));
+
+        // parseJson (block form): the block body is itself templated before it is parsed.
+        yield return Build(
+            "parseJson-block-templated",
+            new Dictionary<string, object> { ["method"] = "POST", ["urlPath"] = "/pjt" },
+            Templated("{{#parseJson 'o'}}{{{request.body}}}{{/parseJson}}v={{o.k}}"),
+            Json("/pjt", "{\"k\":\"morpheus\"}"));
     }
 
     private static Dictionary<string, object> Templated(string body) => new()
