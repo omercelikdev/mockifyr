@@ -196,9 +196,11 @@ oracle (`wiremock/wiremock:3.10.0`). See [README](README.md) for the format.
 - **`jsonRemove json path`** deletes the JSONPath-selected node (top-level or nested, e.g. `$.a.b`).
 - **`toJson value`** pretty-prints a value (accepts a parsed variable from `parseJson` or a JSON
   string).
-- **Deferred (documented):** array-valued key **merge** semantics (only object merges are pinned;
-  the Newtonsoft `MergeArrayHandling` is set to `Replace` but untested against the oracle), and
-  `jsonArrayAdd` with a non-JSON string item.
+- **Array-valued key merge — B replaces A (pinned).** WireMock's `jsonMerge` **replaces** an
+  array-valued key with B's array (it does not concatenate/union), including nested arrays — verified
+  against the oracle (`{"a":[1,2]}` ⊕ `{"a":[3,4]}` → `{"a":[3,4]}`). Mockifyr's `MergeArrayHandling =
+  Replace` matches, now pinned by the `jsonMerge` scenario.
+- **Deferred (documented):** `jsonArrayAdd` with a non-JSON string item.
 - **Regression case:** `G2StaticResponseTests.Templating_JsonHelpers`.
 
 ### Format / math / array / string helpers (G2g)

@@ -274,10 +274,15 @@ public static class TemplatingScenarios
             unmatchedUrl: "/nope-json");
 
         // jsonMerge: B overrides A (A keeps order, new keys appended); deep merge of nested objects.
+        // Array-valued keys are REPLACED by B (not concatenated), including nested — pinned to the
+        // oracle here; the flat/deep object cases stay the object-merge baseline.
         yield return Get(
             "jsonMerge", "/jm",
             "flat={{jsonMerge '{\"x\":1,\"z\":0}' '{\"x\":9,\"y\":2}'}}|" +
-            "deep={{jsonMerge '{\"a\":{\"x\":1}}' '{\"a\":{\"y\":2}}'}}");
+            "deep={{jsonMerge '{\"a\":{\"x\":1}}' '{\"a\":{\"y\":2}}'}}|" +
+            "arr={{jsonMerge '{\"a\":[1,2]}' '{\"a\":[3,4]}'}}|" +
+            "mix={{jsonMerge '{\"a\":[1,2],\"b\":5}' '{\"a\":[9],\"c\":7}'}}|" +
+            "nestedArr={{jsonMerge '{\"o\":{\"a\":[1]}}' '{\"o\":{\"a\":[2]}}'}}");
 
         // jsonRemove: top-level and nested paths.
         yield return Get(
