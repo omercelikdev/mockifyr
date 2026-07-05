@@ -24,6 +24,7 @@ internal static class HandlebarsFactory
         FormatHelpers.Register(handlebars);
         SystemHelpers.Register(handlebars);
         FakerHelpers.Register(handlebars);
+        JwtHelpers.Register(handlebars);
 
         foreach (var helper in extraHelpers ?? [])
         {

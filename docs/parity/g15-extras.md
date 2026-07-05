@@ -22,3 +22,23 @@ oracle and will use alternative validation. Each slice states its method.
 - **Deferred (tracked):** the long tail of Datafaker providers beyond the curated subset (added on
   demand); locale selection.
 - **Regression case:** `G15aFakerTests.FakerHelper_StructurallyMatchesTheOracle`.
+
+## JWT / `jwt` helper (G15b)
+
+- **Group / item:** G15b — validated by **content parity** against WireMock + the JWT extension.
+- **`{{jwt sub='u1' role='admin'}}`** renders a signed JWT, mirroring WireMock's JWT extension. Claim
+  defaults match the reference exactly (read from its source): `iss=wiremock`, `aud=wiremock.io`,
+  `sub=user-123`, `iat=now`, `exp=now+maxAge` (default **36500 days**); any non-reserved parameter
+  becomes a **private claim**. Signed **HS256**. The signing is hand-rolled (base64url header/payload
+  + HMAC-SHA256) — no new dependency.
+- **How it's validated.** WireMock's default signing secret is **random per instance** and `iat` is the
+  current time, so a token **can't be byte-diffed**. Instead the same stub is rendered by both sides,
+  both tokens are decoded, and the **header and non-time claims must be identical** — the meaningful
+  content parity. The oracle producing those claims proves it is real extension behavior; Mockifyr
+  producing the same claims is the parity claim. The racy `iat`/`exp` are checked structurally
+  (`iat` ~now, `exp = iat + default maxAge`) and the signature must be well-formed.
+- **Deferred (tracked):** RS256 + JWKS (`{{jwks}}`), a configurable signing secret (so tokens are
+  byte-compatible with a specific WireMock instance), `nbf`, array/object claims, and the claim-parsing
+  helpers. WireMock also (quirkily) leaks `maxAge`/`alg` into the payload as claims; Mockifyr consumes
+  them instead — a deliberate, documented deviation.
+- **Regression case:** `G15bJwtTests.Jwt_ContentMatchesTheOracle`.
