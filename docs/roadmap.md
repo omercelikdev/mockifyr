@@ -208,8 +208,11 @@ Detailed rationale and per-group contents:
     queries match regardless of whitespace and field/argument order) via GraphQL-Parser; the adapter
     recognizes the `graphql-body-matcher` `customMatcher` (`parameters.query`). Validated against the
     **community WireMock GraphQL extension** oracle across five query variants (exact/reformatted/
-    reordered/different/invalid all agree). `variables`/`operationName` matching deferred. See
-    docs/parity/g14-graphql.md
+    reordered/different/invalid all agree). See docs/parity/g14-graphql.md
+  - [x] G14b Variables + operationName — `GraphqlQueryMatcher` now aggregates query + `variables`
+    (semantic JSON-equal, or absent when unspecified) + `operationName` (string-equal, or absent), the
+    way the extension does. Validated against the oracle across five request variants. GraphQL response
+    templating deferred. See docs/parity/g14-graphql.md
 - [ ] **G15** Message-based/WebSocket + JWT + Faker + multi-domain
 - [x] **G16** Persistence providers (FileBased/LiteDB/Postgres/Redis) + change-feed reload
   - [x] G16a File-based persistence — an `IStubPersistence` seam (no-op default) the management-path
