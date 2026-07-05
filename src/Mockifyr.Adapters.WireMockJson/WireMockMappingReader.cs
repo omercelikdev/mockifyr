@@ -280,14 +280,21 @@ public static class WireMockMappingReader
 
         var matcherName = name.GetString()!;
 
-        // GraphQL query matcher: customMatcher name "graphql-body-matcher", parameters.query = the
-        // expected query (compared whitespace/field-order-insensitively). See docs/parity/g14-graphql.md.
+        // GraphQL matcher: customMatcher name "graphql-body-matcher". parameters.query is the expected
+        // query (whitespace/field-order-insensitive); optional parameters.variables (JSON, semantic
+        // equal) and parameters.operationName (string) are matched too. See docs/parity/g14-graphql.md.
         if (matcherName == "graphql-body-matcher" &&
             custom.TryGetProperty("parameters", out var parameters) &&
             parameters.ValueKind == JsonValueKind.Object &&
             parameters.TryGetProperty("query", out var query) && query.ValueKind == JsonValueKind.String)
         {
-            return [new GraphqlQueryMatcher(query.GetString()!)];
+            var variables = parameters.TryGetProperty("variables", out var v) && v.ValueKind is not JsonValueKind.Null
+                ? v.GetRawText()
+                : null;
+            var operationName = parameters.TryGetProperty("operationName", out var o) && o.ValueKind == JsonValueKind.String
+                ? o.GetString()
+                : null;
+            return [new GraphqlQueryMatcher(query.GetString()!, variables, operationName)];
         }
 
         return matchers?.Resolve(matcherName) is { } matcher ? [matcher] : [];

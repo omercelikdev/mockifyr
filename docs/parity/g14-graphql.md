@@ -24,7 +24,25 @@ understands GraphQL query equivalence. Validated against the community WireMock 
 - **Validation.** The same stub is loaded into the oracle and Mockifyr; five query variants — exact,
   reformatted (whitespace), reordered fields, a different query, and a syntactically invalid one — are
   POSTed to `/graphql` against each. The match/no-match decision agrees on every variant.
-- **Deferred (explicitly tracked — not a silent gap):** `variables` and `operationName` matching (the
-  extension also compares those); named operations / fragments / directives ordering beyond the common
-  cases; and GraphQL response templating.
+- **Deferred to G14b (explicitly tracked — not a silent gap):** `variables` and `operationName`
+  matching. Also deferred: fragments/directives ordering beyond the common cases; GraphQL response
+  templating.
 - **Regression case:** `G14aGraphqlTests.QueryMatching_AgreesWithTheOracle`.
+
+## Variables + operation name (G14b)
+
+- **Group / item:** G14b — validated over HTTP against WireMock + the GraphQL extension.
+- **All three must agree.** The extension aggregates (AND) three sub-matches; `GraphqlQueryMatcher` now
+  does the same: the query (G14a), the **variables**, and the **operationName**.
+- **Variables** (`parameters.variables`, a JSON object). When the stub specifies them, the request's
+  `variables` must be **semantically JSON-equal** (reusing the `equalToJson` comparator with no
+  array-order / extra-element leniency — the extension uses `EqualToJsonPattern(false, false)`). When
+  the stub does **not** specify variables, the request must have **none** (the extension uses
+  `AbsentPattern`). A `"variables": null` in the body reads the same as absent, matching the extension.
+- **Operation name** (`parameters.operationName`, a string). When specified, exact string equality;
+  when not, the request must have none.
+- **Validation.** A stub constraining query + `variables {"id":"1"}` + `operationName "Hero"`, against
+  five request variants — all-match (query reformatted), wrong variable value, missing variables, wrong
+  operation name, missing operation name. The match/no-match decision agrees with the oracle on each.
+- **Deferred (tracked):** GraphQL response templating (echoing request variables into the response).
+- **Regression case:** `G14bGraphqlVariablesTests.VariablesAndOperationName_AgreeWithTheOracle`.
