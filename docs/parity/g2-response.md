@@ -97,13 +97,17 @@ oracle (`wiremock/wiremock:3.10.0`). See [README](README.md) for the format.
 - **`parseJson request.body 'obj'`** parses a JSON string into a navigable variable
   (`{{obj.a.b}}`, `{{obj.arr.0}}`). Backed by a Newtonsoft `JToken`, which Handlebars.Net navigates
   natively (`JObject` is an `IDictionary`, `JArray` an `IList`).
+- **`parseJson` block form** — `{{#parseJson 'obj'}}<json>{{/parseJson}}` assigns the parsed block
+  body to the named variable and renders nothing. The block body is **rendered first** (so it may
+  itself be templated, e.g. `{{{request.body}}}`), then parsed — confirmed against the oracle for
+  both a literal-JSON block and a templated block. Registered as a second `parseJson` helper (a
+  Handlebars.Net block helper) alongside the inline form; the two coexist and dispatch on `#`.
 - **Deferred (documented, no oracle claim yet):**
   - **Multi-value `formData` indexing** (`{{form.key.0}}`, `{{form.key.1}}` for a repeated key).
     Handlebars.Net renders any `IList` bound to a bare `{{form.key}}` as a comma-joined string
     (`1,2`) instead of the first value, so WireMock's `ListOrSingle` dual render/index type needs a
     custom member resolver — the same class of problem as the deferred `request.path` object.
-  - **`parseJson` block/inline form** (`{{#parseJson}}…{{/parseJson}}`) and **`parseJson` on scalar
-    JSON** (booleans render `True` via Newtonsoft, not `true`).
+  - **`parseJson` on scalar JSON** (booleans render `True` via Newtonsoft, not `true`).
   - **`jsonPath` on a container that nests objects inside arrays** (only scalar-array and
     flat/array-valued objects are pinned).
 - **Regression case:** `G2StaticResponseTests.Templating_DataHelpers`.

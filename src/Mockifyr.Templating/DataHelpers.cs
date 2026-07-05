@@ -26,6 +26,7 @@ internal static class DataHelpers
         handlebars.RegisterHelper("regexExtract", RegexExtract);
         handlebars.RegisterHelper("formData", FormData);
         handlebars.RegisterHelper("parseJson", ParseJson);
+        handlebars.RegisterHelper("parseJson", ParseJsonBlock);
     }
 
     // --- jsonPath -----------------------------------------------------------------------------
@@ -218,6 +219,26 @@ internal static class DataHelpers
 
         Assign(context, variableName, token);
         return string.Empty;
+    }
+
+    // Block form: {{#parseJson 'var'}}<json>{{/parseJson}}. The block body is rendered (so it may
+    // itself be templated) then parsed into the named variable; the block renders nothing. Mirrors
+    // WireMock's parseJson block/assignment form. See docs/parity/g2-response.md.
+    private static void ParseJsonBlock(
+        EncodedTextWriter output, BlockHelperOptions options, Context context, Arguments arguments)
+    {
+        var variableName = Str(arguments, 0);
+        JToken? token;
+        try
+        {
+            token = JToken.Parse(options.Template());
+        }
+        catch (JsonException)
+        {
+            token = null;
+        }
+
+        Assign(context, variableName, token);
     }
 
     // --- shared -------------------------------------------------------------------------------

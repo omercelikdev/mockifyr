@@ -69,8 +69,9 @@ Detailed rationale and per-group contents:
   - [x] G2c data helpers — `jsonPath` (scalar, empty-on-miss, compact array, Jackson-pretty object),
     `xPath` (text/attr/string/count values + XML element serialization), `regexExtract`
     (whole-match, capture-group variable, `default=` / error string), `formData` (first value +
-    `urlDecode`), `parseJson` (navigable variable), validated against the oracle. Multi-value
-    `formData` indexing and the `parseJson` block form are deferred. See docs/parity/g2-response.md
+    `urlDecode`), `parseJson` (navigable variable — inline **and** the `{{#parseJson}}…{{/parseJson}}`
+    block form, block body rendered-then-parsed), validated against the oracle. Multi-value `formData`
+    indexing is deferred. See docs/parity/g2-response.md
   - [x] G2d date helpers — `parseDate` (ISO-8601 + Java `SimpleDateFormat` input) composed into
     `date` (Java format patterns incl. `E`/`a`/`S` translation, `epoch`/`unix`, default ISO, plural
     `offset=` units), validated against the oracle over fixed instants. The **`now`** helper (default
