@@ -129,11 +129,27 @@ oracle (`wiremock/wiremock:3.10.0`). See [README](README.md) for the format.
 - **`timezone=` is ignored on a parsed instant.** The oracle applies **no shift** for
   `Australia/Sydney` or `America/New_York` (a parsed instant is already absolute); we match by
   ignoring the option, pinned by the `date-timezone-ignored` case.
-- **Deferred (racy / documented, no oracle claim):** the `now` helper and any `now`-relative
-  rendering; the **unparseable-date fallback** (WireMock falls back to *now*); Java pattern letters
-  outside the shared/rewritten set (zone `Z`/`X`, era `G`, week/day-of-year…), which are emitted as
-  literals rather than throwing.
+- **Deferred (racy / documented, no oracle claim):** the **unparseable-date fallback** (WireMock falls
+  back to *now*); Java pattern letters outside the shared/rewritten set (zone `Z`/`X`, era `G`,
+  week/day-of-year…), which are emitted as literals rather than throwing.
 - **Regression case:** `G2StaticResponseTests.Templating_DateHelpers`.
+
+### The `now` helper (backfill)
+
+- **Group / item:** date-helper backfill (deferred from G2d as racy) — validated **structurally** (its
+  output is clock-dependent, so it can't be byte-diffed; the same method the random helpers use).
+- **`now`** renders the current instant with the same surface as `date`: default ISO
+  (`yyyy-MM-dd'T'HH:mm:ss'Z'`), `offset=` (`"10 years"`, `"-3 hours"`, …), and `format=` (Java pattern
+  plus the `epoch`/`unix` tokens). It reuses `date`'s offset/format machinery — only the instant (now)
+  differs.
+- **How it's validated (the racy-feature method).** The same stub is rendered by the oracle and
+  Mockifyr; each output must satisfy a contract — correct **format** (an ISO / epoch-millis / date
+  regex) and a **value inside the request's time window** (`[before − 15 min, after + 15 min]`, widened
+  for container-clock skew; `offset=10 years` shifts the window). The **oracle** satisfying it proves
+  the contract is real WireMock behavior; **Mockifyr** satisfying the same contract is the parity
+  claim. Four variants: default ISO, `epoch`, `offset='10 years'`, and a `yyyy-MM-dd` day format.
+- **Deferred (tracked):** `timezone=` and `truncate=` on `now` (day/week/month truncation).
+- **Regression case:** `G2iNowHelperTests.NowHelper_StructurallyMatchesTheOracle`.
 
 ### Random helpers (G2e)
 

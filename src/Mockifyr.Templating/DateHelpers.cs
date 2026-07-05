@@ -20,6 +20,26 @@ internal static class DateHelpers
     {
         handlebars.RegisterHelper("parseDate", (_, arguments) => ParseDate(arguments));
         handlebars.RegisterHelper("date", (_, arguments) => FormatDate(arguments));
+        handlebars.RegisterHelper("now", (_, arguments) => Now(arguments));
+    }
+
+    // --- now ----------------------------------------------------------------------------------
+
+    // The current instant, with the same offset= and format= surface as date (epoch/unix + Java
+    // patterns). Its output is clock-dependent, so it can't be byte-diffed against the oracle; it is
+    // validated structurally instead (correct format + a plausible-now value on both sides — see
+    // docs/parity/g2-response.md). timezone= and truncate= are deferred.
+    private static object Now(Arguments arguments)
+    {
+        var instant = DateTimeOffset.UtcNow;
+
+        var offset = Hash(arguments, "offset");
+        if (offset is not null)
+        {
+            instant = ApplyOffset(instant, offset);
+        }
+
+        return Render(instant, Hash(arguments, "format"));
     }
 
     // --- parseDate ----------------------------------------------------------------------------
