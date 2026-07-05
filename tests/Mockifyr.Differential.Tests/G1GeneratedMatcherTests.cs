@@ -108,6 +108,9 @@ public sealed class G1GeneratedMatcherTests : IAsyncLifetime
     public Task MatchesJsonPath_NumericFilters() => Verify(JsonPathScenarios.NumericFilters());
 
     [Fact]
+    public Task MatchesJsonPath_StringFilters() => Verify(JsonPathScenarios.StringFilters());
+
+    [Fact]
     public Task MatchesJsonSchema_InlineObject() => Verify(JsonSchemaScenarios.InlineObject());
 
     [Fact]

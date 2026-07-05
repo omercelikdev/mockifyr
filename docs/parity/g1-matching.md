@@ -149,9 +149,13 @@ Tracked in `TextCorpus`.
   selects the array elements passing the comparison, and the stub matches when ≥ 1 element passes.
   Comparisons are strict where written (`> 10` rejects `10`) and numeric equality is scale-insensitive
   (`== 3` matches `3.0`). Validated in `G1GeneratedMatcherTests.MatchesJsonPath_NumericFilters`.
-- **Still not validated (deferred, likely Jayway-vs-Newtonsoft divergence):** functions
-  (`.length()`), type-coercion edges in filters (comparing a numeric filter against string values),
-  and multi-value sub-matcher semantics on indefinite paths.
+- **String-equality filter expressions `[?(@.field == 'value')]` verified (backfill).** Jayway and
+  Newtonsoft also agree on string `==`/`!=` in filters: equality is case-sensitive (`'neo' != 'Neo'`)
+  and the stub matches when ≥ 1 element passes. Validated in
+  `G1GeneratedMatcherTests.MatchesJsonPath_StringFilters`.
+- **Still not validated (deferred, likely Jayway-vs-Newtonsoft divergence):** filter **functions**
+  (`.length()`), type-coercion edges (comparing a numeric filter against string values), and
+  multi-value sub-matcher semantics on indefinite paths.
 
 ### equalToXml / matchesXPath (G1g)
 

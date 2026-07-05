@@ -81,6 +81,33 @@ public static class JsonPathScenarios
             ("""{"items":[{"rate":1.4}]}""", false));
     }
 
+    /// <summary>
+    /// String-equality filter form: <c>[?(@.field == 'value')]</c> selects array elements whose field
+    /// equals the string, and the stub matches when at least one passes. Confirms Newtonsoft's filter
+    /// dialect agrees with WireMock's Jayway engine on string comparisons (the numeric side is G1j).
+    /// </summary>
+    public static IEnumerable<MatcherScenario> StringFilters()
+    {
+        yield return Presence("$.items[?(@.name == 'neo')]",
+            ("""{"items":[{"name":"neo"}]}""", true),
+            ("""{"items":[{"name":"morpheus"},{"name":"neo"}]}""", true),
+            ("""{"items":[{"name":"trinity"}]}""", false),
+            ("""{"items":[{"name":"Neo"}]}""", false),          // case-sensitive
+            ("""{"items":[]}""", false),
+            ("not json", false));
+
+        yield return Presence("$.users[?(@.role == 'admin')]",
+            ("""{"users":[{"role":"admin"}]}""", true),
+            ("""{"users":[{"role":"user"},{"role":"admin"}]}""", true),
+            ("""{"users":[{"role":"user"}]}""", false));
+
+        // Inequality filter.
+        yield return Presence("$.users[?(@.role != 'admin')]",
+            ("""{"users":[{"role":"user"}]}""", true),
+            ("""{"users":[{"role":"admin"}]}""", false),
+            ("""{"users":[{"role":"admin"},{"role":"user"}]}""", true));
+    }
+
     private static MatcherScenario Presence(string path, params (string Body, bool Match)[] bodies) =>
         Build($"matchesJsonPath[presence] {path}", new Dictionary<string, object> { ["matchesJsonPath"] = path }, bodies);
 
