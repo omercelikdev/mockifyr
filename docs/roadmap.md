@@ -73,9 +73,11 @@ Detailed rationale and per-group contents:
     `formData` indexing and the `parseJson` block form are deferred. See docs/parity/g2-response.md
   - [x] G2d date helpers — `parseDate` (ISO-8601 + Java `SimpleDateFormat` input) composed into
     `date` (Java format patterns incl. `E`/`a`/`S` translation, `epoch`/`unix`, default ISO, plural
-    `offset=` units), validated against the oracle over fixed instants. `now`/now-relative and the
-    unparseable-date fallback are racy and deferred; `timezone=` is ignored on a parsed instant to
-    match the oracle. See docs/parity/g2-response.md
+    `offset=` units), validated against the oracle over fixed instants. The **`now`** helper (default
+    ISO + `offset=` + `format=`) landed as a backfill, **structurally** validated (racy output can't be
+    byte-diffed — both sides must produce a correctly-formatted value inside the request's time window;
+    `Templating_NowHelper`). `now` `timezone=`/`truncate=` and the unparseable-date fallback remain
+    deferred; `timezone=` is ignored on a parsed instant to match the oracle. See docs/parity/g2-response.md
   - [x] G2e random helpers — `randomValue` (UUID + `[a-z0-9]`/`[a-z]`/`[0-9]`/`[0-9a-f]` types with
     `length`/`uppercase`), `pickRandom`, `randomInt` (half-open `[lower,upper)`), and bounded
     `randomDecimal`, validated **structurally** against the oracle (the racy output can't be
