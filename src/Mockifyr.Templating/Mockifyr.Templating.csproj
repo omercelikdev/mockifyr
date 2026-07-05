@@ -9,6 +9,8 @@
     <!-- G2c data helpers: jsonPath/parseJson reuse Newtonsoft (the same JSONPath dialect the
          matching layer pins against the oracle). Confined to Mockifyr.Templating. -->
     <PackageReference Include="Newtonsoft.Json" />
+    <!-- G15 Faker/random helper: fake data via Bogus (Datafaker's .NET counterpart). -->
+    <PackageReference Include="Bogus" />
   </ItemGroup>
 
 </Project>
