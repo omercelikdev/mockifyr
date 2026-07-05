@@ -216,6 +216,11 @@ Detailed rationale and per-group contents:
     way the extension does. Validated against the oracle across five request variants. GraphQL response
     templating deferred. See docs/parity/g14-graphql.md
 - [ ] **G15** Message-based/WebSocket + JWT + Faker + multi-domain
+  - [x] G15a Faker / `random` helper — `{{random 'Class.method'}}` renders fake data (Datafaker-style
+    expression) via **Bogus** (Datafaker's .NET counterpart), a curated provider subset; unknown
+    expression → WireMock's error string. Racy output, so **structurally** validated against the
+    WireMock faker-extension oracle (each field satisfies a format contract on both sides over many
+    iterations). See docs/parity/g15-extras.md
 - [x] **G16** Persistence providers (FileBased/LiteDB/Postgres/Redis) + change-feed reload
   - [x] G16a File-based persistence — an `IStubPersistence` seam (no-op default) the management-path
     handlers call; `--root-dir` registers `FileSystemStubPersistence`, writing each stub as an

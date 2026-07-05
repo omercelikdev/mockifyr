@@ -23,6 +23,7 @@ internal static class HandlebarsFactory
         JsonHelpers.Register(handlebars);
         FormatHelpers.Register(handlebars);
         SystemHelpers.Register(handlebars);
+        FakerHelpers.Register(handlebars);
 
         foreach (var helper in extraHelpers ?? [])
         {
