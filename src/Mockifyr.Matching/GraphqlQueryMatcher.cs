@@ -115,6 +115,19 @@ public sealed class GraphqlQueryMatcher(string expectedQuery, string? expectedVa
 
     private static void Sort(ASTNode node)
     {
+        // Directives can appear on any node (fields, the operation, fragment definitions/spreads, inline
+        // fragments); the reference extension normalizes their order and each directive's argument order,
+        // so sort them for every visited node — independent of the structural recursion below.
+        if (node is IHasDirectivesNode { Directives: { } directives })
+        {
+            foreach (var directive in directives.Items)
+            {
+                directive.Arguments?.Items.Sort(static (x, y) => string.CompareOrdinal(x.Name.StringValue, y.Name.StringValue));
+            }
+
+            directives.Items.Sort(ByPrintedForm);
+        }
+
         switch (node)
         {
             case GraphQLDocument document:

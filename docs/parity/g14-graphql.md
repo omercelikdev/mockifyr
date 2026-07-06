@@ -25,8 +25,7 @@ understands GraphQL query equivalence. Validated against the community WireMock 
   reformatted (whitespace), reordered fields, a different query, and a syntactically invalid one — are
   POSTed to `/graphql` against each. The match/no-match decision agrees on every variant.
 - **Deferred to G14b (explicitly tracked — not a silent gap):** `variables` and `operationName`
-  matching. Also deferred: fragments/directives ordering beyond the common cases; GraphQL response
-  templating.
+  matching; GraphQL response templating. Directive/fragment ordering closed in G14d.
 - **Regression case:** `G14aGraphqlTests.QueryMatching_AgreesWithTheOracle`.
 
 ## Variables + operation name (G14b)
@@ -64,3 +63,20 @@ understands GraphQL query equivalence. Validated against the community WireMock 
   that extracts `$.variables.id` and `$.operationName`, renders the **same** response body on the oracle
   and Mockifyr (`{"id":"42","op":"Hero"}`).
 - **Regression case:** `G14cGraphqlResponseTemplatingTests.ResponseTemplate_OverGraphqlMatch_MatchesTheOracle`.
+
+## Directive + fragment ordering (G14d)
+
+- **Group / item:** G14d — extends the AST normalization beyond field/argument order to **directives**.
+- **Learned from the oracle.** The extension normalizes directive order too: a field carrying
+  `@include(if: true) @skip(if: false)` matches an expected `@skip(if: false) @include(if: true)`
+  (confirmed — the reordered-directives case matches on the oracle while the pre-fix Mockifyr rejected it).
+  Fragment-spread bodies were already normalized by the selection sort (G14a).
+- **Fix.** `GraphqlQueryMatcher.Sort` now sorts, for every visited node that can carry directives
+  (`IHasDirectivesNode` — fields, the operation, fragment definitions/spreads, inline fragments), each
+  directive's **arguments** and then the **directives** themselves by printed form — mirroring the
+  argument/selection sort already applied. Independent of the structural recursion, so a directive on a
+  fragment spread (which has no selection set) is normalized too.
+- **Validation.** A stub query with two argument-bearing directives on a field plus a named fragment; the
+  reordered-directives, reordered-fragment-fields, and a genuinely-different (extra directive) variants all
+  agree with the oracle's match/no-match decision.
+- **Regression case:** `G14dGraphqlOrderingTests.DirectiveAndFragmentOrdering_AgreesWithTheOracle`.

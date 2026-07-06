@@ -258,6 +258,10 @@ Detailed rationale and per-group contents:
     over the wire: a stub extracting the request's variables/operationName renders the same response body
     on both sides. (A stub must constrain the fields it templates, per the G14b absent-when-unspecified
     rule.) See docs/parity/g14-graphql.md
+  - [x] G14d Directive + fragment ordering — the AST sort now also normalizes **directive** order (and
+    each directive's argument order) on every node that can carry them (`IHasDirectivesNode`), so a field
+    with reordered `@include`/`@skip` matches. Confirmed against the oracle (which normalizes directives
+    too). See docs/parity/g14-graphql.md
 - [x] **G15** Message-based/WebSocket + JWT + Faker + multi-domain
   - [x] G15a Faker / `random` helper — `{{random 'Class.method'}}` renders fake data (Datafaker-style
     expression) via **Bogus** (Datafaker's .NET counterpart), a curated provider subset; unknown
@@ -360,8 +364,8 @@ below — none is a silent gap.
   (#2), single-message gRPC **streaming** (#3), WebSocket **broadcast** / `channels/send` (#4), the
   **Datafaker long tail** (#5), multipart **`request.parts`** templating (#6), **mTLS** / configured
   keystore (#7), the Postgres **`LISTEN`/`NOTIFY`** change feed (#8), and **multi-tenant persistence
-  reload** (#9). Still-deferred micro-edges (small, tracked, non-blocking): JWKS endpoint; WebSocket
-  connect-time (unsolicited) messages / `filePath` bodies; GraphQL fragment/directive ordering.
+  reload** (#9). Remaining micro-edges (small, tracked, non-blocking): JWKS endpoint; WebSocket
+  connect-time (unsolicited) messages / `filePath` bodies. (GraphQL directive/fragment ordering — done, G14d.)
 - **④ Out of scope — WireMock Cloud, not OSS.** See the section above (`clientIp`, standalone number
   matchers, `systemProperty`/`env`, `math` `%`/`^`) — implementing would *diverge* from the OSS oracle.
 
