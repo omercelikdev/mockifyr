@@ -107,6 +107,41 @@ public static class JsonSchemaScenarios
             (""" "not-a-date" """.Trim(), false));
     }
 
+    /// <summary>
+    /// networknt <c>typeLoose</c> (learned from the oracle): a <b>non-string scalar</b> top-level body is
+    /// validated as its JSON-literal string form too, so it matches <c>type:string</c> / string-shaped
+    /// constraints / <c>enum</c> / <c>const</c>. Objects/arrays get no such fallback, nested positions are
+    /// not coerced, and the other types stay strict. See docs/parity/g1-matching.md.
+    /// </summary>
+    public static IEnumerable<MatcherScenario> TypeLoose()
+    {
+        yield return Build("typeLoose/string-accepts-scalars", Inline("""{"type":"string"}"""),
+            ("123", true), ("true", true), ("1.5", true), ("null", true), ("\"abc\"", true),
+            ("{}", false), ("[]", false));
+
+        yield return Build("typeLoose/string-with-constraints", Inline("""{"type":"string","minLength":3}"""),
+            ("123", true),        // literal "123" has length 3
+            ("5", false),         // literal "5" has length 1
+            ("\"abc\"", true),
+            ("\"ab\"", false));
+
+        yield return Build("typeLoose/integer-stays-strict", Inline("""{"type":"integer"}"""),
+            ("123", true),
+            ("\"123\"", false),   // a string is NOT coerced to integer
+            ("1.5", false));
+
+        yield return Build("typeLoose/enum-scalar-literal", Inline("""{"enum":["123","x"]}"""),
+            ("123", true),        // the number literal "123" is in the enum
+            ("\"x\"", true),
+            ("456", false));
+
+        // The coercion does NOT apply below the top level.
+        yield return Build("typeLoose/nested-not-coerced",
+            Inline("""{"type":"object","properties":{"n":{"type":"string"}}}"""),
+            ("{\"n\":\"ok\"}", true),
+            ("{\"n\":123}", false)); // nested number vs type:string → no match
+    }
+
     private static object Inline(string schemaJson) => JsonSerializer.Deserialize<JsonElement>(schemaJson);
 
     private static MatcherScenario Build(string description, object schema, params (string Body, bool Match)[] bodies) =>

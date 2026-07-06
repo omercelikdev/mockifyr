@@ -50,7 +50,26 @@ public sealed class MatchesJsonSchemaValueMatcher : IValueMatcher
         try
         {
             using var document = JsonDocument.Parse(values[0]);
-            return _schema.Evaluate(document.RootElement, _options).IsValid ? MatchResult.Exact : MatchResult.NoMatch(1d);
+            var root = document.RootElement;
+            if (_schema.Evaluate(root, _options).IsValid)
+            {
+                return MatchResult.Exact;
+            }
+
+            // WireMock/networknt quirk (learned from the oracle): a **non-string scalar** body is ALSO
+            // validated as its JSON-literal string form, so e.g. `123` matches `{"type":"string"}`,
+            // `{"enum":["123"]}`, or `{"const":"123"}`. Objects/arrays get no such fallback, and a string
+            // body uses its parsed (unquoted) value only. See docs/parity/g1-matching.md.
+            if (root.ValueKind is JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False or JsonValueKind.Null)
+            {
+                using var asString = JsonDocument.Parse(JsonSerializer.Serialize(values[0]));
+                if (_schema.Evaluate(asString.RootElement, _options).IsValid)
+                {
+                    return MatchResult.Exact;
+                }
+            }
+
+            return MatchResult.NoMatch(1d);
         }
         catch (JsonException)
         {

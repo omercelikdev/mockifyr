@@ -272,18 +272,20 @@ Tracked in `TextCorpus`.
   matcher pins the dialect explicitly (injecting `$schema` when absent) and drives
   `EvaluationOptions.RequireFormatValidation` = *(draft ≤ Draft-07)*. Both sides now agree on the
   default draft and on Draft-07 (token and `$schema` forms).
-- **`typeLoose` scalar coercion (learned from the oracle — deferred).** networknt validates in a
-  **type-loose** mode: a scalar body coerces across scalar types, so `123` and `true` **match**
-  `{"type":"string"}` (and, symmetrically, a numeric string matches `{"type":"integer"}`). Structural
-  types stay strict — an object body does **not** match `{"type":"string"}`, nor a scalar match
-  `{"type":"object"}`. JsonSchema.Net is strict for scalars too, so Mockifyr diverges on
-  scalar-vs-scalar type mismatches; replicating networknt's typeLoose coercion is a separate,
-  cross-cutting change (it touches every `type` check) and is **deferred**. The `format` cases above
-  sidestep it by using an object body as their non-match guard.
-- **Deferred:** WireMock's `V4` (Draft 4 — unsupported by JsonSchema.Net), the **typeLoose** scalar
-  coercion above, `$ref`/remote-ref resolution, and draft-specific keyword edges beyond the common
-  subset above.
-- **Regression cases:** `G1GeneratedMatcherTests.MatchesJsonSchema_{InlineObject,StringFormAndVersion,Format}`
+- **`typeLoose` scalar coercion (learned from the oracle, then implemented).** WireMock validates a
+  **non-string scalar** top-level body *twice* — as its parsed JSON value **and** as its JSON-literal
+  **string** form — and matches if either passes. So `123` matches `{"type":"string"}`,
+  `{"enum":["123"]}`, `{"const":"123"}`, and `{"type":"string","minLength":3}` (literal `"123"` has
+  length 3) but **not** `minLength:4`; string-shaped keywords apply to the literal. The other direction
+  does **not** coerce — a string body is **not** re-read as a number, so `"123"` does not match
+  `{"type":"integer"}`. The fallback is **top-level and non-string-scalar only**: objects/arrays never
+  coerce, a string body uses its parsed (unquoted) value, and nested positions
+  (`properties`/`items`) stay strict (`{"n":123}` does not match a `n:{type:string}` property). Mockifyr
+  reproduces this by re-validating a Number/Boolean/Null root as its raw text serialized to a JSON
+  string. The full accept/reject matrix was mapped against the oracle before implementing.
+- **Deferred:** WireMock's `V4` (Draft 4 — unsupported by JsonSchema.Net), `$ref`/remote-ref
+  resolution, and draft-specific keyword edges beyond the common subset above.
+- **Regression cases:** `G1GeneratedMatcherTests.MatchesJsonSchema_{InlineObject,StringFormAndVersion,Format,TypeLoose}`
   (differential), `MatchesJsonSchemaTests` (pure logic).
 
 ### date/time matchers (G1i)
