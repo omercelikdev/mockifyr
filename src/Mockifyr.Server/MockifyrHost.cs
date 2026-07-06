@@ -85,6 +85,16 @@ public static class MockifyrHost
             builder.Services.AddSingleton<IStubPersistence>(new PostgresStubPersistence(postgres));
             builder.Services.AddSingleton<IMappingsLoader>(sp =>
                 new PostgresMappingsLoader(postgres, sp.GetRequiredService<IMatcherRegistry>()));
+
+            // Change-feed reload (G16f): opt-in multi-instance coherence via Postgres LISTEN/NOTIFY —
+            // the same seam as Redis (G16e). Each host listens for change announcements and reconciles
+            // its in-memory store, so a mutation on one instance is reflected by the others live.
+            if (builder.Configuration.GetValue<bool>("change-feed"))
+            {
+                builder.Services.AddSingleton<IHostedService>(sp =>
+                    new PostgresChangeFeedReloader(
+                        postgres, sp.GetRequiredService<IStubStore>(), sp.GetServices<IMappingsLoader>()));
+            }
         }
 
         // Redis persistence (G16d): stubs persist to a Redis hash and reload on startup. The

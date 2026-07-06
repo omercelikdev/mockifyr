@@ -117,6 +117,23 @@ the same seam.
   (B stops serving). Propagation is asynchronous (pub/sub), so the assertions poll within a timeout.
   Coherence is infrastructure — served-response parity is already oracle-covered (G16d) — so no oracle
   is needed here.
-- **Deferred (tracked):** a Postgres `LISTEN`/`NOTIFY` change feed (the seam generalizes; Redis is the
-  first transport), and multi-tenant reload (the reloader reconciles the default tenant).
 - **Regression case:** `G16eChangeFeedTests.Mutation_On_One_Instance_Propagates_To_Another`.
+
+## Postgres change-feed reload (G16f)
+
+- **Group / item:** G16f — the same multi-instance coherence as G16e, over PostgreSQL `LISTEN`/`NOTIFY`
+  instead of Redis pub/sub.
+- **`LISTEN`/`NOTIFY` reload.** Every `PostgresStubPersistence` mutation runs `NOTIFY mockifyr_changes`
+  on its connection right after the write (a `NOTIFY` with no listener is a cheap no-op, so it is always
+  safe to emit). `--change-feed` opts a Postgres-backed host into a `PostgresChangeFeedReloader` (an
+  `IHostedService`) that holds a dedicated connection, `LISTEN mockifyr_changes`, and — driven by a
+  background loop calling Npgsql's `WaitAsync` (notifications are only delivered while a wait is in
+  flight) — reconciles the store on every notification via the **shared** `ChangeFeedReconciler` (upsert
+  then prune, the same logic G16e uses). So a mutation on one instance is served (or stopped) by the
+  others without a restart.
+- **Validation.** Two live Mockifyr hosts share one `postgres:16-alpine` container with `--change-feed`:
+  a create on host A propagates to host B, and a delete on A propagates too. Propagation is asynchronous,
+  so the assertions poll within a timeout. Like G16e this is coherence infrastructure (served-response
+  parity is oracle-covered by G16c), so no oracle is needed.
+- **Deferred (tracked):** multi-tenant reload (both reloaders reconcile the default tenant) — bucket ③ #9.
+- **Regression case:** `G16fPostgresChangeFeedTests.Mutation_On_One_Instance_Propagates_To_Another`.

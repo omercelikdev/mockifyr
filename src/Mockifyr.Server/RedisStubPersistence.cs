@@ -71,26 +71,7 @@ public sealed class RedisChangeFeedReloader(
         return Task.CompletedTask;
     }
 
-    private void Reload()
-    {
-        var tenant = TenantId.Default;
-        var loaded = loaders.SelectMany(loader => loader.Load(tenant)).ToList();
-        var loadedIds = loaded.Select(stub => stub.Id).ToHashSet();
-
-        // Upsert first (no empty window where a live request could miss a match), then prune the gone.
-        foreach (var stub in loaded)
-        {
-            store.Put(stub);
-        }
-
-        foreach (var existing in store.GetStubs(tenant).ToList())
-        {
-            if (!loadedIds.Contains(existing.Id))
-            {
-                store.Remove(tenant, existing.Id);
-            }
-        }
-    }
+    private void Reload() => ChangeFeedReconciler.Reload(store, loaders);
 }
 
 /// <summary>

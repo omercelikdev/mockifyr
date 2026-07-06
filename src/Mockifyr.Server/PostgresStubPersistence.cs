@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Hosting;
 using Mockifyr.Adapters.WireMockJson;
 using Mockifyr.Core;
 using Npgsql;
@@ -31,6 +32,9 @@ internal static class PostgresSchema
 /// </summary>
 public sealed class PostgresStubPersistence : IStubPersistence
 {
+    /// <summary>The <c>NOTIFY</c>/<c>LISTEN</c> channel a mutation announces on, so other instances reload (G16f).</summary>
+    internal const string ChangeChannel = "mockifyr_changes";
+
     private readonly string _connectionString;
 
     public PostgresStubPersistence(string connectionString)
@@ -52,6 +56,7 @@ public sealed class PostgresStubPersistence : IStubPersistence
         command.Parameters.AddWithValue("tenant", stub.TenantId.Value);
         command.Parameters.AddWithValue("json", PersistableJson.WithId(mappingJson, stub.Id));
         command.ExecuteNonQuery();
+        Announce(connection);
     }
 
     /// <inheritdoc />
@@ -62,6 +67,7 @@ public sealed class PostgresStubPersistence : IStubPersistence
         using var command = new NpgsqlCommand("DELETE FROM stubs WHERE id = @id", connection);
         command.Parameters.AddWithValue("id", id);
         command.ExecuteNonQuery();
+        Announce(connection);
     }
 
     /// <inheritdoc />
@@ -72,6 +78,90 @@ public sealed class PostgresStubPersistence : IStubPersistence
         using var command = new NpgsqlCommand("DELETE FROM stubs WHERE tenant = @tenant", connection);
         command.Parameters.AddWithValue("tenant", tenant.Value);
         command.ExecuteNonQuery();
+        Announce(connection);
+    }
+
+    // Announce a change on the open connection so LISTEN subscribers (G16f) reload. The channel is a
+    // fixed identifier (not user input), so it is safe to interpolate; NOTIFY with no listener is a
+    // cheap no-op, so this is always safe whether or not the change feed is enabled.
+    private static void Announce(NpgsqlConnection connection)
+    {
+        using var notify = new NpgsqlCommand($"NOTIFY {ChangeChannel}", connection);
+        notify.ExecuteNonQuery();
+    }
+}
+
+/// <summary>
+/// The Postgres change-feed reloader (G16f): the <see cref="RedisChangeFeedReloader"/> counterpart using
+/// PostgreSQL <c>LISTEN</c>/<c>NOTIFY</c>. It holds a dedicated connection that <c>LISTEN</c>s on the
+/// change channel and, on every notification another instance emits, reconciles the in-memory store from
+/// the mappings loaders (<see cref="ChangeFeedReconciler"/>) — so a mutation on one instance is reflected
+/// by the others without a restart. A background loop drives Npgsql's notification delivery.
+/// </summary>
+public sealed class PostgresChangeFeedReloader : IHostedService
+{
+    private readonly string _connectionString;
+    private readonly IStubStore _store;
+    private readonly IEnumerable<IMappingsLoader> _loaders;
+    private readonly CancellationTokenSource _stopping = new();
+    private NpgsqlConnection? _connection;
+    private Task? _listenLoop;
+
+    public PostgresChangeFeedReloader(string connectionString, IStubStore store, IEnumerable<IMappingsLoader> loaders)
+    {
+        _connectionString = connectionString;
+        _store = store;
+        _loaders = loaders;
+    }
+
+    /// <inheritdoc />
+    public async Task StartAsync(CancellationToken cancellationToken)
+    {
+        _connection = new NpgsqlConnection(_connectionString);
+        await _connection.OpenAsync(cancellationToken);
+        _connection.Notification += (_, _) => ChangeFeedReconciler.Reload(_store, _loaders);
+
+        using (var listen = new NpgsqlCommand($"LISTEN {PostgresStubPersistence.ChangeChannel}", _connection))
+        {
+            await listen.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        // Npgsql only delivers notifications while a wait is in flight, so drive it in a loop.
+        _listenLoop = ListenLoopAsync(_stopping.Token);
+    }
+
+    /// <inheritdoc />
+    public async Task StopAsync(CancellationToken cancellationToken)
+    {
+        await _stopping.CancelAsync();
+        if (_connection is not null)
+        {
+            await _connection.DisposeAsync();
+        }
+
+        if (_listenLoop is not null)
+        {
+            await Task.WhenAny(_listenLoop, Task.Delay(Timeout.Infinite, cancellationToken));
+        }
+    }
+
+    private async Task ListenLoopAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await _connection!.WaitAsync(cancellationToken);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected on shutdown.
+        }
+        catch (Exception)
+        {
+            // The connection was disposed on shutdown; nothing to recover.
+        }
     }
 }
 
