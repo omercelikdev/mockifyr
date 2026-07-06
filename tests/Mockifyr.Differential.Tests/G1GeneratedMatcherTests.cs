@@ -123,6 +123,9 @@ public sealed class G1GeneratedMatcherTests : IAsyncLifetime
     public Task MatchesJsonSchema_TypeLoose() => Verify(JsonSchemaScenarios.TypeLoose());
 
     [Fact]
+    public Task MatchesJsonSchema_Ref() => Verify(JsonSchemaScenarios.Ref());
+
+    [Fact]
     public Task EqualToXml() => Verify(XmlScenarios.EqualToXml());
 
     [Fact]

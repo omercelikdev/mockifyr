@@ -113,6 +113,57 @@ public static class JsonSchemaScenarios
     /// constraints / <c>enum</c> / <c>const</c>. Objects/arrays get no such fallback, nested positions are
     /// not coerced, and the other types stay strict. See docs/parity/g1-matching.md.
     /// </summary>
+    /// <summary>
+    /// Internal <c>$ref</c> resolution: a schema whose properties reference a reusable definition via
+    /// <c>#/$defs/…</c> (Draft 2020-12) and <c>#/definitions/…</c> (Draft-07). Both validators resolve
+    /// intra-document refs, so the match decision must agree. Remote/URL refs are deferred.
+    /// </summary>
+    public static IEnumerable<MatcherScenario> Ref()
+    {
+        const string defsSchema =
+            """
+            {
+              "type": "object",
+              "required": ["billing"],
+              "properties": {
+                "billing": { "$ref": "#/$defs/address" },
+                "shipping": { "$ref": "#/$defs/address" }
+              },
+              "$defs": {
+                "address": {
+                  "type": "object",
+                  "required": ["city"],
+                  "properties": { "city": { "type": "string" }, "zip": { "type": "string" } }
+                }
+              }
+            }
+            """;
+        yield return Build("ref/$defs (2020-12)", Inline(defsSchema),
+            ("""{"billing":{"city":"NYC"}}""", true),
+            ("""{"billing":{"city":"NYC","zip":"10001"},"shipping":{"city":"LA"}}""", true),
+            ("""{"billing":{"zip":"10001"}}""", false),          // referenced required `city` missing
+            ("""{"shipping":{"city":"LA"}}""", false),           // top-level required `billing` missing
+            ("""{"billing":{"city":5}}""", false));              // referenced `city` wrong type
+
+        // Draft-07 uses `definitions` and an explicit $schema; the ref target is selected the same way.
+        const string definitionsSchema =
+            """
+            {
+              "$schema": "http://json-schema.org/draft-07/schema#",
+              "type": "object",
+              "required": ["item"],
+              "properties": { "item": { "$ref": "#/definitions/named" } },
+              "definitions": {
+                "named": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string" } } }
+              }
+            }
+            """;
+        yield return Build("ref/definitions (draft-07)", Inline(definitionsSchema),
+            ("""{"item":{"name":"x"}}""", true),
+            ("""{"item":{}}""", false),                          // referenced required `name` missing
+            ("""{"other":1}""", false));                         // top-level required `item` missing
+    }
+
     public static IEnumerable<MatcherScenario> TypeLoose()
     {
         yield return Build("typeLoose/string-accepts-scalars", Inline("""{"type":"string"}"""),

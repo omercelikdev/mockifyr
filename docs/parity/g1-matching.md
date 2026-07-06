@@ -283,9 +283,14 @@ Tracked in `TextCorpus`.
   (`properties`/`items`) stay strict (`{"n":123}` does not match a `n:{type:string}` property). Mockifyr
   reproduces this by re-validating a Number/Boolean/Null root as its raw text serialized to a JSON
   string. The full accept/reject matrix was mapped against the oracle before implementing.
-- **Deferred:** WireMock's `V4` (Draft 4 — unsupported by JsonSchema.Net), `$ref`/remote-ref
-  resolution, and draft-specific keyword edges beyond the common subset above.
-- **Regression cases:** `G1GeneratedMatcherTests.MatchesJsonSchema_{InlineObject,StringFormAndVersion,Format,TypeLoose}`
+- **Internal `$ref` resolution.** Intra-document references — `#/$defs/…` (Draft 2020-12) and
+  `#/definitions/…` (Draft-07) — resolve identically on both validators, so a stub whose properties
+  reference a reusable definition agrees with the oracle (referenced `required`/`type` constraints are
+  enforced through the ref). No Mockifyr change was needed; JsonSchema.Net resolves them natively.
+- **Deferred:** WireMock's `V4` (Draft 4 — unsupported by JsonSchema.Net), **remote/URL** `$ref`
+  resolution (only intra-document refs are validated), and draft-specific keyword edges beyond the
+  common subset above.
+- **Regression cases:** `G1GeneratedMatcherTests.MatchesJsonSchema_{InlineObject,StringFormAndVersion,Format,TypeLoose,Ref}`
   (differential), `MatchesJsonSchemaTests` (pure logic).
 
 ### date/time matchers (G1i)

@@ -49,7 +49,8 @@ Detailed rationale and per-group contents:
     **typeLoose** quirk is now reproduced too: a non-string scalar top-level body is validated as its
     JSON-literal string form as well (so `123` matches `type:string`/`enum`/`const`), while the reverse,
     objects/arrays, and nested positions stay strict — the full matrix was mapped against the oracle.
-    Draft 4 and `$ref` resolution deferred. See docs/parity/g1-matching.md
+    Internal `$ref` (`#/$defs/…`, `#/definitions/…`) resolves identically to the oracle (validated, no
+    change needed). Draft 4 and remote/URL `$ref` deferred. See docs/parity/g1-matching.md
   - [x] G1i date/time matchers — `before`/`after`/`equalToDateTime` on absolute ISO-8601 instants
     (+ `actualFormat`) fuzz-validated; `now`-relative/offset/truncation deferred (racy vs a second
     clock)
