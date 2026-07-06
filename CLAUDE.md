@@ -146,12 +146,19 @@ the unit tests on every PR.
 
 ## 7. Current status
 
-G0 done and G1 in progress. The engine serves via exact/standard matching (URL/method plus
-the `equalTo`/`equalToIgnoreCase`/`contains`/`matches`/`doesNotMatch`/`absent` value matchers on
-headers/query/cookies/body), static responses, in-memory tenant-scoped stores, and the WireMock
-JSON import adapter. The differential harness runs the real WireMock oracle via Testcontainers.
-The **fuzzing generator** (`MatcherScenarios`) emits hundreds of seed-driven corpus probes and
-the property suite asserts every match decision agrees with the oracle — it has already caught a
-real divergence (empty request body is "absent" for body matching). Builds clean (0 warnings);
-unit 16/16; differential 18/18 (incl. property tests). Next: finish G1 (cookie/doesNotMatch/
-multi-value/binaryEqualTo), then G1e `equalToJson` (fuzz-validated), then G1f `matchesJsonPath`.
+All roadmap groups **G1–G16 are complete** (see [docs/roadmap.md](docs/roadmap.md)); only the
+post-phase **UI / dashboard** remains. Delivered across 17 projects: matching (G1 — URL/method,
+header/query/cookie/body value matchers, `equalToJson`/`matchesJsonPath`/`matchesJsonSchema` incl.
+`format` + networknt `typeLoose` + `$ref`, `equalToXml`/`matchesXPath` incl. XMLUnit placeholders +
+namespaces + XPath functions, date/time, logic/basicAuth/multipart/priority); response + templating
+(G2 — static, the Handlebars helper families, `parseJson` inline+block); webhooks (G3); delay/fault
+(G4); scenarios (G5); verify/near-miss (G6); admin API + CQRS (G7); proxy (G8); record & playback
+(G9); extensibility (G10); HTTPS + HTTP/2 (G11); the transport HTTP facade + standalone/config (G12);
+gRPC (G13 — unary, codec incl. enum/map/repeated/oneof/wrappers, error status, admin-managed stubs);
+GraphQL (G14 — query/variables/operationName matching + response templating); message-based extras
+(G15 — Faker, JWT, multi-domain host/port/scheme, WebSocket message serving); and persistence
+(G16 — FileBased/LiteDB/Postgres/Redis + change-feed reload). Correctness is proven **differentially
+against the Java WireMock oracle** except where no stable oracle exists — racy helpers (Faker/JWT/
+random/`now`) use structural/content validation, and WebSocket (WireMock beta) uses a self-test —
+each such case is stated in `docs/parity/`. Remaining work is documented **deferred edges** (per group
+in `docs/parity/`) plus the UI. Builds clean (0 warnings).

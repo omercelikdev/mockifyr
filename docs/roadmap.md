@@ -14,8 +14,8 @@ Detailed rationale and per-group contents:
   diffs a trivial stub (exact URL + static response) against the `wiremock/wiremock:3.10.0`
   oracle, green. Also lands the first slice of G1a (urlEqualTo/urlPathEqualTo/method/ANY) and
   G2a (static response). The generator is still a stub.
-- [ ] **G1 — Matching**
-  - [ ] G1a URL basic (urlEqualTo, urlPathEqualTo, method + ANY)
+- [x] **G1 — Matching**
+  - [x] G1a URL basic (urlEqualTo, urlPathEqualTo, method + ANY)
   - [x] G1b URL advanced — `urlPattern` (anchored full-URL regex), `urlPathPattern` (anchored
     path regex), `urlPathTemplate` (one segment per `{var}`), fuzz-validated. Named path-variable
     **extraction** (`{{request.path.<name>}}`) landed as a later backfill — see G2b
@@ -208,7 +208,7 @@ Detailed rationale and per-group contents:
     (the loaded stubs' serving is already oracle-covered), so validated in-process over HTTP: the
     loader parses a temp dir, and a real Kestrel host on an ephemeral port serves a disk-loaded stub.
     `--https-port` landed in **G11a** (needs TLS). See docs/parity/g12-transport.md
-- [ ] **G13** gRPC extension
+- [x] **G13** gRPC extension
   - [x] G13a Unary serving — `Mockifyr.Facade.Grpc`: a descriptor-driven `ProtobufJsonCodec`
     (protobuf ↔ proto3-JSON via `CodedInputStream`/`CodedOutputStream`, since C# has no runtime
     `DynamicMessage`) + a gRPC HTTP/2 middleware that decodes the call, routes it through the
@@ -238,7 +238,7 @@ Detailed rationale and per-group contents:
     The oracle revealed that WireMock's `/__admin/reset` *reloads* file-backed mappings (so it does not
     clear a file-seeded stub); Mockifyr's reset clears without reload, so reset-reload parity is deferred
     and the test uses admin-add (never reset). Streaming deferred. See docs/parity/g13-grpc.md
-- [ ] **G14** GraphQL extension
+- [x] **G14** GraphQL extension
   - [x] G14a Query matching — a `GraphqlQueryMatcher` (parse + AST-sort + canonical print, so equal
     queries match regardless of whitespace and field/argument order) via GraphQL-Parser; the adapter
     recognizes the `graphql-body-matcher` `customMatcher` (`parameters.query`). Validated against the
