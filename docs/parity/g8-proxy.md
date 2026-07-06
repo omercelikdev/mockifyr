@@ -20,7 +20,10 @@ Verified WireMock proxy behaviors against the oracle (`wiremock/wiremock:3.10.0`
   side). The proxied responses are diffed on **status + body + the `X-Upstream` header** (transport
   headers like `Date`/`Server`/`Transfer-Encoding` are masked). Because the upstream echoes the path,
   path/query forwarding is part of the diff.
-- **Deferred:** `additionalProxyRequestHeaders` / `removeProxyRequestHeaders` and proxy URL prefix
-  rewriting (probed to exist; the `ProxyDirective` carries only the base URL for now); response-header
-  rewriting; and proxy combined with record & playback (G9).
-- **Regression case:** `G8ProxyTests.Proxy_ReturnsUpstreamResponse`.
+- **`additionalProxyRequestHeaders` (feature-audit backfill).** The stub's
+  `additionalProxyRequestHeaders` are added to the forwarded request (`ProxyDirective.AdditionalHeaders`,
+  injected by `ProxyResponder`). Validated by having the upstream echo an `X-Proxy-Added` request header
+  back as an `X-Echoed-Added` response header — both sides' proxied responses carry it identically.
+- **Deferred:** `removeProxyRequestHeaders` and proxy URL prefix rewriting; response-header rewriting;
+  and proxy combined with record & playback (G9).
+- **Regression case:** `G8ProxyTests.Proxy_ReturnsUpstreamResponse` (now incl. the additional-headers case).

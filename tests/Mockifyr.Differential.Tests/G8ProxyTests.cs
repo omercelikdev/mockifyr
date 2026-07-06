@@ -32,8 +32,9 @@ public sealed class G8ProxyTests : IAsyncLifetime
         {
             var outcome = await _runner.RunProxyAsync(_upstream, scenario.StubTemplate, scenario.Request);
 
-            // Compare status + body + the upstream's marker header (transport headers are masked).
-            var diff = ResponseDiffer.Compare(outcome.Oracle, outcome.Mockifyr, ["X-Upstream"]);
+            // Compare status + body + the upstream's marker header + the echoed proxy-added header
+            // (transport headers are masked).
+            var diff = ResponseDiffer.Compare(outcome.Oracle, outcome.Mockifyr, ["X-Upstream", "X-Echoed-Added"]);
             if (!diff.IsMatch)
             {
                 failures.Add($"{scenario.Description}: {diff.Report}");

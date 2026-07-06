@@ -752,12 +752,30 @@ public static class WireMockMappingReader
         return new DelayDistribution(lo, hi);
     }
 
-    /// <summary>Reads the <c>proxyBaseUrl</c> directive (G8); the facade performs the outbound call.</summary>
-    private static ProxyDirective? ReadProxy(JsonElement response) =>
-        response.ValueKind == JsonValueKind.Object &&
-        response.TryGetProperty("proxyBaseUrl", out var url) && url.ValueKind == JsonValueKind.String
-            ? new ProxyDirective(url.GetString()!)
-            : null;
+    /// <summary>Reads the <c>proxyBaseUrl</c> directive (G8) plus <c>additionalProxyRequestHeaders</c>.</summary>
+    private static ProxyDirective? ReadProxy(JsonElement response)
+    {
+        if (response.ValueKind != JsonValueKind.Object ||
+            !response.TryGetProperty("proxyBaseUrl", out var url) || url.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
+        var additionalHeaders = new List<KeyValuePair<string, string>>();
+        if (response.TryGetProperty("additionalProxyRequestHeaders", out var headers) &&
+            headers.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var header in headers.EnumerateObject())
+            {
+                if (header.Value.ValueKind == JsonValueKind.String)
+                {
+                    additionalHeaders.Add(new(header.Name, header.Value.GetString()!));
+                }
+            }
+        }
+
+        return new ProxyDirective(url.GetString()!) { AdditionalHeaders = additionalHeaders };
+    }
 
     /// <summary>Reads the <c>fixedDelayMilliseconds</c> response delay (delayDistribution → G4 follow-up).</summary>
     private static DelayDirective? ReadDelay(JsonElement response) =>

@@ -48,6 +48,12 @@ public sealed class UpstreamServer : IDisposable
             var payload = Encoding.UTF8.GetBytes($"{{\"from\":\"upstream\",\"path\":\"{context.Request.Url?.PathAndQuery}\"}}");
             context.Response.StatusCode = 200;
             context.Response.Headers["X-Upstream"] = "real-server";
+            // Echo a proxy-added request header back (for validating additionalProxyRequestHeaders).
+            var added = context.Request.Headers["X-Proxy-Added"];
+            if (!string.IsNullOrEmpty(added))
+            {
+                context.Response.Headers["X-Echoed-Added"] = added;
+            }
             context.Response.ContentType = "application/json";
             context.Response.OutputStream.Write(payload);
             context.Response.Close();

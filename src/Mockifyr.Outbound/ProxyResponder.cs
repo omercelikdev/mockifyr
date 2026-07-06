@@ -42,6 +42,15 @@ public sealed class ProxyResponder(HttpClient? client = null)
             }
         }
 
+        // WireMock's additionalProxyRequestHeaders are added to the forwarded request.
+        foreach (var (name, value) in proxy.AdditionalHeaders)
+        {
+            if (!message.Headers.TryAddWithoutValidation(name, value))
+            {
+                message.Content?.Headers.TryAddWithoutValidation(name, value);
+            }
+        }
+
         using var response = await _client.SendAsync(message, cancellationToken).ConfigureAwait(false);
         var responseBody = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
 

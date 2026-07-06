@@ -111,7 +111,11 @@ public sealed record DelayDistribution(int LowerMs, int UpperMs);
 public sealed record FaultDirective(FaultKind Kind);
 
 /// <summary>Directive asking the facade to proxy the request to a target.</summary>
-public sealed record ProxyDirective(string BaseUrl);
+public sealed record ProxyDirective(string BaseUrl)
+{
+    /// <summary>Extra headers added to the forwarded request (WireMock's <c>additionalProxyRequestHeaders</c>).</summary>
+    public IReadOnlyList<KeyValuePair<string, string>> AdditionalHeaders { get; init; } = [];
+}
 
 /// <summary>
 /// The transport-agnostic response the engine produces. Delay/fault/proxy are directives the

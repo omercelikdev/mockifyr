@@ -28,14 +28,29 @@ public static class ProxyScenarios
             method: "POST",
             urlPath: "/px",
             trigger: new RequestSpec { Method = "POST", Url = "/px", Body = Encoding.UTF8.GetBytes("client-body") });
+
+        // additionalProxyRequestHeaders: the upstream receives (and echoes back) the added header.
+        yield return Build(
+            "additional-headers",
+            method: "GET",
+            urlPath: "/pah",
+            trigger: new RequestSpec { Method = "GET", Url = "/pah" },
+            additionalHeaders: new Dictionary<string, object> { ["X-Proxy-Added"] = "injected" });
     }
 
-    private static ProxyScenario Build(string description, string method, string urlPath, RequestSpec trigger)
+    private static ProxyScenario Build(
+        string description, string method, string urlPath, RequestSpec trigger, Dictionary<string, object>? additionalHeaders = null)
     {
+        var response = new Dictionary<string, object> { ["proxyBaseUrl"] = "http://__PROXY_HOST__" };
+        if (additionalHeaders is not null)
+        {
+            response["additionalProxyRequestHeaders"] = additionalHeaders;
+        }
+
         var mapping = new Dictionary<string, object>
         {
             ["request"] = new Dictionary<string, object> { ["method"] = method, ["urlPath"] = urlPath },
-            ["response"] = new Dictionary<string, object> { ["proxyBaseUrl"] = "http://__PROXY_HOST__" },
+            ["response"] = response,
         };
 
         return new ProxyScenario($"proxy[{description}]", JsonSerializer.Serialize(mapping), trigger);
