@@ -305,8 +305,13 @@ Detailed rationale and per-group contents:
   - [x] G16e Change-feed reload — every `RedisStubPersistence` mutation announces on a pub/sub channel;
     `--change-feed` opts a host into a `RedisChangeFeedReloader` (`IHostedService`) that reloads +
     reconciles its store on any announcement. Multi-instance coherence validated with **two live hosts**
-    sharing Redis (create/delete on one propagates to the other without a restart). Postgres
-    LISTEN/NOTIFY + multi-tenant reload deferred. See docs/parity/g16-persistence.md
+    sharing Redis (create/delete on one propagates to the other without a restart). See
+    docs/parity/g16-persistence.md
+  - [x] G16f Postgres change-feed reload — the same coherence over PostgreSQL `LISTEN`/`NOTIFY`: every
+    `PostgresStubPersistence` mutation runs `NOTIFY mockifyr_changes`; `--change-feed` opts a
+    Postgres-backed host into a `PostgresChangeFeedReloader` (`IHostedService`) that `LISTEN`s and
+    reconciles via the shared `ChangeFeedReconciler`. Validated with **two live hosts** sharing a Postgres
+    container. Multi-tenant reload deferred (bucket ③ #9). See docs/parity/g16-persistence.md
 
 ## Out of scope — WireMock **Cloud**, not open-source (no OSS oracle)
 
@@ -348,10 +353,9 @@ below — none is a silent gap.
 - **③ Separate efforts if wanted (real features, each a mini-project with its own validation setup).**
   Done in this bucket (each oracle- or self-validated, own PR): **RS256** JWT (#1), **remote/URL `$ref`**
   JSON Schema (#2), single-message gRPC **streaming** (#3), WebSocket **broadcast** / `channels/send` (#4),
-  the **Datafaker long tail** (#5), multipart **`request.parts`** templating (#6), and **mTLS** /
-  configured keystore (#7).
-  Remaining: Postgres `LISTEN`/`NOTIFY` change feed — Redis is the reference, done (#8); multi-tenant
-  persistence *reload* (#9). Still-deferred micro-edges: JWKS endpoint;
+  the **Datafaker long tail** (#5), multipart **`request.parts`** templating (#6), **mTLS** /
+  configured keystore (#7), and the Postgres **`LISTEN`/`NOTIFY`** change feed (#8).
+  Remaining: multi-tenant persistence *reload* (#9). Still-deferred micro-edges: JWKS endpoint;
   WebSocket connect-time (unsolicited) messages / `filePath` bodies; GraphQL fragment/directive ordering.
 - **④ Out of scope — WireMock Cloud, not OSS.** See the section above (`clientIp`, standalone number
   matchers, `systemProperty`/`env`, `math` `%`/`^`) — implementing would *diverge* from the OSS oracle.
