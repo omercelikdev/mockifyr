@@ -20,15 +20,20 @@ public sealed class EqualToXmlValueMatcher : IValueMatcher
 {
     private readonly XElement? _expected;
     private readonly Regex? _placeholder;
+    private readonly bool _exemptAttrValue;
+    private readonly bool _exemptTextValue;
 
     /// <summary>Creates the matcher from the expected XML text and optional placeholder configuration.</summary>
     public EqualToXmlValueMatcher(
         string expectedXml,
         bool enablePlaceholders = false,
         string? openingDelimiterRegex = null,
-        string? closingDelimiterRegex = null)
+        string? closingDelimiterRegex = null,
+        IReadOnlyCollection<string>? exemptedComparisons = null)
     {
         _expected = TryParse(expectedXml);
+        _exemptAttrValue = exemptedComparisons?.Contains("ATTR_VALUE") ?? false;
+        _exemptTextValue = exemptedComparisons?.Contains("TEXT_VALUE") ?? false;
         if (enablePlaceholders)
         {
             var open = string.IsNullOrEmpty(openingDelimiterRegex) ? @"\$\{" : openingDelimiterRegex;
@@ -87,7 +92,8 @@ public sealed class EqualToXmlValueMatcher : IValueMatcher
 
         if (expectedChildren.Count == 0)
         {
-            return LeafMatch(expected.Value, actual.Value);
+            // TEXT_VALUE exemption (exemptedComparisons) ignores leaf text differences.
+            return _exemptTextValue || LeafMatch(expected.Value, actual.Value);
         }
 
         // Sibling element order is not significant (WireMock/XMLUnit treats a reorder as "similar",
@@ -130,7 +136,10 @@ public sealed class EqualToXmlValueMatcher : IValueMatcher
 
         foreach (var attribute in expectedAttributes)
         {
-            if (!actualAttributes.TryGetValue(attribute.Name, out var value) || !LeafMatch(attribute.Value, value))
+            // ATTR_VALUE exemption (exemptedComparisons) requires the same attribute names but ignores
+            // their values.
+            if (!actualAttributes.TryGetValue(attribute.Name, out var value) ||
+                (!_exemptAttrValue && !LeafMatch(attribute.Value, value)))
             {
                 return false;
             }

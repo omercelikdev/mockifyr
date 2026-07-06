@@ -141,6 +141,9 @@ public sealed class G1GeneratedMatcherTests : IAsyncLifetime
     public Task MatchesXPath_Functions() => Verify(XmlScenarios.XPathFunctions());
 
     [Fact]
+    public Task Xml_Edges() => Verify(XmlScenarios.XmlEdges());
+
+    [Fact]
     public Task DoesNotContain() => Verify(MatchingGapScenarios.DoesNotContain());
 
     [Fact]

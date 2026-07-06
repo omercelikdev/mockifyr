@@ -540,11 +540,20 @@ public static class WireMockMappingReader
         if (spec.TryGetProperty("equalToXml", out var equalToXml) && equalToXml.ValueKind == JsonValueKind.String)
         {
             var enablePlaceholders = spec.TryGetProperty("enablePlaceholders", out var ep) && ep.ValueKind == JsonValueKind.True;
+            var exempted = new List<string>();
+            if (spec.TryGetProperty("exemptedComparisons", out var ex) && ex.ValueKind == JsonValueKind.Array)
+            {
+                exempted.AddRange(ex.EnumerateArray()
+                    .Where(e => e.ValueKind == JsonValueKind.String)
+                    .Select(e => e.GetString()!));
+            }
+
             return new EqualToXmlValueMatcher(
                 equalToXml.GetString()!,
                 enablePlaceholders,
                 ReadString(spec, "placeholderOpeningDelimiterRegex"),
-                ReadString(spec, "placeholderClosingDelimiterRegex"));
+                ReadString(spec, "placeholderClosingDelimiterRegex"),
+                exempted);
         }
 
         if (spec.TryGetProperty("matchesXPath", out var xPath))

@@ -220,6 +220,40 @@ public static class XmlScenarios
             (twoNsXml, true));
     }
 
+    /// <summary>
+    /// XML matching edges (feature audit): <c>equalToXml</c> <c>exemptedComparisons</c>
+    /// (<c>ATTR_VALUE</c>/<c>TEXT_VALUE</c>) and an <c>equalToXml</c> sub-matcher on a
+    /// <c>matchesXPath</c>-selected <b>element</b> node (serialized). See docs/parity/g1-matching.md.
+    /// </summary>
+    public static IEnumerable<MatcherScenario> XmlEdges()
+    {
+        yield return Build("exempt-attr-value",
+            new Dictionary<string, object>
+            {
+                ["equalToXml"] = "<a id=\"1\"><b>x</b></a>",
+                ["exemptedComparisons"] = new object[] { "ATTR_VALUE" },
+            },
+            ("<a id=\"999\"><b>x</b></a>", true),   // attribute value ignored
+            ("<a id=\"1\"><b>DIFF</b></a>", false)); // text still compared
+
+        yield return Build("exempt-text-value",
+            new Dictionary<string, object>
+            {
+                ["equalToXml"] = "<a><b>x</b></a>",
+                ["exemptedComparisons"] = new object[] { "TEXT_VALUE" },
+            },
+            ("<a><b>whatever</b></a>", true),  // leaf text ignored
+            ("<a><c>x</c></a>", false));        // structure still compared
+
+        yield return Build("xpath-element-equalToXml",
+            new Dictionary<string, object>
+            {
+                ["matchesXPath"] = new Dictionary<string, object> { ["expression"] = "/r/a", ["equalToXml"] = "<a>hi</a>" },
+            },
+            ("<r><a>hi</a></r>", true),
+            ("<r><a>bye</a></r>", false));
+    }
+
     // Builds a `{ "matchesXPath": { expression, [xPathNamespaces], equalTo } }` matcher dict.
     private static Dictionary<string, object> Ns(string expression, Dictionary<string, object>? namespaces, string equalTo)
     {

@@ -127,7 +127,9 @@ public sealed class MatchesXPathValueMatcher(
     private static string TextOf(XObject node) => node switch
     {
         XText text => text.Value,
-        XElement element => element.Value,
+        // An element node is passed to the sub-matcher as its serialized XML (so an `equalToXml`
+        // sub-matcher works, and an element never text-equals its content) — matching WireMock.
+        XElement element => element.ToString(SaveOptions.DisableFormatting),
         XAttribute attribute => attribute.Value,
         _ => node.ToString() ?? string.Empty,
     };

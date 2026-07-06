@@ -190,8 +190,9 @@ Tracked in `TextCorpus`.
   `/order/@id`) matches when the expression selects ≥ 1 node.
 - **Sub-matcher extraction needs the text node — found by the generator.** `/order/item` (element)
   did NOT equal `"book"` on the oracle; the text node `/order/item/text()` does. We extract the
-  value of text nodes/attributes; **element-node sub-matcher extraction is deferred** (WireMock
-  serializes the node differently).
+  value of text nodes/attributes, and an **element** node as its **serialized XML** (so
+  `/order/item` never text-equals its content, and an `equalToXml` sub-matcher on a selected element
+  matches — `matchesXPath {expression:/r/a, equalToXml:<a>hi</a>}` verified against the oracle).
 - **XPath functions (learned from the oracle).** An expression returning a **scalar** (`count()`,
   `contains()`, `string()`, …) matches the **presence** form regardless of its value — `count(/r/none)`
   (== 0) and `contains(…, 'zz')` (== false) both **match** (only a node-set has to be non-empty). With a
@@ -212,8 +213,12 @@ Tracked in `TextCorpus`.
     `XmlNamespaceManager` and, on an empty namespace-aware result, retries against a namespace-stripped
     copy of the document — reproducing the unprefixed-is-agnostic leniency while keeping the bound-URI
     constraint for prefixed steps.
-- **Deferred:** `exemptedComparisons`, explicit `namespaceAwareness` STRICT/NONE divergence (the
-  default LEGACY behavior is matched), element-node sub-matcher extraction, and mixed content.
+- **`exemptedComparisons` (feature audit).** `equalToXml` with `exemptedComparisons: ["ATTR_VALUE"]`
+  requires the same attribute names but ignores their values; `["TEXT_VALUE"]` ignores leaf text
+  (structure still compared). Both verified against the oracle. Other XMLUnit comparison types are
+  deferred.
+- **Deferred:** explicit `namespaceAwareness` STRICT/NONE divergence (the default LEGACY behavior is
+  matched), the remaining `exemptedComparisons` types, and mixed content.
 
 ### clientIp (G1k) — NOT in open-source WireMock (no oracle)
 
