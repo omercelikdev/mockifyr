@@ -38,7 +38,63 @@ internal static class FormatHelpers
         handlebars.RegisterHelper("formatXml", (_, arguments) => FormatXml(Str(arguments, 0)));
         handlebars.RegisterHelper("isOdd", (_, arguments) => Parity(arguments, wantOdd: true, "odd"));
         handlebars.RegisterHelper("isEven", (_, arguments) => Parity(arguments, wantOdd: false, "even"));
+        handlebars.RegisterHelper("range", (_, arguments) => Range(arguments));
+        handlebars.RegisterHelper("array", (_, arguments) => MakeArray(arguments));
+        handlebars.RegisterHelper("lookup", (_, arguments) => LookupValue(arguments));
     }
+
+    // {{lookup collection key}} — an element by index (list/array) or a value by key (map/object),
+    // over a live `range`/`array` list or a `parseJson` token; a miss renders empty.
+    private static object LookupValue(Arguments arguments)
+    {
+        var target = arguments.Length > 0 ? arguments[0] : null;
+        var key = Str(arguments, 1);
+        switch (target)
+        {
+            case JObject obj when obj.TryGetValue(key, out var value):
+                return ScalarOf(value);
+            case JArray array when int.TryParse(key, out var index) && index >= 0 && index < array.Count:
+                return ScalarOf(array[index]);
+            case IList<object?> list when int.TryParse(key, out var index) && index >= 0 && index < list.Count:
+                return list[index] ?? string.Empty;
+            case System.Collections.IDictionary map when map.Contains(key):
+                return map[key] ?? string.Empty;
+            default:
+                return string.Empty;
+        }
+    }
+
+    private static object ScalarOf(JToken token) =>
+        token is JValue value ? value.Value ?? string.Empty : token.ToString();
+
+    // {{range start end}} — an inclusive integer sequence (iterable with {{#each}}), matching WireMock.
+    private static object Range(Arguments arguments)
+    {
+        var start = ToLong(Str(arguments, 0));
+        var end = ToLong(Str(arguments, 1));
+        var list = new List<object?>();
+        for (var i = start; i <= end; i++)
+        {
+            list.Add(i);
+        }
+
+        return list;
+    }
+
+    // {{array a b c}} — an iterable of the positional arguments.
+    private static object MakeArray(Arguments arguments)
+    {
+        var list = new List<object?>();
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            list.Add(arguments[i]);
+        }
+
+        return list;
+    }
+
+    private static long ToLong(string value) =>
+        long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result) ? result : 0;
 
     // --- base64 / urlEncode / formatJson / formatXml (G2 helper long tail) --------------------
 
@@ -187,6 +243,19 @@ internal static class FormatHelpers
 
     private static object Size(Arguments arguments)
     {
+        // A live collection (from `range`/`array`/`parseJson`) is counted directly; otherwise fall back
+        // to parsing the string form as JSON, else the string length.
+        var value = arguments.Length > 0 ? arguments[0] : null;
+        if (value is JArray liveArray)
+        {
+            return liveArray.Count;
+        }
+
+        if (value is System.Collections.ICollection collection && value is not string)
+        {
+            return collection.Count;
+        }
+
         var raw = Str(arguments, 0);
         return TryParseJson(raw) switch
         {

@@ -21,6 +21,28 @@ internal static class DateHelpers
         handlebars.RegisterHelper("parseDate", (_, arguments) => ParseDate(arguments));
         handlebars.RegisterHelper("date", (_, arguments) => FormatDate(arguments));
         handlebars.RegisterHelper("now", (_, arguments) => Now(arguments));
+        handlebars.RegisterHelper("truncateDate", (_, arguments) => TruncateDate(arguments));
+    }
+
+    // {{truncateDate date '<unit>'}} floors an instant to the start of a calendar unit (matching
+    // WireMock's XMLUnit-style truncation vocabulary), returning the truncated instant for {{date}}.
+    private static object TruncateDate(Arguments arguments)
+    {
+        if (arguments.Length == 0 || arguments[0] is not DateTimeOffset instant)
+        {
+            return DateTimeOffset.UtcNow;
+        }
+
+        var offset = instant.Offset;
+        return Str(arguments, 1) switch
+        {
+            "first second of minute" => new DateTimeOffset(instant.Year, instant.Month, instant.Day, instant.Hour, instant.Minute, 0, offset),
+            "first minute of hour" => new DateTimeOffset(instant.Year, instant.Month, instant.Day, instant.Hour, 0, 0, offset),
+            "first hour of day" => new DateTimeOffset(instant.Year, instant.Month, instant.Day, 0, 0, 0, offset),
+            "first day of month" => new DateTimeOffset(instant.Year, instant.Month, 1, 0, 0, 0, offset),
+            "first day of year" => new DateTimeOffset(instant.Year, 1, 1, 0, 0, 0, offset),
+            _ => instant,
+        };
     }
 
     // --- now ----------------------------------------------------------------------------------

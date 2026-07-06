@@ -407,6 +407,23 @@ public static class TemplatingScenarios
             unmatchedUrl: "/rm-nope");
     }
 
+    /// <summary>
+    /// Batch-3 helpers from the WireMock feature audit: <c>range</c> (inclusive integer sequence),
+    /// <c>array</c> (iterable), <c>lookup</c> (index / map key), and <c>truncateDate</c> (floor an
+    /// instant to a calendar unit). All deterministic → byte-diffed. See docs/parity/g2-response.md.
+    /// </summary>
+    public static IEnumerable<MatcherScenario> Batch3Helpers()
+    {
+        yield return Get("range", "/rng", "{{#each (range 1 4)}}{{this}},{{/each}}|{{size (range 0 9)}}",
+            unmatchedUrl: "/rng-nope");
+        yield return Get("array", "/arr", "{{#each (array 'a' 'b' 'c')}}{{this}}-{{/each}}");
+        yield return Get("lookup-index", "/lki", "{{lookup (array 'x' 'y' 'z') 1}}");
+        yield return Get("lookup-map", "/lkm", "{{lookup (parseJson '{\"k\":\"v\",\"n\":42}') 'n'}}");
+        yield return Get("truncateDate", "/tr",
+            "d={{date (truncateDate (parseDate '2021-06-15T10:11:12Z') 'first day of month') format='yyyy-MM-dd HH:mm:ss'}}|" +
+            "h={{date (truncateDate (parseDate '2021-06-15T10:11:12Z') 'first hour of day') format='yyyy-MM-dd HH:mm:ss'}}");
+    }
+
     private static MatcherScenario Get(
         string description, string url, string body, RequestSpec? request = null, string? unmatchedUrl = null)
     {

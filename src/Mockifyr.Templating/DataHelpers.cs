@@ -214,7 +214,6 @@ internal static class DataHelpers
     private static object ParseJson(Context context, Arguments arguments)
     {
         var json = Str(arguments, 0);
-        var variableName = Str(arguments, 1);
 
         JToken? token;
         try
@@ -226,7 +225,14 @@ internal static class DataHelpers
             token = null;
         }
 
-        Assign(context, variableName, token);
+        // One argument (a subexpression, e.g. `lookup (parseJson '…') 'k'`) returns the parsed value;
+        // a second argument is the variable name to assign it to (rendering nothing), matching WireMock.
+        if (arguments.Length < 2)
+        {
+            return token ?? (object)string.Empty;
+        }
+
+        Assign(context, Str(arguments, 1), token);
         return string.Empty;
     }
 

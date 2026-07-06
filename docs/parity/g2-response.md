@@ -260,6 +260,14 @@ oracle (`wiremock/wiremock:3.10.0`). See [README](README.md) for the format.
   `odd`/`even` (or an optional override label, `{{isOdd 7 'YES'}}`) on a parity match, else the empty
   string. Learned from the oracle after a first block-form attempt diverged.
 - **Regression case:** `G2StaticResponseTests.Templating_MoreHelpers`.
+- **Batch 3 (more audit backfill):** `range start end` (an **inclusive** integer sequence, iterable
+  with `{{#each}}`, works with negatives), `array a b c` (an iterable of the args), `lookup coll key`
+  (element by index for a list/`array`, or value by key for a map/`parseJson` object), and
+  `truncateDate date '<unit>'` (floors an instant — `first second of minute` / `first minute of hour`
+  / `first hour of day` / `first day of month` / `first day of year`). Two supporting fixes fell out:
+  `size` now counts a live collection (not just a JSON string), and **`parseJson` with one argument**
+  now **returns** the parsed value (for subexpressions like `lookup (parseJson '…') 'k'`) while the
+  two-argument form still assigns to a variable. Regression `Templating_Batch3Helpers`.
 
 ### System helpers (G2h)
 
