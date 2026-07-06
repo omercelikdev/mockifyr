@@ -322,6 +322,34 @@ track that would need a Cloud reference/oracle of its own.
 - **`math` `%`/`^` operators** — OSS WireMock's own `math` helper rejects them at registration, so *not*
   supporting them is correct parity.
 
+## Remaining after the feature audit — triaged (every open item accounted for)
+
+The top-down WireMock feature audit closed the practical gaps (matching: `doesNotContain`,
+`formParameters`, `exemptedComparisons`, element-node XPath, namespaced/function XPath, XMLUnit
+placeholders; response templating: the `request.host/port/scheme/baseUrl/cookies/bodyAsBase64` model +
+`base64`/`urlEncode`/`formatJson`/`formatXml`/`assign`/`isOdd`/`isEven`/`range`/`array`/`lookup`/
+`arrayAdd`/`truncateDate`; proxy `additionalProxyRequestHeaders`). Everything still open is triaged
+below — none is a silent gap.
+
+- **① Racy — validated as far as physically possible (structural, or documented no-oracle-claim).** A
+  byte diff is impossible because the output depends on a live clock/RNG or non-observable transport
+  timing: `now`-relative date matchers, `now` `timezone=`/`truncate=`, the unparseable-date fallback,
+  unbounded `randomDecimal` distribution, **lognormal** `delayDistribution` + `chunkedDribbleDelay` (no
+  reliable lower bound), byte-level fault fidelity, `request.id` (random UUID). These are closed to the
+  extent the oracle allows.
+- **② Oracle rejected / behavior quirky — deferred with evidence.** Probed against the oracle and left
+  out because there is nothing valid to reproduce: `jsonSort` (oracle 500s), `soapXPath` (empty
+  result), `arrayRemove` (removes the last element regardless of index), `matchesJsonPath` array-size
+  (`length()`/`size()` filters don't match).
+- **③ Separate efforts if wanted (real features, each a mini-project with its own validation setup).**
+  Not quick edges: **RS256/JWKS** JWT + configurable signing secret + `nbf`/array claims; **remote/URL
+  `$ref`** JSON Schema (needs a host-side schema server); **mTLS** / configured keystore; Postgres
+  `LISTEN`/`NOTIFY` change feed (Redis is the reference, done); multi-tenant persistence *reload*;
+  gRPC **streaming**; WebSocket broadcast / `channels/send` / connect-time / `filePath`; the Datafaker
+  long tail; `request.multipart`/`parts`; GraphQL fragment/directive ordering.
+- **④ Out of scope — WireMock Cloud, not OSS.** See the section above (`clientIp`, standalone number
+  matchers, `systemProperty`/`env`, `math` `%`/`^`) — implementing would *diverge* from the OSS oracle.
+
 ## Post-phase (not now — architecture is ready for it)
 
 - [ ] UI / dashboard (dark mode, design system, omercelik.dev brand language)
