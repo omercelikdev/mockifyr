@@ -268,6 +268,12 @@ oracle (`wiremock/wiremock:3.10.0`). See [README](README.md) for the format.
   `size` now counts a live collection (not just a JSON string), and **`parseJson` with one argument**
   now **returns** the parsed value (for subexpressions like `lookup (parseJson '…') 'k'`) while the
   two-argument form still assigns to a variable. Regression `Templating_Batch3Helpers`.
+- **`arrayAdd coll item`** appends `item` to a live `array`/`range` list (or a `parseJson` array);
+  `position=N` inserts at that index. Byte-diffed. **Investigated and deferred** (each probed against the
+  oracle): `jsonSort` — the oracle **500s** on every form tried (scalar array, `by=`, `order=`), so
+  there is nothing valid to diff; `soapXPath` — returns empty for the SOAP forms tried (envelope /
+  namespace handling is unclear); `arrayRemove` — the oracle removes the **last** element regardless of
+  the index argument (`arrayRemove [a,b,c] 0|1|2` all → `[a,b]`), a quirk we don't reproduce.
 
 ### System helpers (G2h)
 

@@ -41,7 +41,37 @@ internal static class FormatHelpers
         handlebars.RegisterHelper("range", (_, arguments) => Range(arguments));
         handlebars.RegisterHelper("array", (_, arguments) => MakeArray(arguments));
         handlebars.RegisterHelper("lookup", (_, arguments) => LookupValue(arguments));
+        handlebars.RegisterHelper("arrayAdd", (_, arguments) => ArrayAdd(arguments));
     }
+
+    // {{arrayAdd coll item}} appends item to a live `array`/`range` list (or a `parseJson` array);
+    // `position=N` inserts it at that index instead.
+    private static object ArrayAdd(Arguments arguments)
+    {
+        var list = ToObjectList(arguments.Length > 0 ? arguments[0] : null);
+        var item = arguments.Length > 1 ? arguments[1] : null;
+        var position = HashInt(arguments, "position");
+        if (position is { } index && index >= 0 && index <= list.Count)
+        {
+            list.Insert(index, item);
+        }
+        else
+        {
+            list.Add(item);
+        }
+
+        return list;
+    }
+
+    private static List<object?> ToObjectList(object? value) => value switch
+    {
+        IList<object?> list => [.. list],
+        JArray array => [.. array.Select(token => (object?)ScalarOf(token))],
+        _ => [],
+    };
+
+    private static int? HashInt(Arguments arguments, string key) =>
+        int.TryParse(Hash(arguments, key), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : null;
 
     // {{lookup collection key}} — an element by index (list/array) or a value by key (map/object),
     // over a live `range`/`array` list or a `parseJson` token; a miss renders empty.

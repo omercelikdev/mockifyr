@@ -419,6 +419,8 @@ public static class TemplatingScenarios
         yield return Get("array", "/arr", "{{#each (array 'a' 'b' 'c')}}{{this}}-{{/each}}");
         yield return Get("lookup-index", "/lki", "{{lookup (array 'x' 'y' 'z') 1}}");
         yield return Get("lookup-map", "/lkm", "{{lookup (parseJson '{\"k\":\"v\",\"n\":42}') 'n'}}");
+        yield return Get("arrayAdd", "/aad", "{{#each (arrayAdd (array 1 2) 3)}}{{this}},{{/each}}|" +
+            "{{#each (arrayAdd (array 'a' 'b') 'z' position=0)}}{{this}}-{{/each}}");
         yield return Get("truncateDate", "/tr",
             "d={{date (truncateDate (parseDate '2021-06-15T10:11:12Z') 'first day of month') format='yyyy-MM-dd HH:mm:ss'}}|" +
             "h={{date (truncateDate (parseDate '2021-06-15T10:11:12Z') 'first hour of day') format='yyyy-MM-dd HH:mm:ss'}}");
