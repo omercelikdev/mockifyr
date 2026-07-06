@@ -44,8 +44,10 @@ Detailed rationale and per-group contents:
     the object form requires a sub-matcher (WireMock 422s otherwise), all learned from the oracle.
     **`equalToXml` placeholders** (`enablePlaceholders`) also work: `${xmlunit.ignore}`/`isNumber`/
     `isDateTime`/`matchesRegex(…)` (whole-value only, matchesRegex is a partial match, custom delimiters
-    supported), oracle-validated. Explicit namespaceAwareness modes, `exemptedComparisons`, XPath
-    functions, element-node sub-matcher deferred
+    supported), oracle-validated. **XPath functions** work too: a scalar result (`count()`/`contains()`/
+    `string()`) matches the presence form regardless of value, and a sub-matcher compares its string form
+    (integer for whole numbers, `true`/`false` for booleans). Explicit namespaceAwareness modes,
+    `exemptedComparisons`, element-node sub-matcher deferred
   - [x] G1h matchesJsonSchema — JSON Schema validation via json-everything's JsonSchema.Net
     (default Draft 2020-12); inline + string schema forms and `schemaVersion` fuzz-validated over the
     common keyword subset (type/required/properties/bounds/enum/items). **`format`** now matches WireMock:

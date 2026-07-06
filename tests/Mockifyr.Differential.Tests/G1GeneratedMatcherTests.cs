@@ -138,6 +138,9 @@ public sealed class G1GeneratedMatcherTests : IAsyncLifetime
     public Task EqualToXml_Placeholders() => Verify(XmlScenarios.XmlPlaceholders());
 
     [Fact]
+    public Task MatchesXPath_Functions() => Verify(XmlScenarios.XPathFunctions());
+
+    [Fact]
     public Task Logic_AndOrNot() => Verify(LogicScenarios.AndOrNot());
 
     [Fact]

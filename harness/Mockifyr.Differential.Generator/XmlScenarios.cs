@@ -117,6 +117,52 @@ public static class XmlScenarios
             ("<a><b>zzz</b></a>", true));
     }
 
+    /// <summary>
+    /// XPath <em>functions</em> in <c>matchesXPath</c>. A scalar result (from <c>count()</c>,
+    /// <c>contains()</c>, <c>string()</c>, …) matches the presence form regardless of its value
+    /// (<c>count()==0</c> and <c>contains()==false</c> both match); a sub-matcher compares the scalar's
+    /// string form (a whole number as an integer, a boolean as <c>true</c>/<c>false</c>). Predicates
+    /// using functions still yield a node-set. See docs/parity/g1-matching.md.
+    /// </summary>
+    public static IEnumerable<MatcherScenario> XPathFunctions()
+    {
+        const string xml = """<r><item>foo</item><item>bar</item></r>""";
+
+        yield return Build("xpath-fn[count + equalTo]",
+            XPath("count(/r/item)", "2"),
+            (xml, true),
+            ("""<r><item>foo</item></r>""", false)); // count 1 != 2
+
+        // A scalar result matches the presence form even when it is 0 / false.
+        yield return Build("xpath-fn[count presence, zero]", Str("count(/r/none)"), (xml, true));
+        yield return Build("xpath-fn[contains presence, true]", Str("contains(/r/item[1], 'oo')"), (xml, true));
+        yield return Build("xpath-fn[contains presence, false]", Str("contains(/r/item[1], 'zz')"), (xml, true));
+
+        yield return Build("xpath-fn[string + equalTo]",
+            XPath("string(/r/item[1])", "foo"),
+            (xml, true),
+            ("""<r><item>other</item></r>""", false));
+
+        // A boolean function renders as "true"/"false" for the sub-matcher.
+        yield return Build("xpath-fn[contains + equalTo true]",
+            XPath("contains(/r/item[1], 'oo')", "true"),
+            (xml, true),
+            ("""<r><item>zzz</item></r>""", false)); // contains false → "false"
+
+        // A predicate using a function selects a node-set.
+        yield return Build("xpath-fn[predicate node-set]",
+            Str("/r/item[contains(text(),'oo')]"),
+            (xml, true),
+            ("""<r><item>zzz</item></r>""", false));
+    }
+
+    private static Dictionary<string, object> Str(string expression) => new() { ["matchesXPath"] = expression };
+
+    private static Dictionary<string, object> XPath(string expression, string equalTo) => new()
+    {
+        ["matchesXPath"] = new Dictionary<string, object> { ["expression"] = expression, ["equalTo"] = equalTo },
+    };
+
     private static Dictionary<string, object> Xml(string expected, bool placeholders)
     {
         var matcher = new Dictionary<string, object> { ["equalToXml"] = expected };

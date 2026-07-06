@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Xml;
 using System.Xml.Linq;
 using System.Xml.XPath;
@@ -50,8 +51,10 @@ public sealed class MatchesXPathValueMatcher(
 
         if (result is not IEnumerable<object> nodeSet)
         {
-            // Scalar XPath result (boolean/number/string): treat a true boolean as a match.
-            return result is bool b && b ? MatchResult.Exact : MatchResult.NoMatch(1d);
+            // A scalar result from an XPath function (boolean/number/string). WireMock's presence form
+            // matches whenever the expression yields a value — `count()==0` and `contains()==false`
+            // both match — so presence is always a match; a sub-matcher compares the value's string form.
+            return subMatcher is null ? MatchResult.Exact : subMatcher.Match(present: true, [ScalarText(result)]);
         }
 
         var nodes = nodeSet.OfType<XObject>().ToList();
@@ -109,6 +112,17 @@ public sealed class MatchesXPathValueMatcher(
             .Where(a => !a.IsNamespaceDeclaration)
             .Select(a => new XAttribute(a.Name.LocalName, a.Value)),
         element.Nodes().Select(node => node is XElement child ? Strip(child) : node));
+
+    // Renders an XPath scalar to the string a sub-matcher compares against: a whole number drops its
+    // fractional part (`count()` → "2", not "2.0") and a boolean is lower-case — matching WireMock.
+    private static string ScalarText(object value) => value switch
+    {
+        bool b => b ? "true" : "false",
+        double d when !double.IsInfinity(d) && !double.IsNaN(d) && d == Math.Floor(d) =>
+            ((long)d).ToString(CultureInfo.InvariantCulture),
+        double d => d.ToString("R", CultureInfo.InvariantCulture),
+        _ => value.ToString() ?? string.Empty,
+    };
 
     private static string TextOf(XObject node) => node switch
     {

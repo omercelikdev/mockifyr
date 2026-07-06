@@ -181,6 +181,12 @@ Tracked in `TextCorpus`.
   did NOT equal `"book"` on the oracle; the text node `/order/item/text()` does. We extract the
   value of text nodes/attributes; **element-node sub-matcher extraction is deferred** (WireMock
   serializes the node differently).
+- **XPath functions (learned from the oracle).** An expression returning a **scalar** (`count()`,
+  `contains()`, `string()`, …) matches the **presence** form regardless of its value — `count(/r/none)`
+  (== 0) and `contains(…, 'zz')` (== false) both **match** (only a node-set has to be non-empty). With a
+  sub-matcher the scalar is rendered to a string first: a whole number as an **integer** (`count()` → 2,
+  not `2.0`) and a boolean as `true`/`false`. Predicates that use functions (`/r/item[contains(text(),
+  'x')]`) still select a node-set.
 - **Namespaced XPath via `xPathNamespaces` (learned from the oracle, then implemented).** The object
   form binds prefixes (`{"expression": "/r/a:item/text()", "xPathNamespaces": {"a": "http://x"}, …}`).
   Learned bounds, all confirmed:
@@ -196,8 +202,7 @@ Tracked in `TextCorpus`.
     copy of the document — reproducing the unprefixed-is-agnostic leniency while keeping the bound-URI
     constraint for prefixed steps.
 - **Deferred:** `exemptedComparisons`, explicit `namespaceAwareness` STRICT/NONE divergence (the
-  default LEGACY behavior is matched), XPath functions, element-node sub-matcher extraction, and mixed
-  content.
+  default LEGACY behavior is matched), element-node sub-matcher extraction, and mixed content.
 
 ### clientIp (G1k) — NOT in open-source WireMock (no oracle)
 
