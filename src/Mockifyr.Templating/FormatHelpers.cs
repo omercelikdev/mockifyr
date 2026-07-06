@@ -1,4 +1,7 @@
 using System.Globalization;
+using System.Net;
+using System.Text;
+using System.Xml.Linq;
 using HandlebarsDotNet;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -29,7 +32,102 @@ internal static class FormatHelpers
         handlebars.RegisterHelper("lower", (_, arguments) => Str(arguments, 0).ToLowerInvariant());
         handlebars.RegisterHelper("capitalize", (_, arguments) => Capitalize(Str(arguments, 0)));
         handlebars.RegisterHelper("trim", (_, arguments) => Str(arguments, 0).Trim());
+        handlebars.RegisterHelper("base64", (_, arguments) => Base64(arguments));
+        handlebars.RegisterHelper("urlEncode", (_, arguments) => UrlEncode(arguments));
+        handlebars.RegisterHelper("formatJson", (_, arguments) => FormatJson(Str(arguments, 0)));
+        handlebars.RegisterHelper("formatXml", (_, arguments) => FormatXml(Str(arguments, 0)));
+        handlebars.RegisterHelper("isOdd", (_, arguments) => Parity(arguments, wantOdd: true, "odd"));
+        handlebars.RegisterHelper("isEven", (_, arguments) => Parity(arguments, wantOdd: false, "even"));
     }
+
+    // --- base64 / urlEncode / formatJson / formatXml (G2 helper long tail) --------------------
+
+    // {{base64 value}} encodes UTF-8 → base64; decode=true reverses it; padding=false drops trailing '='.
+    private static object Base64(Arguments arguments)
+    {
+        var value = Str(arguments, 0);
+        if (Flag(arguments, "decode"))
+        {
+            try
+            {
+                return Encoding.UTF8.GetString(Convert.FromBase64String(value));
+            }
+            catch (FormatException)
+            {
+                return value;
+            }
+        }
+
+        var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(value));
+        return Hash(arguments, "padding") is "false" or "False" ? encoded.TrimEnd('=') : encoded;
+    }
+
+    // {{urlEncode value}} — form URL encoding (space → '+'), matching WireMock. decode=true reverses it.
+    private static object UrlEncode(Arguments arguments)
+    {
+        var value = Str(arguments, 0);
+        return Flag(arguments, "decode") ? WebUtility.UrlDecode(value) : WebUtility.UrlEncode(value);
+    }
+
+    // {{{formatJson json}}} pretty-prints (Jackson layout: `"k" : v`, `[ a, b ]`), reusing the shared writer.
+    private static object FormatJson(string raw)
+    {
+        try
+        {
+            return JacksonJson.Write(JToken.Parse(raw));
+        }
+        catch (JsonException)
+        {
+            return raw;
+        }
+    }
+
+    // {{{formatXml xml}}} pretty-prints with a 2-space indent and a trailing newline, matching WireMock.
+    private static object FormatXml(string raw)
+    {
+        XDocument document;
+        try
+        {
+            document = XDocument.Parse(raw);
+        }
+        catch (System.Xml.XmlException)
+        {
+            return raw;
+        }
+
+        var builder = new StringBuilder();
+        var settings = new System.Xml.XmlWriterSettings
+        {
+            Indent = true,
+            IndentChars = "  ",
+            NewLineChars = "\n",
+            OmitXmlDeclaration = true,
+        };
+        using (var writer = System.Xml.XmlWriter.Create(builder, settings))
+        {
+            document.Save(writer);
+        }
+
+        return builder.Append('\n').ToString();
+    }
+
+    // {{isOdd n}} / {{isEven n}} — jknack's CSS-class helpers: return "odd"/"even" (or an optional
+    // override label) when the number's parity matches, else the empty string. Not block helpers.
+    private static object Parity(Arguments arguments, bool wantOdd, string defaultLabel)
+    {
+        if (!long.TryParse(Str(arguments, 0), NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ||
+            (n % 2 != 0) != wantOdd)
+        {
+            return string.Empty;
+        }
+
+        return arguments.Length > 1 ? Str(arguments, 1) : defaultLabel;
+    }
+
+    private static bool Flag(Arguments arguments, string key) => Hash(arguments, key) is "true" or "True";
+
+    private static string? Hash(Arguments arguments, string key) =>
+        arguments.Hash is { } hash && hash.TryGetValue(key, out var value) ? value?.ToString() : null;
 
     // --- math ---------------------------------------------------------------------------------
 

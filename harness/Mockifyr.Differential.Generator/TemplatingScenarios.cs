@@ -364,6 +364,25 @@ public static class TemplatingScenarios
             unmatchedUrl: "/nope-sys");
     }
 
+    /// <summary>
+    /// More built-in helpers from WireMock's long tail (G2 backfill): <c>base64</c> (encode/decode/
+    /// no-padding), <c>urlEncode</c> (form encoding), <c>formatJson</c>/<c>formatXml</c> (pretty-print),
+    /// the <c>assign</c> block, and the <c>isOdd</c>/<c>isEven</c> block conditionals. Every case is
+    /// deterministic, so byte-diffed against the oracle. See docs/parity/g2-response.md.
+    /// </summary>
+    public static IEnumerable<MatcherScenario> MoreHelpers()
+    {
+        yield return Get("base64", "/b64", "{{base64 'hello world'}}", unmatchedUrl: "/b64-nope");
+        yield return Get("base64-decode", "/b64d", "{{base64 'aGVsbG8=' decode=true}}");
+        yield return Get("base64-nopad", "/b64n", "{{base64 'hello world' padding=false}}");
+        yield return Get("urlEncode", "/ue", "{{urlEncode 'a b&c=d'}}");
+        yield return Get("formatJson", "/fj", "{{{formatJson '{\"b\":1,\"a\":[2,3]}'}}}");
+        yield return Get("formatXml", "/fx", "{{{formatXml '<a><b>1</b></a>'}}}");
+        yield return Get("assign", "/as", "{{#assign 'x'}}v={{base64 'a'}}{{/assign}}[{{x}}]");
+        // isOdd/isEven are jknack CSS-class helpers: "odd"/"even" on a parity match, else empty.
+        yield return Get("parity", "/par", "{{isOdd 3}}-{{isEven 4}}-{{isOdd 2}}-{{isEven 5}}-{{isOdd 7 'YES'}}");
+    }
+
     private static MatcherScenario Get(
         string description, string url, string body, RequestSpec? request = null, string? unmatchedUrl = null)
     {

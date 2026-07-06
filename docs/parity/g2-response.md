@@ -234,9 +234,27 @@ oracle (`wiremock/wiremock:3.10.0`). See [README](README.md) for the format.
   rest unchanged — `hello world`→`Hello World`).
 - **Deferred (documented):** the modulo `%` and power `^` `math` operators (the oracle **rejects the
   mapping at registration** — no oracle to diff against), and the helpers absent from open-source
-  WireMock (`abs`/`round`/`ceil`/`floor`/`split`/`truncate`), plus the block helpers `stripes`/
+  WireMock (`abs`/`round`/`ceil`/`floor`/`split`/`truncate`), plus the helpers `stripes`/
   `contains`. `numberFormat` half-rounding edge cases are avoided (both engines agree on non-halves).
 - **Regression case:** `G2StaticResponseTests.Templating_FormatHelpers`.
+
+### More helper long-tail (G2 backfill — from the WireMock feature audit)
+
+- **Group / item:** more built-in helpers surfaced by a top-down audit of WireMock's helper surface,
+  byte-diffed against the oracle.
+- **`base64 value`** encodes UTF-8 → base64 (`hello world`→`aGVsbG8gd29ybGQ=`); `decode=true` reverses
+  it; `padding=false` drops the trailing `=`.
+- **`urlEncode value`** is **form** URL encoding — a space becomes `+` (`a b&c=d`→`a+b%26c%3Dd`), i.e.
+  .NET `WebUtility.UrlEncode`; `decode=true` reverses it.
+- **`formatJson json`** pretty-prints in Jackson layout (`"k" : v`, `[ a, b ]`) — reuses the shared
+  `JacksonJson` writer. **`formatXml xml`** pretty-prints with a **2-space** indent and a **trailing
+  newline**.
+- **`{{#assign 'name'}}…{{/assign}}`** renders the block and stores the result under a root-scope
+  variable (the block form; renders nothing) — the sibling of the `parseJson` block.
+- **`isOdd n`/`isEven n`** are jknack's **CSS-class** helpers (not block conditionals): they return
+  `odd`/`even` (or an optional override label, `{{isOdd 7 'YES'}}`) on a parity match, else the empty
+  string. Learned from the oracle after a first block-form attempt diverged.
+- **Regression case:** `G2StaticResponseTests.Templating_MoreHelpers`.
 
 ### System helpers (G2h)
 

@@ -27,6 +27,15 @@ internal static class DataHelpers
         handlebars.RegisterHelper("formData", FormData);
         handlebars.RegisterHelper("parseJson", ParseJson);
         handlebars.RegisterHelper("parseJson", ParseJsonBlock);
+        handlebars.RegisterHelper("assign", AssignBlock);
+    }
+
+    // {{#assign 'name'}}<content>{{/assign}} renders the block and stores the result under the given
+    // variable in the root scope (WireMock's variable-assignment helper); the block renders nothing.
+    private static void AssignBlock(
+        EncodedTextWriter output, BlockHelperOptions options, Context context, Arguments arguments)
+    {
+        Assign(context, Str(arguments, 0), options.Template());
     }
 
     // --- jsonPath -----------------------------------------------------------------------------
