@@ -1,10 +1,14 @@
 # Mockifyr
 
-**An independent, .NET-based API mock engine + platform.** A functional alternative to
-WireMock — but a completely independent codebase and its own IP. WireMock / WireMock.Net are
-not used as dependencies.
+**An independent, .NET-based API mock engine + platform.** A transport-agnostic matching and
+response engine with first-class multi-tenancy, pluggable persistence, and thin facades
+(library / HTTP server / admin REST / gRPC / GraphQL / WebSocket). Mockifyr is a clean-room,
+independent codebase with its own IP — it does **not** use WireMock or WireMock.Net as
+dependencies. It is designed to interoperate with the WireMock JSON stub format and is proven
+correct by differential testing against WireMock as a reference oracle (see [Trademarks](#trademarks)).
 
-> **Status:** architecture / pre-code. No implementation yet.
+> **Status:** engine + platform complete. All roadmap groups **G1–G16** are implemented and
+> validated; the remaining work is the **UI / dashboard**.
 > Direction: [ARCHITECTURE.md](ARCHITECTURE.md) · roadmap:
 > [docs/roadmap.md](docs/roadmap.md) · decisions: [docs/decisions/](docs/decisions/) ·
 > learned WireMock behavior: [docs/parity/](docs/parity/).
@@ -54,9 +58,25 @@ Full topology and dependency rules: [ARCHITECTURE.md](ARCHITECTURE.md#3-solution
   G3 webhooks.
 - **Phase B — toward parity:** faults, scenarios, verify/near-miss, admin API, proxy,
   record/playback, extensibility, HTTPS, deploy, gRPC/GraphQL, persistence providers.
-- **Post-phase:** UI / dashboard.
+- **Post-phase:** UI / dashboard (the only remaining work).
 
 Full list: [docs/roadmap.md](docs/roadmap.md).
+
+## Persistence
+
+The hot path is always **in-memory** — matching never touches a database. Durability is an
+opt-in seam (`IStubPersistence`); pick one backend and mutations write through to it while the
+in-memory store serves reads:
+
+| Flag | Backend |
+|------|---------|
+| *(none)* | in-memory only (ephemeral, the default) |
+| `--root-dir <dir>` | file-based JSON mappings |
+| `--litedb <path>` | LiteDB (embedded single-file) |
+| `--postgres <connstr>` | PostgreSQL |
+| `--redis <connstr>` | Redis |
+
+`--change-feed` (Redis / Postgres) keeps multiple instances coherent without a restart.
 
 ## Technology
 
@@ -65,4 +85,15 @@ differential oracle: Java WireMock (Testcontainers).
 
 ## License
 
-TBD (commercializable IP — license not yet decided).
+Licensed under the **Apache License, Version 2.0** — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+## Trademarks
+
+WireMock is a trademark of WireMock Inc. **Mockifyr is an independent project and is not
+affiliated with, endorsed by, or sponsored by WireMock Inc.** Mockifyr is a clean-room
+implementation and does not use WireMock or WireMock.Net as dependencies. References to
+"WireMock" in this repository are nominative and descriptive only — for **interoperability**
+(Mockifyr imports the WireMock JSON stub format) and **differential testing** (Mockifyr's
+correctness is verified against real WireMock as a reference oracle; the oracle code lives in
+the test/harness projects and is not part of the distributed product). All other product names
+and brands are the property of their respective owners.
