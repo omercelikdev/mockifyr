@@ -186,6 +186,9 @@ public sealed record RequestPattern
     /// <summary>Query parameter matchers.</summary>
     public required IReadOnlyList<IMatcher> Query { get; init; }
 
+    /// <summary>Form-parameter matchers (WireMock's <c>formParameters</c> over a form-encoded body).</summary>
+    public IReadOnlyList<IMatcher> FormParameters { get; init; } = [];
+
     /// <summary>Cookie matchers.</summary>
     public required IReadOnlyList<IMatcher> Cookies { get; init; }
 

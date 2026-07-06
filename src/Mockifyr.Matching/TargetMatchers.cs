@@ -1,3 +1,4 @@
+using System.Text;
 using Mockifyr.Core;
 
 namespace Mockifyr.Matching;
@@ -24,6 +25,49 @@ public sealed class QueryMatcher(string name, IValueMatcher value) : IMatcher
         var values = present ? [.. input.Request.Query[name]] : Array.Empty<string>();
         return value.Match(present, values);
     }
+}
+
+/// <summary>
+/// Applies a value matcher to a named form parameter (WireMock's <c>formParameters</c>). The
+/// <c>application/x-www-form-urlencoded</c> request body is parsed into parameters the same way a query
+/// string is; a non-form body yields none.
+/// </summary>
+public sealed class FormParameterMatcher(string name, IValueMatcher value) : IMatcher
+{
+    private static readonly ILookup<string, string> Empty =
+        Array.Empty<KeyValuePair<string, string>>().ToLookup(pair => pair.Key, pair => pair.Value);
+
+    /// <inheritdoc />
+    public MatchResult Match(MatchInput input)
+    {
+        var form = ParseForm(input.Request);
+        var present = form.Contains(name);
+        var values = present ? [.. form[name]] : Array.Empty<string>();
+        return value.Match(present, values);
+    }
+
+    private static ILookup<string, string> ParseForm(CanonicalRequest request)
+    {
+        var contentType = request.Headers["Content-Type"].FirstOrDefault() ?? string.Empty;
+        if (request.Body.Length == 0 ||
+            !contentType.Contains("x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase))
+        {
+            return Empty;
+        }
+
+        return Encoding.UTF8.GetString(request.Body)
+            .Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Select(pair =>
+            {
+                var separator = pair.IndexOf('=', StringComparison.Ordinal);
+                return separator >= 0
+                    ? new KeyValuePair<string, string>(Decode(pair[..separator]), Decode(pair[(separator + 1)..]))
+                    : new KeyValuePair<string, string>(Decode(pair), string.Empty);
+            })
+            .ToLookup(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+    }
+
+    private static string Decode(string value) => Uri.UnescapeDataString(value.Replace('+', ' '));
 }
 
 /// <summary>Applies a value matcher to a named cookie.</summary>

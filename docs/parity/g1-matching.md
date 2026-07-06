@@ -34,6 +34,17 @@ Verified WireMock behaviors discovered while building the matching vertical agai
 - **Regression cases:** `G1GeneratedMatcherTests.Url_{Pattern,PathPattern,PathTemplate}`
   (differential), `MatcherTests.Url*` (pure logic).
 
+### `doesNotContain` + `formParameters` (feature-audit backfill)
+
+- **Group / item:** matcher gaps surfaced by a top-down audit of WireMock's request-matching surface,
+  validated against the oracle.
+- **`doesNotContain "x"`** matches when no target value contains the substring — the substring
+  counterpart of `doesNotMatch` (a present value that does contain it → no match). `DoesNotContainValueMatcher`.
+- **`formParameters`** matches a form-encoded body's parameters, exactly like `queryParameters` but over
+  the `application/x-www-form-urlencoded` body — `formParameters: { a: { equalTo|matches|… } }`. The
+  matcher parses the body into parameters (a non-form body yields none), so all value matchers apply.
+- **Regression cases:** `G1GeneratedMatcherTests.{DoesNotContain,FormParameters}`.
+
 ### Standard matchers on headers / query / body
 
 - **Group / item:** G1c (header/query), G1d (body)

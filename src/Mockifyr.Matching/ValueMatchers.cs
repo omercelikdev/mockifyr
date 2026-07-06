@@ -74,6 +74,16 @@ public sealed class DoesNotMatchValueMatcher(string pattern) : IValueMatcher
             : MatchResult.NoMatch(1d);
 }
 
+/// <summary>Matches when no value contains the expected substring (WireMock's <c>doesNotContain</c>).</summary>
+public sealed class DoesNotContainValueMatcher(string expected) : IValueMatcher
+{
+    /// <inheritdoc />
+    public MatchResult Match(bool present, IReadOnlyList<string> values) =>
+        present && values.All(v => !v.Contains(expected, StringComparison.Ordinal))
+            ? MatchResult.Exact
+            : MatchResult.NoMatch(1d);
+}
+
 /// <summary>Matches when every inner matcher matches the same target value(s) (WireMock <c>and</c>).</summary>
 public sealed class AndValueMatcher(IReadOnlyList<IValueMatcher> matchers) : IValueMatcher
 {

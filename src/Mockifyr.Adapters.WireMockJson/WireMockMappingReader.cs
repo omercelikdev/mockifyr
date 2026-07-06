@@ -284,6 +284,7 @@ public static class WireMockMappingReader
             Port = port,
             Headers = headers,
             Query = ReadNamedMatchers(request, "queryParameters", static (name, vm) => new QueryMatcher(name, vm)),
+            FormParameters = ReadNamedMatchers(request, "formParameters", static (name, vm) => new FormParameterMatcher(name, vm)),
             Cookies = ReadNamedMatchers(request, "cookies", static (name, vm) => new CookieMatcher(name, vm)),
             Body = ReadBodyMatchers(request),
             Custom = ReadCustomMatchers(request, matchers),
@@ -590,6 +591,11 @@ public static class WireMockMappingReader
         if (spec.TryGetProperty("contains", out var c) && c.ValueKind == JsonValueKind.String)
         {
             return new ContainsValueMatcher(c.GetString()!);
+        }
+
+        if (spec.TryGetProperty("doesNotContain", out var dnc) && dnc.ValueKind == JsonValueKind.String)
+        {
+            return new DoesNotContainValueMatcher(dnc.GetString()!);
         }
 
         if (spec.TryGetProperty("matches", out var mt) && mt.ValueKind == JsonValueKind.String)

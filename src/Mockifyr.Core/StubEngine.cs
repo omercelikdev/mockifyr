@@ -239,6 +239,11 @@ public sealed class StubEngine
             yield return matcher;
         }
 
+        foreach (var matcher in pattern.FormParameters)
+        {
+            yield return matcher;
+        }
+
         foreach (var matcher in pattern.Cookies)
         {
             yield return matcher;
