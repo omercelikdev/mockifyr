@@ -24,6 +24,7 @@ internal static class RequestModel
         ["headers"] = request.Headers.ToDictionary(
             group => group.Key, group => (object?)group.First(), StringComparer.OrdinalIgnoreCase),
         ["cookies"] = request.Cookies.ToDictionary(cookie => cookie.Key, cookie => (object?)cookie.Value, StringComparer.Ordinal),
+        ["parts"] = Parts(request.Parts),
         ["body"] = Encoding.UTF8.GetString(request.Body),
         ["bodyAsBase64"] = Convert.ToBase64String(request.Body),
         ["host"] = request.Host,
@@ -31,6 +32,27 @@ internal static class RequestModel
         ["scheme"] = request.Scheme,
         ["baseUrl"] = BaseUrl(request),
     };
+
+    // WireMock exposes multipart parts as `request.parts.<name>` (G15f), each carrying `name`, its
+    // `headers` (first value per header) and the part `body` as text — so a template can reach
+    // `{{request.parts.avatar.body}}` or `{{request.parts.avatar.headers.[Content-Type]}}`. Later parts
+    // with a duplicate name win, mirroring WireMock's map keyed by name.
+    private static Dictionary<string, object?> Parts(IReadOnlyList<MultipartPart> parts)
+    {
+        var model = new Dictionary<string, object?>(StringComparer.Ordinal);
+        foreach (var part in parts)
+        {
+            model[part.Name] = new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["name"] = part.Name,
+                ["headers"] = part.Headers.ToDictionary(
+                    header => header.Key, header => (object?)header.Value, StringComparer.OrdinalIgnoreCase),
+                ["body"] = Encoding.UTF8.GetString(part.Body),
+            };
+        }
+
+        return model;
+    }
 
     // WireMock's request.baseUrl is `scheme://host[:port]`, from the request's scheme + Host header.
     private static string? BaseUrl(CanonicalRequest request)

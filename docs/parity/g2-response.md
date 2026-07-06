@@ -37,8 +37,15 @@ oracle (`wiremock/wiremock:3.10.0`). See [README](README.md) for the format.
 - **More request-model fields (feature-audit backfill), byte-diffed:** `{{request.host}}` and
   `{{request.port}}` (from the `Host` header), `{{request.scheme}}`, `{{request.baseUrl}}`
   (`scheme://host[:port]`), `{{request.cookies.name}}` (cookie value), and `{{request.bodyAsBase64}}`.
-  `{{request.id}}` is a random per-request UUID (racy) and `{{request.multipart}}`/`parts` are deferred.
+  `{{request.id}}` is a random per-request UUID (racy, deferred).
   Validated with an explicit `Host` header + `Cookie`; regression `Templating_RequestModelFields`.
+- **Multipart `request.parts` (G15f), byte-diffed.** For a `multipart/form-data` upload the parsed parts
+  are exposed as `{{request.parts.<name>}}`, each carrying `.body` (part body as text), `.name`, and
+  `.headers.<Header>` (first value; hyphenated names via jknack/Handlebars bracket-literal notation,
+  e.g. `{{request.parts.meta.headers.[Content-Type]}}`). A later part with a duplicate name wins, matching
+  WireMock's map keyed by name. The parts come from `MultipartBodyParser` (already used for multipart
+  *matching* in G1k), so matching and templating share one parse. Regression
+  `G15fMultipartTemplatingTests` — the oracle proves the rendered body; Mockifyr matches it byte-for-byte.
 - **No HTML escaping.** WireMock emits `{{ }}` output raw (`<a>&"` stays as-is); we disable the
   Handlebars.Net text encoder (`TextEncoder = null`) to match.
 - **Response headers are templated too**, not just the body.
