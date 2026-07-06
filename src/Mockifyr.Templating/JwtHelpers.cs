@@ -33,8 +33,31 @@ internal static class JwtHelpers
     private static readonly HashSet<string> Reserved =
         new(StringComparer.Ordinal) { "exp", "iss", "aud", "sub", "nbf", "maxAge" };
 
-    public static void Register(IHandlebars handlebars) =>
+    public static void Register(IHandlebars handlebars)
+    {
         handlebars.RegisterHelper("jwt", (_, arguments) => CreateToken(arguments.Hash));
+        handlebars.RegisterHelper("jwks", (_, _) => RenderJwks());
+    }
+
+    // Renders the JSON Web Key Set for the RS256 public key — the same key the `jwt` helper signs RS256
+    // tokens with (matching `kid`), so a token verifier can resolve it. Structure mirrors the reference
+    // extension exactly: { "keys": [ { kty, kid, use, alg, n, e } ] }, n/e big-endian base64url. The key
+    // is random per instance, so like the token it is validated structurally + by self-consistency.
+    private static string RenderJwks()
+    {
+        var parameters = RsaKey.ExportParameters(includePrivateParameters: false);
+        var jwk = new JsonObject
+        {
+            ["kty"] = "RSA",
+            ["kid"] = Kid,
+            ["use"] = "sig",
+            ["alg"] = "RS256",
+            ["n"] = Base64Url(parameters.Modulus!),
+            ["e"] = Base64Url(parameters.Exponent!),
+        };
+
+        return new JsonObject { ["keys"] = new JsonArray(jwk) }.ToJsonString();
+    }
 
     private static object CreateToken(IReadOnlyDictionary<string, object>? hash)
     {

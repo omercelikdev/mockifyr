@@ -46,11 +46,18 @@ oracle and will use alternative validation. Each slice states its method.
   `RSA.Create`), the header carrying `alg=RS256` + a random `kid` and the payload leaking the `alg`
   claim — matching the reference. Content-validated the same way (the `kid` is key-specific/random, so —
   like the signature — it is excluded from parity; the RSA signature must be well-formed).
-- **Deferred (tracked):** JWKS (`{{jwks}}` public-key publishing), a configurable signing secret (so
-  tokens are byte-compatible with a specific WireMock instance), `nbf`, array/object claims, and the
-  claim-parsing helpers. WireMock also (quirkily) leaks `maxAge` into the payload as a claim; Mockifyr
-  consumes it instead — a deliberate, documented deviation.
-- **Regression case:** `G15bJwtTests.Jwt_ContentMatchesTheOracle`.
+- **JWKS (G15h).** `{{jwks}}` renders the **JSON Web Key Set** for the RS256 public key the `{{jwt}}`
+  helper signs with — served from a stub, exactly like the reference extension. The shape matches the
+  oracle byte-for-shape: `{ "keys": [ { "kty":"RSA", "kid":…, "use":"sig", "alg":"RS256", "n":…, "e":… } ] }`,
+  `n`/`e` big-endian base64url. The key is random per instance, so it is validated **structurally** (the
+  racy-feature method) plus a **self-consistency** anchor: on each side an RS256 token minted by `{{jwt}}`
+  **verifies** against the public key in that side's `{{jwks}}`, and the token's `kid` names that key — so
+  the jwks exposes the same key that signs the tokens, exactly as the oracle's does.
+- **Deferred (tracked):** a configurable signing secret (so tokens are byte-compatible with a specific
+  WireMock instance), `nbf`, array/object claims, and the claim-parsing helpers. WireMock also (quirkily)
+  leaks `maxAge` into the payload as a claim; Mockifyr consumes it instead — a documented deviation.
+- **Regression cases:** `G15bJwtTests.Jwt_ContentMatchesTheOracle`,
+  `G15hJwksTests.Jwks_StructureAndSelfConsistency_MatchTheOracle`.
 
 ## Multi-domain matching — `host` / `port` / `scheme` (G15c)
 
