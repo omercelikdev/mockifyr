@@ -72,3 +72,29 @@ oracle and will use alternative validation. Each slice states its method.
   matching on the port a TLS request's `Host` header omits.
 - **Regression cases:** `G15cMultiDomainTests` (host equalTo/regex, multi-domain routing, port,
   http/https scheme — 8 cases).
+
+## WebSocket message serving (G15d)
+
+- **Group / item:** G15d — validated by a **self-test round-trip**, not differentially. WireMock's
+  WebSocket support is still beta and ships **no stable oracle** (it isn't in the pinned
+  `wiremock/wiremock:3.10.0` image), so — like the roadmap flagged from the start — this slice uses
+  alternative validation: a real `ClientWebSocket` drives a live Mockifyr host and the replies are
+  asserted directly.
+- **The model (mirrors WireMock 4's message framework).** A message stub is registered via
+  `POST /__admin/message-mappings`: a `trigger` (`message.body` value-matcher) and one or more `send`
+  `actions` whose `message.body.data` is a template. A WebSocket client's inbound message is matched
+  against every stub's trigger; each matching stub's responses are rendered and sent back to the
+  originating channel. Connections are accepted on **any** path.
+- **What it reuses (no new matching/templating logic).** The trigger body matcher is the **standard**
+  value-matcher set — parsed by wrapping the trigger body as a `bodyPatterns` request pattern
+  (`WireMockMappingReader.ReadRequestPattern`), so `equalTo`/`matches`/`matchesJsonPath`/… all work. The
+  response `data` renders through the **same Handlebars engine and helpers** as response templating, via
+  a small `MessageTemplateRenderer` exposing the inbound message as `{{message.body}}` (so
+  `Echo: {{message.body}}` and `{{jsonPath message.body '$.x'}}` work). A new `Mockifyr.Facade.WebSocket`
+  project hosts the transport (a front-of-pipeline middleware) + an in-memory, tenant-scoped store; the
+  engine stays untouched.
+- **Deferred (tracked):** broadcast / non-`originating` `channelTarget` and the
+  `POST /__admin/channels/send` admin-push endpoint; connect-time (unsolicited) messages; `filePath`
+  message bodies; binary frames; message-mapping listing/reset. These extend the same seam.
+- **Regression cases:** `G15dWebSocketTests` (templated echo round-trip; `equalTo` triggers routing to
+  their own responses — 2 self-tests).

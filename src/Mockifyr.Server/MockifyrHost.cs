@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Mockifyr.Core;
 using Mockifyr.Facade.Admin;
 using Mockifyr.Facade.Http;
+using Mockifyr.Facade.WebSocket;
 
 namespace Mockifyr.Server;
 
@@ -136,6 +137,10 @@ public static class MockifyrHost
         {
             app.Urls.Add($"http://0.0.0.0:{port}");
         }
+
+        // WebSocket message serving (G15d): accepts WS upgrades at the front of the pipeline (before the
+        // mock-serving fallback) and registers POST /__admin/message-mappings.
+        app.UseMockifyrWebSockets();
 
         // gRPC serving (G13) runs ahead of the endpoints: application/grpc requests are handled by the
         // codec+engine, everything else falls through to the admin/mock-serving endpoints.

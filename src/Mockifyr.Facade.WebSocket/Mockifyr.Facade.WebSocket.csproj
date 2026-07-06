@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\Mockifyr.Core\Mockifyr.Core.csproj" />
+    <!-- Reuses the standard body value-matchers (trigger) and the templating engine (send action). -->
+    <ProjectReference Include="..\Mockifyr.Adapters.WireMockJson\Mockifyr.Adapters.WireMockJson.csproj" />
+    <ProjectReference Include="..\Mockifyr.Templating\Mockifyr.Templating.csproj" />
+  </ItemGroup>
+
+</Project>

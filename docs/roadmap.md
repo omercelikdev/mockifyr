@@ -254,7 +254,7 @@ Detailed rationale and per-group contents:
     over the wire: a stub extracting the request's variables/operationName renders the same response body
     on both sides. (A stub must constrain the fields it templates, per the G14b absent-when-unspecified
     rule.) See docs/parity/g14-graphql.md
-- [ ] **G15** Message-based/WebSocket + JWT + Faker + multi-domain
+- [x] **G15** Message-based/WebSocket + JWT + Faker + multi-domain
   - [x] G15a Faker / `random` helper — `{{random 'Class.method'}}` renders fake data (Datafaker-style
     expression) via **Bogus** (Datafaker's .NET counterpart), a curated provider subset; unknown
     expression → WireMock's error string. Racy output, so **structurally** validated against the
@@ -270,7 +270,14 @@ Detailed rationale and per-group contents:
     `port` an integer. Byte-diffed against the oracle; the run **confirmed** WireMock derives host+port
     from the `Host` header and scheme from the listener. `Host`-header-less port fallback + IPv6 literals
     deferred. See docs/parity/g15-extras.md
-- [x] **G16** Persistence providers (FileBased/LiteDB/Postgres/Redis) + change-feed reload
+  - [x] G15d WebSocket message serving — WireMock 4's message framework: register a message-mapping via
+    `POST /__admin/message-mappings` (a `trigger` body matcher + `send` actions with a templated
+    `message.body.data`); a WebSocket client's inbound message is matched and the templated replies sent
+    to the originating channel. A new `Mockifyr.Facade.WebSocket` project (front-of-pipeline middleware +
+    in-memory store) reuses the standard body value-matchers and the templating engine (`{{message.body}}`)
+    — the engine is untouched. **No stable WireMock oracle** (beta), so validated by a self-test round-trip.
+    Broadcast/`channels/send`, connect-time messages, `filePath`, binary frames deferred. See
+    docs/parity/g15-extras.md (FileBased/LiteDB/Postgres/Redis) + change-feed reload
   - [x] G16a File-based persistence — an `IStubPersistence` seam (no-op default) the management-path
     handlers call; `--root-dir` registers `FileSystemStubPersistence`, writing each stub as an
     id-stamped WireMock JSON file to the **same** `<root>/mappings` the G12f loader reloads, so
