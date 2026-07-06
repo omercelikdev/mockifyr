@@ -82,5 +82,23 @@ ARCHITECTURE.md called for. Validated against the **official WireMock gRPC exten
   `.dsc` fixture was regenerated with `protoc … --include_imports` so `google/protobuf/wrappers.proto`
   is resolvable in the descriptor set.
 - **Deferred (tracked):** wrapper fields left at their default value inside a repeated/map (only the
-  singular default is exercised); streaming; gRPC status/error responses; gRPC admin reset.
+  singular default is exercised); streaming; gRPC admin reset.
 - **Regression case:** `G13cGrpcWrappersOneofTests.Wrapped_WithWrappersAndOneof_MatchesTheOracle`.
+
+## Error / status responses (G13d)
+
+- **Group / item:** G13d — validated over the wire against WireMock + its gRPC extension.
+- **How the extension returns an error (learned from the oracle).** It reads two **response headers**:
+  `grpc-status-name` (the status **code name**, e.g. `NOT_FOUND`/`INVALID_ARGUMENT`/`INTERNAL`) and the
+  optional `grpc-status-reason` (the status **detail** message). The call then fails with that gRPC
+  status and no message body — a `jsonBody`, if present, is **not** delivered. The **numeric**
+  `grpc-status` header is *not* the mechanism (it surfaced as `UNKNOWN` "Application error"), so the
+  extension keys off the **name**.
+- **Mockifyr's handling.** The engine already carries response headers, so the gRPC middleware checks
+  for `grpc-status-name`, maps the name to its `google.rpc.Code` number (the canonical 0–16 set), and
+  writes that as the `grpc-status` trailer with `grpc-status-reason` as `grpc-message`, skipping the
+  message frame. No new Core surface — the error is just a stub with those response headers.
+- **Validation.** A `SayHello` stub with `grpc-status-name: NOT_FOUND` + `grpc-status-reason: "no such
+  hero"` fails the call with the **same** status code (`NotFound`) and detail on the oracle and
+  Mockifyr.
+- **Regression case:** `G13dGrpcStatusTests.ErrorStatus_MatchesTheOracle`.

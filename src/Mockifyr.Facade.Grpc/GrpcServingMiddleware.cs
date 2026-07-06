@@ -23,6 +23,32 @@ public sealed class GrpcServingMiddleware(RequestDelegate next, StubEngine engin
     private const int StatusOk = 0;
     private const int StatusUnimplemented = 12;
 
+    // The gRPC extension expresses an error response via headers: `grpc-status-name` names the status
+    // code, `grpc-status-reason` carries the optional message. Mirror the same DSL (G13d).
+    private const string GrpcStatusNameHeader = "grpc-status-name";
+    private const string GrpcStatusReasonHeader = "grpc-status-reason";
+
+    private static readonly IReadOnlyDictionary<string, int> StatusCodesByName = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["OK"] = 0,
+        ["CANCELLED"] = 1,
+        ["UNKNOWN"] = 2,
+        ["INVALID_ARGUMENT"] = 3,
+        ["DEADLINE_EXCEEDED"] = 4,
+        ["NOT_FOUND"] = 5,
+        ["ALREADY_EXISTS"] = 6,
+        ["PERMISSION_DENIED"] = 7,
+        ["RESOURCE_EXHAUSTED"] = 8,
+        ["FAILED_PRECONDITION"] = 9,
+        ["ABORTED"] = 10,
+        ["OUT_OF_RANGE"] = 11,
+        ["UNIMPLEMENTED"] = 12,
+        ["INTERNAL"] = 13,
+        ["UNAVAILABLE"] = 14,
+        ["DATA_LOSS"] = 15,
+        ["UNAUTHENTICATED"] = 16,
+    };
+
     public async Task InvokeAsync(HttpContext context)
     {
         var contentType = context.Request.ContentType;
@@ -59,6 +85,15 @@ public sealed class GrpcServingMiddleware(RequestDelegate next, StubEngine engin
         if (resolution.Response is not { } response)
         {
             WriteStatus(context, StatusUnimplemented, "No matching stub");
+            return;
+        }
+
+        // An error response (the extension's `grpc-status-name` header) replies with that status and no
+        // message frame — the response body is not delivered on an error, matching the oracle.
+        if (response.Headers[GrpcStatusNameHeader].FirstOrDefault() is { } statusName &&
+            StatusCodesByName.TryGetValue(statusName, out var errorCode))
+        {
+            WriteStatus(context, errorCode, response.Headers[GrpcStatusReasonHeader].FirstOrDefault());
             return;
         }
 

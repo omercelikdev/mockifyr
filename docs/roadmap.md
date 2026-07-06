@@ -219,6 +219,12 @@ Detailed rationale and per-group contents:
     / re-wraps on encode, confined to the message path so they work anywhere a message can. Validated
     over the wire with a `Wrapped` call carrying wrappers + a oneof in both request and reply; the `.dsc`
     was regenerated with `--include_imports`. Streaming/status/admin-reset deferred. See docs/parity/g13-grpc.md
+  - [x] G13d Error / status responses — the extension returns a gRPC error via two response headers
+    (`grpc-status-name` = the code name, `grpc-status-reason` = the detail); the message body is not
+    delivered. The middleware maps the name to its `google.rpc.Code` number and writes the `grpc-status`/
+    `grpc-message` trailers, no message frame — an error is just a stub with those headers, no new Core
+    surface. Validated over the wire: a `NOT_FOUND` stub fails the call with the same code + detail on
+    both sides. Streaming + gRPC admin reset deferred. See docs/parity/g13-grpc.md
 - [ ] **G14** GraphQL extension
   - [x] G14a Query matching — a `GraphqlQueryMatcher` (parse + AST-sort + canonical print, so equal
     queries match regardless of whitespace and field/argument order) via GraphQL-Parser; the adapter
