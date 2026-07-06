@@ -116,3 +116,19 @@ ARCHITECTURE.md called for. Validated against the **official WireMock gRPC exten
   would diverge on file-seeded stubs — reset-reload parity is tracked separately and deferred. The
   admin-add path above sidesteps it (it adds, never resets).
 - **Regression case:** `G13eGrpcAdminTests.AdminAddedStub_IsServedOverGrpc_MatchesTheOracle`.
+
+## Single-message streaming (G13f)
+
+- **Group / item:** G13f — validated over the wire against WireMock + its gRPC extension.
+- **What the extension supports (from its docs).** Server streaming returns a **single** message; client
+  streaming consumes a **single** message; **bidirectional** streaming is **not supported** (a WireMock 4
+  follow-up). At the wire level a single-message stream is one request frame → one response frame — the
+  same shape as unary — so the **unchanged codec + middleware serve it**; no gRPC-facade change was
+  needed. Only the proto/descriptor gained `stream` RPCs.
+- **Validation.** `ServerStream` (server-streaming) yields exactly `["server-stream-reply"]` and
+  `ClientStream` (client-streaming, one request) yields `"client-stream-reply"` — identically on the
+  oracle and Mockifyr, driven through the generated C# streaming clients. The `.dsc` was regenerated
+  with the new `stream` RPCs.
+- **Deferred (extension limitation):** multi-message streams and **bidirectional** streaming — the
+  WireMock extension itself does not support them (no oracle), pending WireMock 4.
+- **Regression case:** `G13fGrpcStreamingTests.SingleMessageStreaming_MatchesTheOracle`.
