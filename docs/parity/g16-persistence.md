@@ -135,5 +135,24 @@ the same seam.
   a create on host A propagates to host B, and a delete on A propagates too. Propagation is asynchronous,
   so the assertions poll within a timeout. Like G16e this is coherence infrastructure (served-response
   parity is oracle-covered by G16c), so no oracle is needed.
-- **Deferred (tracked):** multi-tenant reload (both reloaders reconcile the default tenant) — bucket ③ #9.
 - **Regression case:** `G16fPostgresChangeFeedTests.Mutation_On_One_Instance_Propagates_To_Another`.
+
+## Multi-tenant change-feed reload (G16g)
+
+- **Group / item:** G16g — generalizes the change-feed reconcile from the default tenant to **every**
+  tenant. Closes the last persistence edge.
+- **The gap.** G16e/G16f reconciled only `TenantId.Default`, so a stub persisted for another tenant by a
+  peer instance would not appear (and a non-default tenant emptied elsewhere would not be pruned).
+- **All-tenant reconcile.** `IStubStore` gained `GetTenants()` (the tenants currently holding stubs) and
+  a loader may implement the optional `IMultiTenantMappingsLoader.LoadAllTenants()` (the DB/KV backends —
+  Postgres `SELECT tenant, json FROM stubs`; Redis a `SCAN` over `mockifyr:stubs:*`, the tenant being the
+  key suffix). The shared `ChangeFeedReconciler` now gathers persisted stubs across all tenants (multi-
+  tenant loaders enumerate every tenant; single-tenant loaders like a mappings directory contribute the
+  default tenant only), then reconciles the **union** of the reloaded tenants and the store's current
+  tenants — upsert-then-prune **per tenant**, so cross-tenant state stays isolated.
+- **Validation.** One live host on Postgres `--change-feed`; a tenant-aware peer writer persists stubs for
+  two non-default tenants (`acme`, `globex`). The host reloads all tenants and serves each under its
+  `X-Mockifyr-Tenant` header; emptying `acme` prunes it while `globex` is untouched. (Admin tenant
+  resolution is still a placeholder—default tenant—so non-default tenants are written via the persistence
+  seam, which is how a tenant-aware peer would.) Coherence infrastructure, so no oracle.
+- **Regression case:** `G16gMultiTenantReloadTests.Reload_Reconciles_All_Tenants_Independently`.

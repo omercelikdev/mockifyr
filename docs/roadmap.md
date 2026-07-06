@@ -311,7 +311,12 @@ Detailed rationale and per-group contents:
     `PostgresStubPersistence` mutation runs `NOTIFY mockifyr_changes`; `--change-feed` opts a
     Postgres-backed host into a `PostgresChangeFeedReloader` (`IHostedService`) that `LISTEN`s and
     reconciles via the shared `ChangeFeedReconciler`. Validated with **two live hosts** sharing a Postgres
-    container. Multi-tenant reload deferred (bucket ③ #9). See docs/parity/g16-persistence.md
+    container. See docs/parity/g16-persistence.md
+  - [x] G16g Multi-tenant change-feed reload — the reconcile now spans **every** tenant, not just the
+    default: `IStubStore.GetTenants()` + optional `IMultiTenantMappingsLoader.LoadAllTenants()` (Postgres
+    `SELECT tenant,json`; Redis `SCAN mockifyr:stubs:*`) let `ChangeFeedReconciler` upsert-then-prune per
+    tenant over the union of reloaded + in-store tenants. Validated: a peer writing two non-default tenants
+    is served/pruned independently under the `X-Mockifyr-Tenant` header. See docs/parity/g16-persistence.md
 
 ## Out of scope — WireMock **Cloud**, not open-source (no OSS oracle)
 
@@ -350,13 +355,13 @@ below — none is a silent gap.
   out because there is nothing valid to reproduce: `jsonSort` (oracle 500s), `soapXPath` (empty
   result), `arrayRemove` (removes the last element regardless of index), `matchesJsonPath` array-size
   (`length()`/`size()` filters don't match).
-- **③ Separate efforts if wanted (real features, each a mini-project with its own validation setup).**
-  Done in this bucket (each oracle- or self-validated, own PR): **RS256** JWT (#1), **remote/URL `$ref`**
-  JSON Schema (#2), single-message gRPC **streaming** (#3), WebSocket **broadcast** / `channels/send` (#4),
-  the **Datafaker long tail** (#5), multipart **`request.parts`** templating (#6), **mTLS** /
-  configured keystore (#7), and the Postgres **`LISTEN`/`NOTIFY`** change feed (#8).
-  Remaining: multi-tenant persistence *reload* (#9). Still-deferred micro-edges: JWKS endpoint;
-  WebSocket connect-time (unsolicited) messages / `filePath` bodies; GraphQL fragment/directive ordering.
+- **③ Separate efforts (real features, each a mini-project with its own validation setup) — ✅ ALL DONE.**
+  Each oracle- or self-validated with its own PR: **RS256** JWT (#1), **remote/URL `$ref`** JSON Schema
+  (#2), single-message gRPC **streaming** (#3), WebSocket **broadcast** / `channels/send` (#4), the
+  **Datafaker long tail** (#5), multipart **`request.parts`** templating (#6), **mTLS** / configured
+  keystore (#7), the Postgres **`LISTEN`/`NOTIFY`** change feed (#8), and **multi-tenant persistence
+  reload** (#9). Still-deferred micro-edges (small, tracked, non-blocking): JWKS endpoint; WebSocket
+  connect-time (unsolicited) messages / `filePath` bodies; GraphQL fragment/directive ordering.
 - **④ Out of scope — WireMock Cloud, not OSS.** See the section above (`clientIp`, standalone number
   matchers, `systemProperty`/`env`, `math` `%`/`^`) — implementing would *diverge* from the OSS oracle.
 

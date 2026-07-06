@@ -79,8 +79,11 @@ public sealed class RedisChangeFeedReloader(
 /// counterpart, run at startup. Reads the tenant's hash and parses each stored JSON back into a
 /// <see cref="StubMapping"/> (ids preserved via the id-stamped JSON).
 /// </summary>
-public sealed class RedisMappingsLoader(IConnectionMultiplexer redis, IMatcherRegistry? matchers = null) : IMappingsLoader
+public sealed class RedisMappingsLoader(IConnectionMultiplexer redis, IMatcherRegistry? matchers = null)
+    : IMappingsLoader, IMultiTenantMappingsLoader
 {
+    private const string HashKeyPrefix = "mockifyr:stubs:";
+
     /// <inheritdoc />
     public IReadOnlyList<StubMapping> Load(TenantId tenant)
     {
@@ -88,6 +91,35 @@ public sealed class RedisMappingsLoader(IConnectionMultiplexer redis, IMatcherRe
         foreach (var entry in redis.GetDatabase().HashGetAll(RedisStubPersistence.HashKey(tenant)))
         {
             stubs.AddRange(WireMockMappingReader.Read(entry.Value!, tenant, matchers));
+        }
+
+        return stubs;
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<StubMapping> LoadAllTenants()
+    {
+        var database = redis.GetDatabase();
+        var stubs = new List<StubMapping>();
+
+        // Enumerate every tenant hash (mockifyr:stubs:*) via SCAN across the connected endpoints; the
+        // tenant is the key suffix. SCAN (not KEYS) so it stays non-blocking on a large keyspace.
+        foreach (var endpoint in redis.GetEndPoints())
+        {
+            var server = redis.GetServer(endpoint);
+            if (!server.IsConnected || server.IsReplica)
+            {
+                continue;
+            }
+
+            foreach (var key in server.Keys(database.Database, pattern: HashKeyPrefix + "*"))
+            {
+                var tenant = new TenantId(((string)key!)[HashKeyPrefix.Length..]);
+                foreach (var entry in database.HashGetAll(key))
+                {
+                    stubs.AddRange(WireMockMappingReader.Read(entry.Value!, tenant, matchers));
+                }
+            }
         }
 
         return stubs;
