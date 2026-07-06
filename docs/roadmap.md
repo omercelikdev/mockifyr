@@ -43,8 +43,11 @@ Detailed rationale and per-group contents:
     sub-matcher deferred
   - [x] G1h matchesJsonSchema — JSON Schema validation via json-everything's JsonSchema.Net
     (default Draft 2020-12); inline + string schema forms and `schemaVersion` fuzz-validated over the
-    common keyword subset (type/required/properties/bounds/enum/items). Draft 4, `format` assertions,
-    and `$ref` resolution deferred
+    common keyword subset (type/required/properties/bounds/enum/items). **`format`** now matches WireMock:
+    assertion on Draft-07 and earlier, annotation-only no-op on 2019-09+ (the reverse of JsonSchema.Net's
+    defaults, so the dialect is pinned + `RequireFormatValidation` toggled per draft). The oracle also
+    revealed networknt's **typeLoose** scalar coercion (`123` matches `type:string`) — a cross-cutting
+    deferred item. Draft 4 and `$ref` resolution deferred. See docs/parity/g1-matching.md
   - [x] G1i date/time matchers — `before`/`after`/`equalToDateTime` on absolute ISO-8601 instants
     (+ `actualFormat`) fuzz-validated; `now`-relative/offset/truncation deferred (racy vs a second
     clock)
