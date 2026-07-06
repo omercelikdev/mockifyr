@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Json.Schema;
@@ -19,6 +20,33 @@ namespace Mockifyr.Matching;
 /// </summary>
 public sealed class MatchesJsonSchemaValueMatcher : IValueMatcher
 {
+    // Remote `$ref` resolution: WireMock/networknt fetches an http(s) `$ref`, so JsonSchema.Net is
+    // taught to as well (off by default). Fetched schemas are cached; failures resolve to no-match.
+    private static readonly HttpClient RemoteHttp = new() { Timeout = TimeSpan.FromSeconds(5) };
+    private static readonly ConcurrentDictionary<Uri, IBaseDocument?> RemoteCache = new();
+
+    static MatchesJsonSchemaValueMatcher()
+    {
+        SchemaRegistry.Global.Fetch = (uri, _) => RemoteCache.GetOrAdd(uri, FetchRemote);
+    }
+
+    private static IBaseDocument? FetchRemote(Uri uri)
+    {
+        if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSchema.FromText(RemoteHttp.GetStringAsync(uri).GetAwaiter().GetResult());
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
     private readonly JsonSchema? _schema;
     private readonly EvaluationOptions _options;
 

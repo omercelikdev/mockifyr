@@ -332,11 +332,16 @@ Tracked in `TextCorpus`.
   `#/definitions/…` (Draft-07) — resolve identically on both validators, so a stub whose properties
   reference a reusable definition agrees with the oracle (referenced `required`/`type` constraints are
   enforced through the ref). No Mockifyr change was needed; JsonSchema.Net resolves them natively.
-- **Deferred:** WireMock's `V4` (Draft 4 — unsupported by JsonSchema.Net), **remote/URL** `$ref`
-  resolution (only intra-document refs are validated), and draft-specific keyword edges beyond the
-  common subset above.
+- **Remote/URL `$ref` resolution (feature audit).** WireMock/networknt **fetches** an `http(s)` `$ref`
+  (confirmed by probe), so JsonSchema.Net is taught to as well — `SchemaRegistry.Global.Fetch` downloads
+  and caches the referenced schema (off by default; failures resolve to no-match). Validated against the
+  oracle with a schema referencing a host-side `SchemaServer` (`required: city`): the `$ref` host is
+  rewritten per side (oracle → `host.docker.internal`, Mockifyr → `127.0.0.1`), and both match a valid
+  `addr` and reject a missing `city`.
+- **Deferred:** WireMock's `V4` (Draft 4 — unsupported by JsonSchema.Net) and draft-specific keyword
+  edges beyond the common subset above.
 - **Regression cases:** `G1GeneratedMatcherTests.MatchesJsonSchema_{InlineObject,StringFormAndVersion,Format,TypeLoose,Ref}`
-  (differential), `MatchesJsonSchemaTests` (pure logic).
+  + `G1hRemoteRefTests` (differential), `MatchesJsonSchemaTests` (pure logic).
 
 ### date/time matchers (G1i)
 

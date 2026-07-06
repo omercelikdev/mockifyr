@@ -194,6 +194,25 @@ public sealed class DifferentialRunner : IAsyncDisposable
         Body = response.Body,
     };
 
+    /// <summary>
+    /// Drives a remote-<c>$ref</c> schema case (G1h): the stub's <c>$ref</c> host (<c>__SCHEMA_HOST__</c>)
+    /// is rewritten to what each side can reach (the oracle via <c>host.docker.internal</c>, Mockifyr via
+    /// <c>127.0.0.1</c>), so both resolve the same host-side schema. Returns the match-decision probe.
+    /// </summary>
+    public async Task<ProbeOutcome> RunSchemaRefAsync(int schemaPort, string stubTemplate, RequestSpec request)
+    {
+        await _oracle.ResetAsync();
+        await _oracle.LoadMappingAsync(stubTemplate.Replace("__SCHEMA_HOST__", $"host.docker.internal:{schemaPort}"));
+        var oracle = await _oracle.SendAsync(request);
+
+        _mockifyr = new MockifyrUnderTest();
+        _mockifyr.ImportWireMockJson(stubTemplate.Replace("__SCHEMA_HOST__", $"127.0.0.1:{schemaPort}"));
+        var mockifyr = _mockifyr.Send(request, "http");
+
+        var diff = ResponseDiffer.Compare(oracle, mockifyr, mockifyr.Headers.Keys);
+        return new ProbeOutcome(oracle, mockifyr, diff);
+    }
+
     /// <summary>Replays one request against the currently loaded stub on both sides and diffs.</summary>
     public async Task<ProbeOutcome> ProbeAsync(RequestSpec request)
     {
