@@ -272,7 +272,12 @@ Detailed rationale and per-group contents:
     matching WireMock (`iss`/`aud`/`sub`/`iat`/`exp`, default maxAge 36500 days) + custom claims;
     hand-rolled HMAC (no new dep). Random secret + racy `iat`, so validated by **content parity**
     (decoded header + non-time claims match the JWT-extension oracle; `iat`/`exp`/signature structural).
-    RS256/JWKS, configurable secret, `nbf`, array claims deferred. See docs/parity/g15-extras.md
+    (RS256 added in bucket ③ #1.) Configurable secret, `nbf`, array claims deferred. See docs/parity/g15-extras.md
+  - [x] G15h JWKS / `jwks` helper — `{{jwks}}` renders the JSON Web Key Set for the RS256 public key the
+    `jwt` helper signs with (`{ "keys":[{ kty,kid,use,alg,n,e }] }`), served from a stub like the reference.
+    Racy key → validated **structurally** + a **self-consistency** anchor: an RS256 `{{jwt}}` token verifies
+    against that side's `{{jwks}}` key (and its `kid` names it) on both the oracle and Mockifyr. See
+    docs/parity/g15-extras.md
   - [x] G15c Multi-domain — `request.host` / `request.port` / `request.scheme` matching so one instance
     serves many domains. `scheme` is a plain string, `host` a full StringValuePattern (equalTo/matches/…),
     `port` an integer. Byte-diffed against the oracle; the run **confirmed** WireMock derives host+port
@@ -368,8 +373,9 @@ below — none is a silent gap.
   (#2), single-message gRPC **streaming** (#3), WebSocket **broadcast** / `channels/send` (#4), the
   **Datafaker long tail** (#5), multipart **`request.parts`** templating (#6), **mTLS** / configured
   keystore (#7), the Postgres **`LISTEN`/`NOTIFY`** change feed (#8), and **multi-tenant persistence
-  reload** (#9). Remaining micro-edge (small, tracked, non-blocking): JWKS endpoint. (GraphQL
-  directive/fragment ordering — done, G14d; WebSocket connect-time / `filePath` — done, G15g.)
+  reload** (#9). **Micro-edges — ✅ all done too:** GraphQL directive/fragment ordering (G14d), WebSocket
+  connect-time / `filePath` (G15g), and the JWKS `{{jwks}}` helper (G15h). Nothing tracked remains open
+  before the UI.
 - **④ Out of scope — WireMock Cloud, not OSS.** See the section above (`clientIp`, standalone number
   matchers, `systemProperty`/`env`, `math` `%`/`^`) — implementing would *diverge* from the OSS oracle.
 
