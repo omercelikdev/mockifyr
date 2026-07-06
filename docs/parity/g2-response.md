@@ -167,6 +167,11 @@ oracle (`wiremock/wiremock:3.10.0`). See [README](README.md) for the format.
 - **`randomValue` character alphabets** (sampled from the oracle): `ALPHANUMERIC` = `[a-z0-9]`,
   `ALPHABETIC` = `[a-z]`, `NUMERIC` = `[0-9]`, `HEXADECIMAL` = `[0-9a-f]` — all **lowercase** by
   default; `uppercase=true` uppercases the alphabet (`ALPHANUMERIC` → `[A-Z0-9]`). `length=` is exact.
+- **`randomValue type='ALPHANUMERIC_AND_SYMBOLS'`** (charset **learned by sampling the oracle** over
+  many long draws): lowercase + digits + the printable-ASCII symbol set
+  `` !"#$%&'()*+,-./:;<=>?@[\]^_`{|} `` — i.e. every printable ASCII char in `[33,125]` **except** the
+  space, the upper-case letters `A–Z`, and `~` (126). 67 characters total; membership is contracted
+  (not a regex, since the set is full of metacharacters).
 - **`randomValue type='UUID'`** is an RFC 4122 **v4** UUID (`…-4xxx-[89ab]xxx-…`), matched by
   `Guid.NewGuid()`; `length`/`uppercase` don't apply to it.
 - **`pickRandom 'a' 'b' 'c'`** returns one of the given literals (a single-element list is
@@ -176,9 +181,9 @@ oracle (`wiremock/wiremock:3.10.0`). See [README](README.md) for the format.
   32-bit int (can be negative).
 - **`randomDecimal lower=L upper=U`** lands in `[L, U]`; emitted with the invariant culture so the
   decimal point is stable.
-- **Deferred (documented):** `randomValue type='ALPHANUMERIC_AND_SYMBOLS'` — its symbol alphabet is
-  broad and imprecisely bounded, which would make a brittle structural assertion; and the
-  distribution/format of **unbounded** `randomDecimal` (only bounded ranges are contracted).
+- **Deferred (documented):** the distribution/format of **unbounded** `randomDecimal` (only bounded
+  ranges are contracted); `uppercase=true` combined with `ALPHANUMERIC_AND_SYMBOLS` (untested — only
+  the default lowercase form is contracted).
 - **Regression case:** `G2StaticResponseTests.Templating_RandomHelpers`.
 
 ### JSON-manipulation helpers (G2f)

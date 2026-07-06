@@ -83,10 +83,11 @@ Detailed rationale and per-group contents:
     `Templating_NowHelper`). `now` `timezone=`/`truncate=` and the unparseable-date fallback remain
     deferred; `timezone=` is ignored on a parsed instant to match the oracle. See docs/parity/g2-response.md
   - [x] G2e random helpers — `randomValue` (UUID + `[a-z0-9]`/`[a-z]`/`[0-9]`/`[0-9a-f]` types with
-    `length`/`uppercase`), `pickRandom`, `randomInt` (half-open `[lower,upper)`), and bounded
-    `randomDecimal`, validated **structurally** against the oracle (the racy output can't be
+    `length`/`uppercase`, plus **`ALPHANUMERIC_AND_SYMBOLS`** — lowercase+digits+the printable-ASCII
+    symbol set the oracle uses, no `A-Z`/space/`~`), `pickRandom`, `randomInt` (half-open `[lower,upper)`),
+    and bounded `randomDecimal`, validated **structurally** against the oracle (the racy output can't be
     byte-diffed, so the oracle and Mockifyr must each satisfy the same charset/length/range
-    contract). `ALPHANUMERIC_AND_SYMBOLS` and unbounded-decimal distribution deferred. See
+    contract). Unbounded-decimal distribution deferred. See
     docs/parity/g2-response.md
   - [x] G2f json manipulation helpers — `jsonArrayAdd` (parsed item + `maxItems` front-drop),
     `jsonMerge` (deep merge, B over A), `jsonRemove` (path delete) emit compact JSON; `toJson`

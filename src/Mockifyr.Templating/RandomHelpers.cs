@@ -17,6 +17,10 @@ internal static class RandomHelpers
     private const string Digits = "0123456789";
     private const string HexDigits = "0123456789abcdef";
 
+    // WireMock's ALPHANUMERIC_AND_SYMBOLS symbol set: the printable ASCII punctuation in [33,125]
+    // (i.e. everything but the space, the upper-case letters, and `~`), learned by sampling the oracle.
+    private const string Symbols = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}";
+
     public static void Register(IHandlebars handlebars)
     {
         handlebars.RegisterHelper("randomValue", (_, arguments) => RandomValue(arguments));
@@ -43,6 +47,7 @@ internal static class RandomHelpers
             "ALPHABETIC" => Lowercase,
             "NUMERIC" => Digits,
             "HEXADECIMAL" => HexDigits,
+            "ALPHANUMERIC_AND_SYMBOLS" => Lowercase + Digits + Symbols,
             _ => Lowercase + Digits, // ALPHANUMERIC (the default)
         };
 

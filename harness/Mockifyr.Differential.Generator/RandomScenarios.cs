@@ -34,6 +34,15 @@ public static class RandomScenarios
             "alphanumeric-upper", "{{randomValue length=10 type='ALPHANUMERIC' uppercase=true}}",
             Matches("^[A-Z0-9]{10}$"));
 
+        // ALPHANUMERIC_AND_SYMBOLS: lowercase + digits + the printable-ASCII symbol set the oracle uses
+        // (no upper-case letters, no space, no `~`). Charset membership rather than a regex — the set
+        // contains regex metacharacters. See docs/parity/g2-response.md.
+        const string symbols = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}";
+        const string alphanumericAndSymbols = "abcdefghijklmnopqrstuvwxyz0123456789" + symbols;
+        yield return Case(
+            "alphanumeric-and-symbols", "{{randomValue length=40 type='ALPHANUMERIC_AND_SYMBOLS'}}",
+            body => body.Length == 40 && body.All(alphanumericAndSymbols.Contains));
+
         yield return Case("pick-multi", "{{pickRandom 'a' 'b' 'c'}}", body => body is "a" or "b" or "c");
         yield return Case("pick-single", "{{pickRandom 'solo'}}", body => body == "solo");
 
