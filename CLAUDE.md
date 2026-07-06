@@ -21,6 +21,17 @@ WireMock**, never by self-assessment.
 
 ---
 
+## 0a. Licensing & trademark (non-negotiable)
+
+- Mockifyr is licensed **Apache-2.0** ([LICENSE](LICENSE) + [NOTICE](NOTICE)). Keep new files
+  compatible; do not add dependencies under incompatible licenses (no GPL/AGPL in shipped code).
+- **WireMock is a trademark of WireMock Inc.; Mockifyr is independent and unaffiliated.** Only ever
+  reference "WireMock" **nominatively** — to name the JSON stub format we import (interoperability) or
+  the reference oracle we differential-test against. Never imply endorsement/affiliation, never use it
+  in a product/package name or a logo. The oracle code stays in `harness/`+`tests/`, never shipped.
+
+---
+
 ## 1. Language policy (non-negotiable)
 
 - **Everything committed to this repo is in English** — source code, comments, XML doc

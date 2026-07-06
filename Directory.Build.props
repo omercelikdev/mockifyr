@@ -10,4 +10,11 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
+  <!-- Licensing metadata (Apache-2.0). Applied to any project that later opts into packaging. -->
+  <PropertyGroup>
+    <Authors>Ömer Çelik</Authors>
+    <Copyright>Copyright 2026 Ömer Çelik</Copyright>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+  </PropertyGroup>
+
 </Project>

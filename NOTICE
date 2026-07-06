@@ -1,0 +1,23 @@
+Mockifyr
+Copyright 2026 Ömer Çelik
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+--------------------------------------------------------------------------------
+Trademarks
+--------------------------------------------------------------------------------
+
+WireMock is a trademark of WireMock Inc. Mockifyr is an independent project and is
+not affiliated with, endorsed by, or sponsored by WireMock Inc.
+
+Mockifyr is a clean-room, independently developed implementation. It does not use
+WireMock or WireMock.Net as dependencies. References to "WireMock" throughout this
+repository are nominative and descriptive only, for two purposes:
+
+  1. Interoperability — Mockifyr can import the WireMock JSON stub-mapping format,
+     so identifiers and documentation name that format for clarity.
+  2. Differential testing — Mockifyr's correctness is proven by running the same
+     scenarios against real WireMock as a reference oracle. The oracle code lives
+     in the test/harness projects and is not part of the distributed product.
+
+All other product names, logos, and brands are property of their respective owners.
