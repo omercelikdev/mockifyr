@@ -135,6 +135,9 @@ public sealed class G1GeneratedMatcherTests : IAsyncLifetime
     public Task MatchesXPath_Namespaces() => Verify(XmlScenarios.NamespacedXPath());
 
     [Fact]
+    public Task EqualToXml_Placeholders() => Verify(XmlScenarios.XmlPlaceholders());
+
+    [Fact]
     public Task Logic_AndOrNot() => Verify(LogicScenarios.AndOrNot());
 
     [Fact]

@@ -166,6 +166,15 @@ Tracked in `TextCorpus`.
 - **Sibling element order is NOT significant — found by the generator.** WireMock matched
   `<order><qty/><item/></order>` against `<order><item/><qty/></order>` (200), i.e. XMLUnit treats a
   reorder as "similar". `EqualToXmlValueMatcher` now matches children as a multiset (was positional).
+- **`equalToXml` placeholders (`enablePlaceholders`, learned from the oracle).** A leaf text or
+  attribute value in the *expected* XML that is **entirely** an XMLUnit placeholder relaxes that node
+  (structure is still compared, and non-placeholder text still matched literally — a wrong sibling
+  fails). Confirmed placeholder set: `${xmlunit.ignore}` (matches anything, incl. an empty element),
+  `${xmlunit.isNumber}`, `${xmlunit.isDateTime}`, and `${xmlunit.matchesRegex(…)}`. Learned bounds:
+  the placeholder must be the **whole** value (a substring `pre${…}post` is literal); `matchesRegex` is
+  a **partial** (find) match, not anchored (`[0-9]+` matched `12a3`); delimiters default to `${`/`}` and
+  are overridable via `placeholderOpeningDelimiterRegex`/`placeholderClosingDelimiterRegex`; with
+  placeholders **disabled**, `${xmlunit.ignore}` is compared literally.
 - **matchesXPath verified:** the presence form (element `/order/item`, descendant `//qty`, attribute
   `/order/@id`) matches when the expression selects ≥ 1 node.
 - **Sub-matcher extraction needs the text node — found by the generator.** `/order/item` (element)
@@ -186,9 +195,9 @@ Tracked in `TextCorpus`.
     `XmlNamespaceManager` and, on an empty namespace-aware result, retries against a namespace-stripped
     copy of the document — reproducing the unprefixed-is-agnostic leniency while keeping the bound-URI
     constraint for prefixed steps.
-- **Deferred:** placeholders, `exemptedComparisons`, explicit `namespaceAwareness` STRICT/NONE
-  divergence (the default LEGACY behavior is matched), XPath functions, element-node sub-matcher
-  extraction, and mixed content.
+- **Deferred:** `exemptedComparisons`, explicit `namespaceAwareness` STRICT/NONE divergence (the
+  default LEGACY behavior is matched), XPath functions, element-node sub-matcher extraction, and mixed
+  content.
 
 ### clientIp (G1k) — NOT in open-source WireMock (no oracle)
 

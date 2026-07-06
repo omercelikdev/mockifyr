@@ -538,7 +538,12 @@ public static class WireMockMappingReader
 
         if (spec.TryGetProperty("equalToXml", out var equalToXml) && equalToXml.ValueKind == JsonValueKind.String)
         {
-            return new EqualToXmlValueMatcher(equalToXml.GetString()!);
+            var enablePlaceholders = spec.TryGetProperty("enablePlaceholders", out var ep) && ep.ValueKind == JsonValueKind.True;
+            return new EqualToXmlValueMatcher(
+                equalToXml.GetString()!,
+                enablePlaceholders,
+                ReadString(spec, "placeholderOpeningDelimiterRegex"),
+                ReadString(spec, "placeholderClosingDelimiterRegex"));
         }
 
         if (spec.TryGetProperty("matchesXPath", out var xPath))
@@ -604,6 +609,10 @@ public static class WireMockMappingReader
 
         return null;
     }
+
+    /// <summary>Reads a string property, or null if absent/non-string.</summary>
+    private static string? ReadString(JsonElement spec, string property) =>
+        spec.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
 
     /// <summary>Reads a string-to-string map property (e.g. <c>xPathNamespaces</c>), or null if absent/empty.</summary>
     private static IReadOnlyDictionary<string, string>? ReadStringMap(JsonElement spec, string property)

@@ -60,6 +60,75 @@ public static class XmlScenarios
     }
 
     /// <summary>
+    /// <c>equalToXml</c> placeholders (XMLUnit, via <c>enablePlaceholders</c>): a leaf/attribute value in
+    /// the expected XML that is entirely a placeholder relaxes that node — <c>${xmlunit.ignore}</c>
+    /// (anything), <c>${xmlunit.isNumber}</c>, <c>${xmlunit.isDateTime}</c>,
+    /// <c>${xmlunit.matchesRegex(…)}</c> — with optional custom delimiter regexes. See
+    /// docs/parity/g1-matching.md.
+    /// </summary>
+    public static IEnumerable<MatcherScenario> XmlPlaceholders()
+    {
+        yield return Build("xml-ph[ignore]",
+            Xml("<a><b>${xmlunit.ignore}</b></a>", placeholders: true),
+            ("<a><b>whatever</b></a>", true),
+            ("<a><b>123</b></a>", true),
+            ("<a><b></b></a>", true),
+            ("<a><c>x</c></a>", false)); // wrong element name — structure still compared
+
+        yield return Build("xml-ph[disabled is literal]",
+            Xml("<a><b>${xmlunit.ignore}</b></a>", placeholders: false),
+            ("<a><b>${xmlunit.ignore}</b></a>", true),
+            ("<a><b>whatever</b></a>", false));
+
+        yield return Build("xml-ph[attribute]",
+            Xml("<a id=\"${xmlunit.ignore}\"/>", placeholders: true),
+            ("<a id=\"999\"/>", true),
+            ("<a id=\"x\"/>", true));
+
+        yield return Build("xml-ph[mix: real text still compared]",
+            Xml("<a><b>keep</b><c>${xmlunit.ignore}</c></a>", placeholders: true),
+            ("<a><b>keep</b><c>anything</c></a>", true),
+            ("<a><b>WRONG</b><c>anything</c></a>", false));
+
+        yield return Build("xml-ph[isNumber]",
+            Xml("<a><b>${xmlunit.isNumber}</b></a>", placeholders: true),
+            ("<a><b>123</b></a>", true),
+            ("<a><b>abc</b></a>", false));
+
+        yield return Build("xml-ph[matchesRegex]",
+            Xml("<a><b>${xmlunit.matchesRegex([0-9]+)}</b></a>", placeholders: true),
+            ("<a><b>123</b></a>", true),
+            ("<a><b>abc</b></a>", false),
+            ("<a><b>12a3</b></a>", false)); // full match, not a partial one
+
+        yield return Build("xml-ph[isDateTime]",
+            Xml("<a><b>${xmlunit.isDateTime}</b></a>", placeholders: true),
+            ("<a><b>2020-01-02T03:04:05.000Z</b></a>", true),
+            ("<a><b>notadate</b></a>", false));
+
+        yield return Build("xml-ph[custom delimiters]",
+            new Dictionary<string, object>
+            {
+                ["equalToXml"] = "<a><b>[[xmlunit.ignore]]</b></a>",
+                ["enablePlaceholders"] = true,
+                ["placeholderOpeningDelimiterRegex"] = "\\[\\[",
+                ["placeholderClosingDelimiterRegex"] = "\\]\\]",
+            },
+            ("<a><b>zzz</b></a>", true));
+    }
+
+    private static Dictionary<string, object> Xml(string expected, bool placeholders)
+    {
+        var matcher = new Dictionary<string, object> { ["equalToXml"] = expected };
+        if (placeholders)
+        {
+            matcher["enablePlaceholders"] = true;
+        }
+
+        return matcher;
+    }
+
+    /// <summary>
     /// Namespaced <c>matchesXPath</c> via <c>xPathNamespaces</c> (prefix → URI). A prefixed step must
     /// match the bound namespace URI, an unprefixed step is namespace-agnostic (matches a
     /// default-namespaced document), and an unbound/wrong-bound prefix selects nothing. The object form

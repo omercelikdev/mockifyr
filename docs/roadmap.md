@@ -42,7 +42,10 @@ Detailed rationale and per-group contents:
     System.Xml. **Namespaced XPath** (`xPathNamespaces` prefix→URI) now works too: a prefixed step must
     match the bound URI, an unprefixed step is namespace-agnostic (matches a default-namespaced doc) —
     the object form requires a sub-matcher (WireMock 422s otherwise), all learned from the oracle.
-    Placeholders, explicit namespaceAwareness modes, XPath functions, element-node sub-matcher deferred
+    **`equalToXml` placeholders** (`enablePlaceholders`) also work: `${xmlunit.ignore}`/`isNumber`/
+    `isDateTime`/`matchesRegex(…)` (whole-value only, matchesRegex is a partial match, custom delimiters
+    supported), oracle-validated. Explicit namespaceAwareness modes, `exemptedComparisons`, XPath
+    functions, element-node sub-matcher deferred
   - [x] G1h matchesJsonSchema — JSON Schema validation via json-everything's JsonSchema.Net
     (default Draft 2020-12); inline + string schema forms and `schemaVersion` fuzz-validated over the
     common keyword subset (type/required/properties/bounds/enum/items). **`format`** now matches WireMock:
