@@ -66,6 +66,47 @@ public static class JsonSchemaScenarios
             ("""{"other":"x"}""", false));
     }
 
+    /// <summary>
+    /// <c>format</c>: WireMock (learned from the oracle) treats it as an <em>annotation-only</em> no-op
+    /// on its default draft (2020-12) — a malformed value still matches — but as an <em>assertion</em> on
+    /// an explicit Draft-07, where a malformed value fails. These cases pin both. A wrong-type case
+    /// guarantees a non-match so the coverage guard holds regardless.
+    /// </summary>
+    public static IEnumerable<MatcherScenario> Format()
+    {
+        // Default draft (2020-12): format is annotation-only, so even a malformed value matches.
+        // The non-match guard is an *object* body: WireMock's validator is typeLoose for scalars (a
+        // number/bool coerces to a string — see parity doc), but object-vs-string stays a real mismatch.
+        const string emailDefault = """{"type":"string","format":"email"}""";
+        yield return Build("format/email (default draft, annotation-only)", Inline(emailDefault),
+            (""" "user@example.com" """.Trim(), true),
+            (""" "not-an-email" """.Trim(), true),   // annotation-only → still matches
+            ("""{"x":1}""", false));                  // object vs string → a real non-match
+
+        const string dateTimeDefault = """{"type":"string","format":"date-time"}""";
+        yield return Build("format/date-time (default draft, annotation-only)", Inline(dateTimeDefault),
+            (""" "2020-01-02T03:04:05Z" """.Trim(), true),
+            (""" "not-a-date" """.Trim(), true));
+
+        const string uuidDefault = """{"type":"string","format":"uuid"}""";
+        yield return Build("format/uuid (default draft, annotation-only)", Inline(uuidDefault),
+            (""" "3fa85f64-5717-4562-b3fc-2c963f66afa6" """.Trim(), true),
+            (""" "not-a-uuid" """.Trim(), true));
+
+        // Explicit Draft-07: format is an assertion, so a malformed value fails.
+        const string emailDraft7 =
+            """{"$schema":"http://json-schema.org/draft-07/schema#","type":"string","format":"email"}""";
+        yield return Build("format/email (draft-07, asserted)", Inline(emailDraft7),
+            (""" "user@example.com" """.Trim(), true),
+            (""" "not-an-email" """.Trim(), false)); // asserted → malformed fails
+
+        // Explicit Draft-07 via schemaVersion token (schema omits $schema).
+        const string dateTime = """{"type":"string","format":"date-time"}""";
+        yield return BuildVersioned("format/date-time (V7 token, asserted)", Inline(dateTime), "V7",
+            (""" "2020-01-02T03:04:05Z" """.Trim(), true),
+            (""" "not-a-date" """.Trim(), false));
+    }
+
     private static object Inline(string schemaJson) => JsonSerializer.Deserialize<JsonElement>(schemaJson);
 
     private static MatcherScenario Build(string description, object schema, params (string Body, bool Match)[] bodies) =>

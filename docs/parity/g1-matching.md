@@ -262,11 +262,28 @@ Tracked in `TextCorpus`.
   match).
 - **Dialect selection.** A schema declaring `$schema` self-selects its draft; when a `schemaVersion`
   is supplied and the schema omits `$schema`, we inject the corresponding meta-schema id
-  (`V6`→Draft 6, `V7`→Draft 7, `V201909`→2019-09, `V202012`→2020-12).
-- **Deferred:** WireMock's `V4` (Draft 4 — unsupported by JsonSchema.Net), `format` assertion
-  differences, `$ref`/remote-ref resolution, and draft-specific keyword edges beyond the common
+  (`V6`→Draft 6, `V7`→Draft 7, `V201909`→2019-09, `V202012`→2020-12). We now **also inject the default
+  2020-12 id when the schema declares neither** — see `format` below for why that matters.
+- **`format` assertion (learned from the oracle).** WireMock treats `format` as an **assertion on
+  Draft-07 and earlier**, but as an **annotation-only no-op on 2019-09+** (its default draft). So on
+  the default draft a malformed `email`/`date-time`/`uuid` string still **matches**; under an explicit
+  Draft-07 (via `$schema` or the `V7` token) it **fails**. JsonSchema.Net's defaults are the *reverse*
+  (it asserts `format` on 2020-12 when no `$schema` is declared, and annotates it on Draft-07), so the
+  matcher pins the dialect explicitly (injecting `$schema` when absent) and drives
+  `EvaluationOptions.RequireFormatValidation` = *(draft ≤ Draft-07)*. Both sides now agree on the
+  default draft and on Draft-07 (token and `$schema` forms).
+- **`typeLoose` scalar coercion (learned from the oracle — deferred).** networknt validates in a
+  **type-loose** mode: a scalar body coerces across scalar types, so `123` and `true` **match**
+  `{"type":"string"}` (and, symmetrically, a numeric string matches `{"type":"integer"}`). Structural
+  types stay strict — an object body does **not** match `{"type":"string"}`, nor a scalar match
+  `{"type":"object"}`. JsonSchema.Net is strict for scalars too, so Mockifyr diverges on
+  scalar-vs-scalar type mismatches; replicating networknt's typeLoose coercion is a separate,
+  cross-cutting change (it touches every `type` check) and is **deferred**. The `format` cases above
+  sidestep it by using an object body as their non-match guard.
+- **Deferred:** WireMock's `V4` (Draft 4 — unsupported by JsonSchema.Net), the **typeLoose** scalar
+  coercion above, `$ref`/remote-ref resolution, and draft-specific keyword edges beyond the common
   subset above.
-- **Regression cases:** `G1GeneratedMatcherTests.MatchesJsonSchema_{InlineObject,StringFormAndVersion}`
+- **Regression cases:** `G1GeneratedMatcherTests.MatchesJsonSchema_{InlineObject,StringFormAndVersion,Format}`
   (differential), `MatchesJsonSchemaTests` (pure logic).
 
 ### date/time matchers (G1i)
