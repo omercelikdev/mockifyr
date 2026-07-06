@@ -19,7 +19,14 @@ public sealed class G15aFakerTests : IAsyncLifetime
         "firstName=[{{random 'Name.firstName'}}]|lastName=[{{random 'Name.lastName'}}]|" +
         "fullName=[{{random 'Name.fullName'}}]|email=[{{random 'Internet.emailAddress'}}]|" +
         "city=[{{random 'Address.city'}}]|zip=[{{random 'Address.zipCode'}}]|" +
-        "digit=[{{random 'Number.digit'}}]|uuid=[{{random 'Internet.uuid'}}]|word=[{{random 'Lorem.word'}}]";
+        "digit=[{{random 'Number.digit'}}]|uuid=[{{random 'Internet.uuid'}}]|word=[{{random 'Lorem.word'}}]|" +
+        // Long-tail providers (G15e): each still has a stable-enough structural contract satisfied by
+        // both the oracle (Datafaker) and Mockifyr (Bogus).
+        "username=[{{random 'Name.username'}}]|prefix=[{{random 'Name.prefix'}}]|" +
+        "domain=[{{random 'Internet.domainName'}}]|ipv4=[{{random 'Internet.ipV4Address'}}]|" +
+        "mac=[{{random 'Internet.macAddress'}}]|state=[{{random 'Address.state'}}]|" +
+        "street=[{{random 'Address.streetAddress'}}]|product=[{{random 'Commerce.productName'}}]|" +
+        "sentence=[{{random 'Lorem.sentence'}}]";
 
     private static readonly string MappingJson =
         "{\"request\":{\"method\":\"GET\",\"urlPath\":\"/faker\"}," +
@@ -49,6 +56,17 @@ public sealed class G15aFakerTests : IAsyncLifetime
         new("digit", new Regex(@"^\d$", RegexOptions.Compiled)),
         new("uuid", new Regex(@"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", RegexOptions.Compiled)),
         new("word", new Regex(@"^\p{L}+$", RegexOptions.Compiled)),
+        // Long-tail (G15e). Contracts are loose enough for both Datafaker and Bogus, tight enough to
+        // catch a wrong provider (an IP that isn't dotted-quad, a MAC that isn't colon-hex, etc.).
+        new("username", new Regex(@"^[\p{L}\d._-]+$", RegexOptions.Compiled)),
+        new("prefix", new Regex(@"^[\p{L}.\- ]+$", RegexOptions.Compiled)),
+        new("domain", new Regex(@"^[\p{L}\d.\-]+\.[\p{L}]+$", RegexOptions.Compiled)),
+        new("ipv4", new Regex(@"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", RegexOptions.Compiled)),
+        new("mac", new Regex(@"^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$", RegexOptions.Compiled)),
+        new("state", new Regex(@"^[\p{L}.\- ]+$", RegexOptions.Compiled)),
+        new("street", new Regex(@"^[\p{L}\d'.,\-# ]+$", RegexOptions.Compiled)),
+        new("product", new Regex(@"^[\p{L} ]+$", RegexOptions.Compiled)),
+        new("sentence", new Regex(@"^[\p{L} ,.'-]+$", RegexOptions.Compiled)),
     ];
 
     [Fact]
