@@ -25,6 +25,17 @@ public sealed class InMemoryStubStore : IStubStore
     }
 
     /// <inheritdoc />
+    public IReadOnlyCollection<TenantId> GetTenants()
+    {
+        lock (_gate)
+        {
+            // Only tenants that still own at least one stub (an emptied list is pruned by Remove callers
+            // conceptually, but guard here so a drained tenant isn't reported).
+            return [.. _byTenant.Where(entry => entry.Value.Count > 0).Select(entry => entry.Key)];
+        }
+    }
+
+    /// <inheritdoc />
     public void Put(StubMapping stub)
     {
         lock (_gate)

@@ -119,6 +119,19 @@ public interface IMappingsLoader : IExtension
 }
 
 /// <summary>
+/// An optional capability for an <see cref="IMappingsLoader"/> whose backing store spans tenants (a
+/// database or key-value backend): loads every persisted mapping across <em>all</em> tenants at once,
+/// each carrying its own <see cref="TenantId"/>. Change-feed reload (G16g) uses it to reconcile every
+/// tenant, not just the default one. Single-tenant loaders (e.g. a mappings directory) do not implement
+/// it, so the reconciler falls back to the default tenant for those.
+/// </summary>
+public interface IMultiTenantMappingsLoader
+{
+    /// <summary>Loads every persisted mapping across all tenants.</summary>
+    IReadOnlyList<StubMapping> LoadAllTenants();
+}
+
+/// <summary>
 /// Durably persists stub mutations so they survive a restart (G16). The management path calls this
 /// alongside the in-memory store; on startup an <see cref="IMappingsLoader"/> reloads what was saved.
 /// The default is a no-op (<see cref="NullStubPersistence"/>, purely in-memory); a file/db-backed

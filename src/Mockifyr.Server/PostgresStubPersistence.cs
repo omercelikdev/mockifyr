@@ -170,7 +170,7 @@ public sealed class PostgresChangeFeedReloader : IHostedService
 /// <see cref="IMappingsLoader"/> counterpart, run at startup. Reads the tenant's rows and parses each
 /// stored JSON back into a <see cref="StubMapping"/> (ids preserved via the id-stamped JSON).
 /// </summary>
-public sealed class PostgresMappingsLoader : IMappingsLoader
+public sealed class PostgresMappingsLoader : IMappingsLoader, IMultiTenantMappingsLoader
 {
     private readonly string _connectionString;
     private readonly IMatcherRegistry? _matchers;
@@ -195,6 +195,24 @@ public sealed class PostgresMappingsLoader : IMappingsLoader
         while (reader.Read())
         {
             stubs.AddRange(WireMockMappingReader.Read(reader.GetString(0), tenant, _matchers));
+        }
+
+        return stubs;
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<StubMapping> LoadAllTenants()
+    {
+        using var connection = new NpgsqlConnection(_connectionString);
+        connection.Open();
+        using var command = new NpgsqlCommand("SELECT tenant, json FROM stubs", connection);
+
+        var stubs = new List<StubMapping>();
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            var tenant = new TenantId(reader.GetString(0));
+            stubs.AddRange(WireMockMappingReader.Read(reader.GetString(1), tenant, _matchers));
         }
 
         return stubs;

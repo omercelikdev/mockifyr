@@ -11,6 +11,12 @@ public interface IStubStore
     /// <summary>Returns the stubs owned by <paramref name="tenant"/>.</summary>
     IReadOnlyList<StubMapping> GetStubs(TenantId tenant);
 
+    /// <summary>
+    /// Returns every tenant that currently owns at least one stub. Used by change-feed reload (G16g) to
+    /// reconcile all tenants — including pruning a tenant whose last stub was deleted elsewhere.
+    /// </summary>
+    IReadOnlyCollection<TenantId> GetTenants();
+
     /// <summary>Adds or replaces a stub.</summary>
     void Put(StubMapping stub);
 
