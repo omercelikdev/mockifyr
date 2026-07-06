@@ -117,6 +117,9 @@ public static class MockifyrHost
         if (httpsPort is { } securePort)
         {
             var certificate = SelfSignedCertificate.Create();
+            // TLS options (G11c): a configured keystore replaces the self-signed cert, and mutual TLS
+            // (require + validate a client certificate) is enabled on demand. See TlsConfiguration.
+            var configureTls = TlsConfiguration.Build(builder.Configuration, certificate);
             builder.WebHost.ConfigureKestrel(options =>
             {
                 // HTTP/2 (G11b): both listeners speak HTTP/1.1 and HTTP/2 — ALPN-negotiated h2 on TLS,
@@ -126,7 +129,7 @@ public static class MockifyrHost
                 options.ListenAnyIP(securePort, listen =>
                 {
                     listen.Protocols = HttpProtocols.Http1AndHttp2;
-                    listen.UseHttps(certificate);
+                    listen.UseHttps(configureTls);
                 });
             });
         }
