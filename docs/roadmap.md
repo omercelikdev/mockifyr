@@ -284,8 +284,12 @@ Detailed rationale and per-group contents:
     to the originating channel. A new `Mockifyr.Facade.WebSocket` project (front-of-pipeline middleware +
     in-memory store) reuses the standard body value-matchers and the templating engine (`{{message.body}}`)
     — the engine is untouched. **No stable WireMock oracle** (beta), so validated by a self-test round-trip.
-    Broadcast/`channels/send`, connect-time messages, `filePath`, binary frames deferred. See
-    docs/parity/g15-extras.md (FileBased/LiteDB/Postgres/Redis) + change-feed reload
+    See docs/parity/g15-extras.md
+  - [x] G15e/g WebSocket broadcast + admin push + connect-time + `filePath` — a `WebSocketChannelRegistry`
+    powers `channelTarget` **broadcast** and admin `POST /__admin/channels/send` (G15e); a
+    `"trigger": { "type": "connection" }` mapping sends **unsolicited on connect**, and a `send` body may be
+    `{ "filePath": … }` read from `<root-dir>/__files` (G15g). All self-tested (6 cases). Binary frames /
+    per-pattern channel targeting deferred. See docs/parity/g15-extras.md
   - [x] G16a File-based persistence — an `IStubPersistence` seam (no-op default) the management-path
     handlers call; `--root-dir` registers `FileSystemStubPersistence`, writing each stub as an
     id-stamped WireMock JSON file to the **same** `<root>/mappings` the G12f loader reloads, so
@@ -364,8 +368,8 @@ below — none is a silent gap.
   (#2), single-message gRPC **streaming** (#3), WebSocket **broadcast** / `channels/send` (#4), the
   **Datafaker long tail** (#5), multipart **`request.parts`** templating (#6), **mTLS** / configured
   keystore (#7), the Postgres **`LISTEN`/`NOTIFY`** change feed (#8), and **multi-tenant persistence
-  reload** (#9). Remaining micro-edges (small, tracked, non-blocking): JWKS endpoint; WebSocket
-  connect-time (unsolicited) messages / `filePath` bodies. (GraphQL directive/fragment ordering — done, G14d.)
+  reload** (#9). Remaining micro-edge (small, tracked, non-blocking): JWKS endpoint. (GraphQL
+  directive/fragment ordering — done, G14d; WebSocket connect-time / `filePath` — done, G15g.)
 - **④ Out of scope — WireMock Cloud, not OSS.** See the section above (`clientIp`, standalone number
   matchers, `systemProperty`/`env`, `math` `%`/`^`) — implementing would *diverge* from the OSS oracle.
 

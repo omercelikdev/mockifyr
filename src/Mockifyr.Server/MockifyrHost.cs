@@ -153,7 +153,9 @@ public static class MockifyrHost
 
         // WebSocket message serving (G15d): accepts WS upgrades at the front of the pipeline (before the
         // mock-serving fallback) and registers POST /__admin/message-mappings.
-        app.UseMockifyrWebSockets();
+        // WebSocket `filePath` message bodies (G15g) resolve from <root-dir>/__files (WireMock's convention).
+        var filesDirectory = string.IsNullOrWhiteSpace(rootDir) ? null : Path.Combine(rootDir, "__files");
+        app.UseMockifyrWebSockets(filesDirectory);
 
         // gRPC serving (G13) runs ahead of the endpoints: application/grpc requests are handled by the
         // codec+engine, everything else falls through to the admin/mock-serving endpoints.

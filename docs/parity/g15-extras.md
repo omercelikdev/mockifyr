@@ -106,8 +106,14 @@ oracle and will use alternative validation. Each slice states its method.
   a `send` action with a non-`originating` `channelTarget` **broadcasts** to every connected client, and
   the admin **`POST /__admin/channels/send`** (`{message:{body:{data}}}`) dispatches a server-initiated
   message to them. Self-tested with two clients (both receive the admin push and the broadcast).
-- **Deferred (tracked):** connect-time (unsolicited) messages; per-path/pattern `channelTarget`
-  targeting (broadcast is to all tenant channels); `filePath` message bodies; binary frames;
-  message-mapping listing/reset. These extend the same seam.
+- **Connect-time messages + `filePath` bodies (G15g).** A mapping with `"trigger": { "type": "connection" }`
+  is **connect-time**: its `send` actions fire once, unsolicited, the moment a client connects (rendered
+  against an empty message body), rather than on an inbound message. A `send` body may be
+  `{ "filePath": "<name>" }` instead of `{ "data": … }`, read from the host's `__files` directory
+  (`<root-dir>/__files`, WireMock's convention) and resolved to text at registration so the runtime path
+  is unchanged. Connect-time mappings are excluded from the per-message loop; both are self-tested.
+- **Deferred (tracked):** per-path/pattern `channelTarget` targeting (broadcast is to all tenant channels);
+  binary frames; message-mapping listing/reset. These extend the same seam.
 - **Regression cases:** `G15dWebSocketTests` (echo round-trip; `equalTo` routing) +
-  `G15eWebSocketBroadcastTests` (admin `channels/send`; broadcast `channelTarget`) — 4 self-tests.
+  `G15eWebSocketBroadcastTests` (admin `channels/send`; broadcast `channelTarget`) +
+  `G15gWebSocketConnectFileTests` (connect-time unsolicited send; `filePath` body) — 6 self-tests.
