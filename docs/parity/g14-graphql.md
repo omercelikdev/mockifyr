@@ -44,5 +44,23 @@ understands GraphQL query equivalence. Validated against the community WireMock 
 - **Validation.** A stub constraining query + `variables {"id":"1"}` + `operationName "Hero"`, against
   five request variants — all-match (query reformatted), wrong variable value, missing variables, wrong
   operation name, missing operation name. The match/no-match decision agrees with the oracle on each.
-- **Deferred (tracked):** GraphQL response templating (echoing request variables into the response).
 - **Regression case:** `G14bGraphqlVariablesTests.VariablesAndOperationName_AgreeWithTheOracle`.
+
+## Response templating over a GraphQL match (G14)
+
+- **Group / item:** G14 — validated over the wire against WireMock + the GraphQL extension.
+- **The extension is only a matcher; templating is the standard transformer.** The community GraphQL
+  extension contributes no response-side helper — a matched stub renders through WireMock's ordinary
+  `response-template` transformer. Confirmed against the oracle that a `graphql-body-matcher` stub whose
+  response declares `"transformers": ["response-template"]` templates normally, and that `request.body`
+  in the template is the **original GraphQL POST body** (the `{query, variables, operationName}` JSON),
+  so the request's GraphQL variables/operationName are reachable via `jsonPath` (e.g.
+  `{{jsonPath request.body '$.variables.id'}}`).
+- **Learned from the oracle (a matching subtlety, not templating):** to template a request that carries
+  `variables`/`operationName`, the **stub must also constrain them** — the extension treats an
+  unspecified expectation as "must be absent" (see G14b), so a query-only stub does **not** match a
+  request that includes them.
+- **Validation.** A stub constraining query + variables + operationName, with a `response-template` body
+  that extracts `$.variables.id` and `$.operationName`, renders the **same** response body on the oracle
+  and Mockifyr (`{"id":"42","op":"Hero"}`).
+- **Regression case:** `G14cGraphqlResponseTemplatingTests.ResponseTemplate_OverGraphqlMatch_MatchesTheOracle`.

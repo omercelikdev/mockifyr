@@ -225,8 +225,14 @@ Detailed rationale and per-group contents:
     reordered/different/invalid all agree). See docs/parity/g14-graphql.md
   - [x] G14b Variables + operationName — `GraphqlQueryMatcher` now aggregates query + `variables`
     (semantic JSON-equal, or absent when unspecified) + `operationName` (string-equal, or absent), the
-    way the extension does. Validated against the oracle across five request variants. GraphQL response
-    templating deferred. See docs/parity/g14-graphql.md
+    way the extension does. Validated against the oracle across five request variants. See
+    docs/parity/g14-graphql.md
+  - [x] G14c Response templating over a GraphQL match — the extension is only a matcher, so a matched
+    stub renders through the standard `response-template` transformer; `request.body` in the template is
+    the original GraphQL POST body, so `{{jsonPath request.body '$.variables.id'}}` etc. work. Validated
+    over the wire: a stub extracting the request's variables/operationName renders the same response body
+    on both sides. (A stub must constrain the fields it templates, per the G14b absent-when-unspecified
+    rule.) See docs/parity/g14-graphql.md
 - [ ] **G15** Message-based/WebSocket + JWT + Faker + multi-domain
   - [x] G15a Faker / `random` helper — `{{random 'Class.method'}}` renders fake data (Datafaker-style
     expression) via **Bogus** (Datafaker's .NET counterpart), a curated provider subset; unknown
