@@ -25,7 +25,7 @@ public static class WebSocketEndpoints
     /// serves matched, templated responses. Call this early so upgrades are intercepted before the
     /// mock-serving fallback.
     /// </summary>
-    public static WebApplication UseMockifyrWebSockets(this WebApplication app)
+    public static WebApplication UseMockifyrWebSockets(this WebApplication app, string? filesDirectory = null)
     {
         var store = new MessageMappingStore();
         var registry = new WebSocketChannelRegistry();
@@ -42,6 +42,8 @@ public static class WebSocketEndpoints
                 var channelId = registry.Add(socket, tenant);
                 try
                 {
+                    // Connect-time mappings (G15g) fire once, unsolicited, before the receive loop.
+                    await SendConnectMessagesAsync(socket, store, registry, renderer, tenant, context.RequestAborted);
                     await ServeAsync(socket, store, registry, renderer, tenant, context.RequestAborted);
                 }
                 finally
@@ -61,7 +63,7 @@ public static class WebSocketEndpoints
             var json = await reader.ReadToEndAsync();
             try
             {
-                var mapping = MessageMappingReader.Read(json, TenantOf(request));
+                var mapping = MessageMappingReader.Read(json, TenantOf(request), filesDirectory);
                 store.Add(mapping);
                 return Results.Json(new { id = mapping.Id }, statusCode: StatusCodes.Status201Created);
             }
@@ -98,6 +100,39 @@ public static class WebSocketEndpoints
         return app;
     }
 
+    // Connect-time serving (G15g): when a client connects, every connection-triggered mapping's actions
+    // are sent once, unsolicited. There is no inbound message, so templates render against an empty body.
+    private static async Task SendConnectMessagesAsync(
+        System.Net.WebSockets.WebSocket socket,
+        MessageMappingStore store,
+        WebSocketChannelRegistry registry,
+        MessageTemplateRenderer renderer,
+        TenantId tenant,
+        CancellationToken cancellationToken)
+    {
+        foreach (var mapping in store.For(tenant))
+        {
+            if (!mapping.OnConnect)
+            {
+                continue;
+            }
+
+            foreach (var action in mapping.Responses)
+            {
+                var rendered = renderer.Render(action.Data, string.Empty);
+                if (action.Broadcast)
+                {
+                    await registry.BroadcastAsync(tenant, rendered, cancellationToken);
+                }
+                else
+                {
+                    await socket.SendAsync(
+                        Encoding.UTF8.GetBytes(rendered), WebSocketMessageType.Text, endOfMessage: true, cancellationToken);
+                }
+            }
+        }
+    }
+
     private static async Task ServeAsync(
         System.Net.WebSockets.WebSocket socket,
         MessageMappingStore store,
@@ -127,7 +162,8 @@ public static class WebSocketEndpoints
             var text = Encoding.UTF8.GetString(message.ToArray());
             foreach (var mapping in store.For(tenant))
             {
-                if (!mapping.Matches(text))
+                // Connect-time mappings fire only on connect (SendConnectMessagesAsync), never per message.
+                if (mapping.OnConnect || !mapping.Matches(text))
                 {
                     continue;
                 }

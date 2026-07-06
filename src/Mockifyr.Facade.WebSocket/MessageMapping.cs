@@ -18,7 +18,8 @@ public sealed record MessageMapping(
     Guid Id,
     TenantId Tenant,
     IReadOnlyList<IMatcher> Trigger,
-    IReadOnlyList<SendAction> Responses)
+    IReadOnlyList<SendAction> Responses,
+    bool OnConnect = false)
 {
     /// <summary>Whether this mapping's trigger matches the given inbound message. An empty trigger matches any.</summary>
     public bool Matches(string message)
@@ -44,21 +45,31 @@ public static class MessageMappingReader
     /// Reads <c>{ "trigger": { "message": { "body": &lt;matcher&gt; } }, "actions": [ { "type": "send",
     /// "message": { "body": { "data": &lt;template&gt; } } } ] }</c>. The trigger body reuses the standard
     /// value-matchers (via the request-pattern reader), so <c>equalTo</c>/<c>matches</c>/
-    /// <c>matchesJsonPath</c> all work; an absent trigger body matches every message.
+    /// <c>matchesJsonPath</c> all work; an absent trigger body matches every message. A
+    /// <c>"trigger": { "type": "connection" }</c> makes the mapping <b>connect-time</b> (G15g): its actions
+    /// fire once when a client connects, unsolicited, instead of on an inbound message. A send action's
+    /// body may be <c>{ "data": &lt;template&gt; }</c> or <c>{ "filePath": &lt;name&gt; }</c> (G15g), the
+    /// latter read from <paramref name="filesDirectory"/> (WireMock's <c>__files</c>) at registration.
     /// </summary>
-    public static MessageMapping Read(string json, TenantId tenant)
+    public static MessageMapping Read(string json, TenantId tenant, string? filesDirectory = null)
     {
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
 
+        var onConnect = false;
         IReadOnlyList<IMatcher> trigger = [];
-        if (root.TryGetProperty("trigger", out var t) &&
-            t.TryGetProperty("message", out var triggerMessage) &&
-            triggerMessage.TryGetProperty("body", out var body) &&
-            body.ValueKind == JsonValueKind.Object)
+        if (root.TryGetProperty("trigger", out var t))
         {
-            // Reuse the body-pattern matcher parsing by wrapping the trigger body as a request pattern.
-            trigger = WireMockMappingReader.ReadRequestPattern("{\"bodyPatterns\":[" + body.GetRawText() + "]}").Body;
+            // A connection trigger fires on connect; a message trigger reuses the standard body matchers.
+            onConnect = t.TryGetProperty("type", out var triggerType) && triggerType.ValueKind == JsonValueKind.String &&
+                        string.Equals(triggerType.GetString(), "connection", StringComparison.OrdinalIgnoreCase);
+
+            if (t.TryGetProperty("message", out var triggerMessage) &&
+                triggerMessage.TryGetProperty("body", out var body) &&
+                body.ValueKind == JsonValueKind.Object)
+            {
+                trigger = WireMockMappingReader.ReadRequestPattern("{\"bodyPatterns\":[" + body.GetRawText() + "]}").Body;
+            }
         }
 
         var responses = new List<SendAction>();
@@ -70,7 +81,7 @@ public static class MessageMappingReader
                     string.Equals(type.GetString(), "send", StringComparison.OrdinalIgnoreCase) &&
                     action.TryGetProperty("message", out var actionMessage) &&
                     actionMessage.TryGetProperty("body", out var actionBody) &&
-                    actionBody.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.String)
+                    ResolveData(actionBody, filesDirectory) is { } payload)
                 {
                     // channelTarget defaults to originating; any other type broadcasts to all channels.
                     var broadcast = action.TryGetProperty("channelTarget", out var channelTarget) &&
@@ -78,12 +89,32 @@ public static class MessageMappingReader
                                     channelTarget.TryGetProperty("type", out var ctType) &&
                                     ctType.ValueKind == JsonValueKind.String &&
                                     !string.Equals(ctType.GetString(), "originating", StringComparison.OrdinalIgnoreCase);
-                    responses.Add(new SendAction(data.GetString()!, broadcast));
+                    responses.Add(new SendAction(payload, broadcast));
                 }
             }
         }
 
-        return new MessageMapping(Guid.NewGuid(), tenant, trigger, responses);
+        return new MessageMapping(Guid.NewGuid(), tenant, trigger, responses, onConnect);
+    }
+
+    // A send body is either inline `data` or a `filePath` read from the files directory (WireMock's
+    // __files). filePath is resolved to its text at registration, so the runtime path is unchanged.
+    // Returns null when neither is present (or a filePath can't be read), so the action is skipped.
+    private static string? ResolveData(JsonElement actionBody, string? filesDirectory)
+    {
+        if (actionBody.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.String)
+        {
+            return data.GetString();
+        }
+
+        if (actionBody.TryGetProperty("filePath", out var filePath) && filePath.ValueKind == JsonValueKind.String &&
+            filesDirectory is not null && filePath.GetString() is { } name)
+        {
+            var path = Path.Combine(filesDirectory, name);
+            return File.Exists(path) ? File.ReadAllText(path) : null;
+        }
+
+        return null;
     }
 }
 
