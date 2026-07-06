@@ -102,3 +102,17 @@ ARCHITECTURE.md called for. Validated against the **official WireMock gRPC exten
   hero"` fails the call with the **same** status code (`NotFound`) and detail on the oracle and
   Mockifyr.
 - **Regression case:** `G13dGrpcStatusTests.ErrorStatus_MatchesTheOracle`.
+
+## Admin-managed gRPC stubs (G13e)
+
+- **Group / item:** G13e — validated over the wire against WireMock + its gRPC extension.
+- **The management path feeds gRPC serving.** A stub POSTed to `/__admin/mappings` at runtime (not
+  loaded from a file) is served over gRPC on both sides — the admin/CQRS store and the gRPC hot path
+  share state, the gRPC analogue of the G7a in-process check. A `Describe` stub added via the admin API
+  serves the same reply (`summary`/`codes`) on the oracle and Mockifyr.
+- **Learned from the oracle (why `reset` is *not* the test):** WireMock's `/__admin/reset` **reloads
+  the file-backed mappings** rather than leaving the store empty, so a file-seeded stub keeps serving
+  after a reset. Mockifyr's `reset` clears the store without a file reload, so a reset-clears assertion
+  would diverge on file-seeded stubs — reset-reload parity is tracked separately and deferred. The
+  admin-add path above sidesteps it (it adds, never resets).
+- **Regression case:** `G13eGrpcAdminTests.AdminAddedStub_IsServedOverGrpc_MatchesTheOracle`.

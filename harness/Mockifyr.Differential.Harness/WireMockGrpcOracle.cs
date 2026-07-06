@@ -47,6 +47,12 @@ public sealed class WireMockGrpcOracle : IAsyncDisposable
     public Uri GrpcAddress =>
         new($"https://{_container.Hostname}:{_container.GetMappedPublicPort(WireMockHttpsPort)}");
 
+    /// <summary>A fresh HTTP client bound to the oracle's plaintext admin port (for reset/mappings — G13d).</summary>
+    public HttpClient CreateAdminClient() => new()
+    {
+        BaseAddress = new Uri($"http://{_container.Hostname}:{_container.GetMappedPublicPort(WireMockPort)}"),
+    };
+
     /// <inheritdoc />
     public ValueTask DisposeAsync() => _container.DisposeAsync();
 

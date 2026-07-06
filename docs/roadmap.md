@@ -225,7 +225,12 @@ Detailed rationale and per-group contents:
     delivered. The middleware maps the name to its `google.rpc.Code` number and writes the `grpc-status`/
     `grpc-message` trailers, no message frame — an error is just a stub with those headers, no new Core
     surface. Validated over the wire: a `NOT_FOUND` stub fails the call with the same code + detail on
-    both sides. Streaming + gRPC admin reset deferred. See docs/parity/g13-grpc.md
+    both sides. See docs/parity/g13-grpc.md
+  - [x] G13e Admin-managed gRPC stubs — a stub POSTed to `/__admin/mappings` at runtime is served over
+    gRPC on both sides (the management/CQRS store feeds the gRPC hot path — the gRPC analogue of G7a).
+    The oracle revealed that WireMock's `/__admin/reset` *reloads* file-backed mappings (so it does not
+    clear a file-seeded stub); Mockifyr's reset clears without reload, so reset-reload parity is deferred
+    and the test uses admin-add (never reset). Streaming deferred. See docs/parity/g13-grpc.md
 - [ ] **G14** GraphQL extension
   - [x] G14a Query matching — a `GraphqlQueryMatcher` (parse + AST-sort + canonical print, so equal
     queries match regardless of whitespace and field/argument order) via GraphQL-Parser; the adapter
