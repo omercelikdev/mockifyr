@@ -39,8 +39,10 @@ Detailed rationale and per-group contents:
     filters `[?(...)]`, functions, and indefinite-path sub-matchers deferred
   - [x] G1g equalToXml / matchesXPath — semantic XML equality (whitespace/attr-order/**sibling
     order** insensitive) and XPath presence + text/attribute sub-matcher, fuzz-validated via
-    System.Xml; placeholders, namespaceAwareness, namespaced XPath, functions, element-node
-    sub-matcher deferred
+    System.Xml. **Namespaced XPath** (`xPathNamespaces` prefix→URI) now works too: a prefixed step must
+    match the bound URI, an unprefixed step is namespace-agnostic (matches a default-namespaced doc) —
+    the object form requires a sub-matcher (WireMock 422s otherwise), all learned from the oracle.
+    Placeholders, explicit namespaceAwareness modes, XPath functions, element-node sub-matcher deferred
   - [x] G1h matchesJsonSchema — JSON Schema validation via json-everything's JsonSchema.Net
     (default Draft 2020-12); inline + string schema forms and `schemaVersion` fuzz-validated over the
     common keyword subset (type/required/properties/bounds/enum/items). **`format`** now matches WireMock:

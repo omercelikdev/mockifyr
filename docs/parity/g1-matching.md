@@ -172,8 +172,23 @@ Tracked in `TextCorpus`.
   did NOT equal `"book"` on the oracle; the text node `/order/item/text()` does. We extract the
   value of text nodes/attributes; **element-node sub-matcher extraction is deferred** (WireMock
   serializes the node differently).
-- **Deferred:** placeholders, `exemptedComparisons`, `namespaceAwareness` modes, namespaced XPath,
-  XPath functions, and mixed content.
+- **Namespaced XPath via `xPathNamespaces` (learned from the oracle, then implemented).** The object
+  form binds prefixes (`{"expression": "/r/a:item/text()", "xPathNamespaces": {"a": "http://x"}, …}`).
+  Learned bounds, all confirmed:
+  - The object form **requires a sub-matcher** — WireMock **422**s an expression-only object form (use
+    the string form for presence), so a namespaced path always carries e.g. `equalTo`.
+  - A **prefixed** step must match the **bound namespace URI**: an unbound prefix, or a prefix bound to
+    the wrong URI, selects nothing → no match.
+  - An **unprefixed** step is **namespace-agnostic** — `/r/item` matches a default-namespaced
+    `<r xmlns="http://x">` document (WireMock leniency, independent of the `namespaceAwareness` mode,
+    which made no difference across the probed cases).
+  - The `.NET` engine is strictly namespace-aware, so Mockifyr binds the prefixes with an
+    `XmlNamespaceManager` and, on an empty namespace-aware result, retries against a namespace-stripped
+    copy of the document — reproducing the unprefixed-is-agnostic leniency while keeping the bound-URI
+    constraint for prefixed steps.
+- **Deferred:** placeholders, `exemptedComparisons`, explicit `namespaceAwareness` STRICT/NONE
+  divergence (the default LEGACY behavior is matched), XPath functions, element-node sub-matcher
+  extraction, and mixed content.
 
 ### clientIp (G1k) — NOT in open-source WireMock (no oracle)
 

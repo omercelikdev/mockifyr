@@ -6,9 +6,9 @@ namespace Mockifyr.Differential.Generator;
 /// <summary>
 /// Fuzzes <c>equalToXml</c> and <c>matchesXPath</c> (body) over the common subset: semantic XML
 /// equality (whitespace / attribute order insignificant, element order significant) and XPath
-/// presence / sub-matcher on element, attribute, and descendant selection. Advanced options
-/// (placeholders, namespaceAwareness, namespaced XPath, XPath functions) are validated later; see
-/// docs/parity/g1-matching.md.
+/// presence / sub-matcher on element, attribute, and descendant selection, plus **namespaced XPath**
+/// via <c>xPathNamespaces</c>. Advanced options (placeholders, explicit namespaceAwareness modes,
+/// XPath functions) are validated later; see docs/parity/g1-matching.md.
 /// </summary>
 public static class XmlScenarios
 {
@@ -57,6 +57,64 @@ public static class XmlScenarios
             },
             ("""<order><item>book</item></order>""", true),
             ("""<order><item>magazine</item></order>""", false));
+    }
+
+    /// <summary>
+    /// Namespaced <c>matchesXPath</c> via <c>xPathNamespaces</c> (prefix → URI). A prefixed step must
+    /// match the bound namespace URI, an unprefixed step is namespace-agnostic (matches a
+    /// default-namespaced document), and an unbound/wrong-bound prefix selects nothing. The object form
+    /// requires a sub-matcher (WireMock rejects an expression-only object form), so every case pairs the
+    /// path with <c>equalTo</c>. See docs/parity/g1-matching.md.
+    /// </summary>
+    public static IEnumerable<MatcherScenario> NamespacedXPath()
+    {
+        const string prefixedXml = """<r xmlns:a="http://x"><a:item>hi</a:item></r>""";
+        const string otherValueXml = """<r xmlns:a="http://x"><a:item>bye</a:item></r>""";
+        const string defaultXml = """<r xmlns="http://x"><item>hi</item></r>""";
+        const string twoNsXml = """<a:r xmlns:a="http://x"><b:item xmlns:b="http://y">hi</b:item></a:r>""";
+
+        // Prefix bound correctly: node selected, value compared.
+        yield return Build("xpath-ns[prefix bound]",
+            Ns("/r/a:item/text()", new() { ["a"] = "http://x" }, "hi"),
+            (prefixedXml, true),
+            (otherValueXml, false)); // node found, value "bye" != "hi"
+
+        // A prefix with no binding selects nothing → no match.
+        yield return Build("xpath-ns[unbound prefix]",
+            Ns("/r/a:item/text()", null, "hi"),
+            (prefixedXml, false));
+
+        // A prefix bound to the wrong URI selects nothing → no match.
+        yield return Build("xpath-ns[wrong uri]",
+            Ns("/r/a:item/text()", new() { ["a"] = "http://WRONG" }, "hi"),
+            (prefixedXml, false));
+
+        // Default namespace bound to a prefix.
+        yield return Build("xpath-ns[default via prefix]",
+            Ns("/d:r/d:item/text()", new() { ["d"] = "http://x" }, "hi"),
+            (defaultXml, true));
+
+        // Unprefixed path is namespace-agnostic — it matches a default-namespaced document.
+        yield return Build("xpath-ns[unprefixed vs default]",
+            Ns("/r/item/text()", null, "hi"),
+            (defaultXml, true));
+
+        // Two distinct namespaces bound at once.
+        yield return Build("xpath-ns[two namespaces]",
+            Ns("/a:r/b:item/text()", new() { ["a"] = "http://x", ["b"] = "http://y" }, "hi"),
+            (twoNsXml, true));
+    }
+
+    // Builds a `{ "matchesXPath": { expression, [xPathNamespaces], equalTo } }` matcher dict.
+    private static Dictionary<string, object> Ns(string expression, Dictionary<string, object>? namespaces, string equalTo)
+    {
+        var inner = new Dictionary<string, object> { ["expression"] = expression, ["equalTo"] = equalTo };
+        if (namespaces is { Count: > 0 })
+        {
+            inner["xPathNamespaces"] = namespaces;
+        }
+
+        return new Dictionary<string, object> { ["matchesXPath"] = inner };
     }
 
     private static MatcherScenario Build(string description, Dictionary<string, object> matcher, params (string Body, bool Match)[] bodies)

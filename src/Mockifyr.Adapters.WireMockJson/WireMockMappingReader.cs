@@ -552,7 +552,8 @@ public static class WireMockMappingReader
                 xPath.TryGetProperty("expression", out var xPathExpression) &&
                 xPathExpression.ValueKind == JsonValueKind.String)
             {
-                return new MatchesXPathValueMatcher(xPathExpression.GetString()!, BuildValueMatcher(xPath));
+                return new MatchesXPathValueMatcher(
+                    xPathExpression.GetString()!, BuildValueMatcher(xPath), ReadStringMap(xPath, "xPathNamespaces"));
             }
 
             return null;
@@ -602,6 +603,26 @@ public static class WireMockMappingReader
         }
 
         return null;
+    }
+
+    /// <summary>Reads a string-to-string map property (e.g. <c>xPathNamespaces</c>), or null if absent/empty.</summary>
+    private static IReadOnlyDictionary<string, string>? ReadStringMap(JsonElement spec, string property)
+    {
+        if (!spec.TryGetProperty(property, out var map) || map.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var entry in map.EnumerateObject())
+        {
+            if (entry.Value.ValueKind == JsonValueKind.String)
+            {
+                result[entry.Name] = entry.Value.GetString()!;
+            }
+        }
+
+        return result.Count > 0 ? result : null;
     }
 
     /// <summary>Builds the value matchers from an array of matcher specs, skipping unreadable entries.</summary>
