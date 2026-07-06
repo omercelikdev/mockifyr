@@ -11,11 +11,14 @@ namespace Mockifyr.Facade.WebSocket;
 /// inbound message body and a set of templated responses to send back to the originating channel.
 /// The trigger reuses the standard body value-matchers; the responses reuse the templating engine.
 /// </summary>
+/// <summary>A <c>send</c> action: the templated message data and whether it broadcasts (vs. the originating channel).</summary>
+public sealed record SendAction(string Data, bool Broadcast);
+
 public sealed record MessageMapping(
     Guid Id,
     TenantId Tenant,
     IReadOnlyList<IMatcher> Trigger,
-    IReadOnlyList<string> Responses)
+    IReadOnlyList<SendAction> Responses)
 {
     /// <summary>Whether this mapping's trigger matches the given inbound message. An empty trigger matches any.</summary>
     public bool Matches(string message)
@@ -58,7 +61,7 @@ public static class MessageMappingReader
             trigger = WireMockMappingReader.ReadRequestPattern("{\"bodyPatterns\":[" + body.GetRawText() + "]}").Body;
         }
 
-        var responses = new List<string>();
+        var responses = new List<SendAction>();
         if (root.TryGetProperty("actions", out var actions) && actions.ValueKind == JsonValueKind.Array)
         {
             foreach (var action in actions.EnumerateArray())
@@ -69,7 +72,13 @@ public static class MessageMappingReader
                     actionMessage.TryGetProperty("body", out var actionBody) &&
                     actionBody.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.String)
                 {
-                    responses.Add(data.GetString()!);
+                    // channelTarget defaults to originating; any other type broadcasts to all channels.
+                    var broadcast = action.TryGetProperty("channelTarget", out var channelTarget) &&
+                                    channelTarget.ValueKind == JsonValueKind.Object &&
+                                    channelTarget.TryGetProperty("type", out var ctType) &&
+                                    ctType.ValueKind == JsonValueKind.String &&
+                                    !string.Equals(ctType.GetString(), "originating", StringComparison.OrdinalIgnoreCase);
+                    responses.Add(new SendAction(data.GetString()!, broadcast));
                 }
             }
         }
@@ -99,6 +108,49 @@ public sealed class MessageMappingStore
         lock (_gate)
         {
             return _byTenant.TryGetValue(tenant, out var list) ? [.. list] : [];
+        }
+    }
+}
+
+/// <summary>
+/// Tracks the open WebSocket channels per tenant so a message can be **broadcast** to them — both by a
+/// <c>channelTarget</c> broadcast action and by the admin <c>POST /__admin/channels/send</c> push (G15d+).
+/// </summary>
+public sealed class WebSocketChannelRegistry
+{
+    private readonly ConcurrentDictionary<Guid, (System.Net.WebSockets.WebSocket Socket, TenantId Tenant)> _channels = new();
+
+    /// <summary>Registers an open channel; returns its id (pass it to <see cref="Remove"/> on close).</summary>
+    public Guid Add(System.Net.WebSockets.WebSocket socket, TenantId tenant)
+    {
+        var id = Guid.NewGuid();
+        _channels[id] = (socket, tenant);
+        return id;
+    }
+
+    /// <summary>Unregisters a closed channel.</summary>
+    public void Remove(Guid id) => _channels.TryRemove(id, out _);
+
+    /// <summary>Sends the text to every open channel of the tenant.</summary>
+    public async Task BroadcastAsync(TenantId tenant, string text, CancellationToken cancellationToken)
+    {
+        var bytes = Encoding.UTF8.GetBytes(text);
+        foreach (var (_, channel) in _channels)
+        {
+            if (channel.Tenant != tenant || channel.Socket.State != System.Net.WebSockets.WebSocketState.Open)
+            {
+                continue;
+            }
+
+            try
+            {
+                await channel.Socket.SendAsync(
+                    bytes, System.Net.WebSockets.WebSocketMessageType.Text, endOfMessage: true, cancellationToken);
+            }
+            catch (Exception)
+            {
+                // A racing close; skip this channel.
+            }
         }
     }
 }

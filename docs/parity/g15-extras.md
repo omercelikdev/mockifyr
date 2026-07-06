@@ -97,8 +97,12 @@ oracle and will use alternative validation. Each slice states its method.
   `Echo: {{message.body}}` and `{{jsonPath message.body '$.x'}}` work). A new `Mockifyr.Facade.WebSocket`
   project hosts the transport (a front-of-pipeline middleware) + an in-memory, tenant-scoped store; the
   engine stays untouched.
-- **Deferred (tracked):** broadcast / non-`originating` `channelTarget` and the
-  `POST /__admin/channels/send` admin-push endpoint; connect-time (unsolicited) messages; `filePath`
-  message bodies; binary frames; message-mapping listing/reset. These extend the same seam.
-- **Regression cases:** `G15dWebSocketTests` (templated echo round-trip; `equalTo` triggers routing to
-  their own responses — 2 self-tests).
+- **Broadcast + admin push (G15e).** A `WebSocketChannelRegistry` tracks the open channels per tenant, so
+  a `send` action with a non-`originating` `channelTarget` **broadcasts** to every connected client, and
+  the admin **`POST /__admin/channels/send`** (`{message:{body:{data}}}`) dispatches a server-initiated
+  message to them. Self-tested with two clients (both receive the admin push and the broadcast).
+- **Deferred (tracked):** connect-time (unsolicited) messages; per-path/pattern `channelTarget`
+  targeting (broadcast is to all tenant channels); `filePath` message bodies; binary frames;
+  message-mapping listing/reset. These extend the same seam.
+- **Regression cases:** `G15dWebSocketTests` (echo round-trip; `equalTo` routing) +
+  `G15eWebSocketBroadcastTests` (admin `channels/send`; broadcast `channelTarget`) — 4 self-tests.

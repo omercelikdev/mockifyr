@@ -28,6 +28,7 @@ public static class WebSocketEndpoints
     public static WebApplication UseMockifyrWebSockets(this WebApplication app)
     {
         var store = new MessageMappingStore();
+        var registry = new WebSocketChannelRegistry();
         var renderer = new MessageTemplateRenderer();
 
         app.UseWebSockets();
@@ -38,7 +39,16 @@ public static class WebSocketEndpoints
             {
                 var tenant = TenantOf(context.Request);
                 using var socket = await context.WebSockets.AcceptWebSocketAsync();
-                await ServeAsync(socket, store, renderer, tenant, context.RequestAborted);
+                var channelId = registry.Add(socket, tenant);
+                try
+                {
+                    await ServeAsync(socket, store, registry, renderer, tenant, context.RequestAborted);
+                }
+                finally
+                {
+                    registry.Remove(channelId);
+                }
+
                 return;
             }
 
@@ -61,12 +71,37 @@ public static class WebSocketEndpoints
             }
         });
 
+        // Admin push (WireMock 4's POST /__admin/channels/send): dispatch a message to connected clients.
+        app.MapPost("/__admin/channels/send", async (HttpRequest request) =>
+        {
+            using var reader = new StreamReader(request.Body);
+            var json = await reader.ReadToEndAsync();
+            try
+            {
+                using var document = JsonDocument.Parse(json);
+                if (document.RootElement.TryGetProperty("message", out var message) &&
+                    message.TryGetProperty("body", out var body) &&
+                    body.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.String)
+                {
+                    await registry.BroadcastAsync(TenantOf(request), data.GetString()!, CancellationToken.None);
+                    return Results.Ok();
+                }
+
+                return Results.StatusCode(StatusCodes.Status422UnprocessableEntity);
+            }
+            catch (JsonException)
+            {
+                return Results.StatusCode(StatusCodes.Status422UnprocessableEntity);
+            }
+        });
+
         return app;
     }
 
     private static async Task ServeAsync(
         System.Net.WebSockets.WebSocket socket,
         MessageMappingStore store,
+        WebSocketChannelRegistry registry,
         MessageTemplateRenderer renderer,
         TenantId tenant,
         CancellationToken cancellationToken)
@@ -97,10 +132,18 @@ public static class WebSocketEndpoints
                     continue;
                 }
 
-                foreach (var template in mapping.Responses)
+                foreach (var action in mapping.Responses)
                 {
-                    var response = Encoding.UTF8.GetBytes(renderer.Render(template, text));
-                    await socket.SendAsync(response, WebSocketMessageType.Text, endOfMessage: true, cancellationToken);
+                    var rendered = renderer.Render(action.Data, text);
+                    if (action.Broadcast)
+                    {
+                        await registry.BroadcastAsync(tenant, rendered, cancellationToken);
+                    }
+                    else
+                    {
+                        await socket.SendAsync(
+                            Encoding.UTF8.GetBytes(rendered), WebSocketMessageType.Text, endOfMessage: true, cancellationToken);
+                    }
                 }
             }
         }
