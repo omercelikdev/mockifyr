@@ -206,6 +206,13 @@ Detailed rationale and per-group contents:
     Validated against the oracle with a `Describe` call carrying repeated/enum/map in and a packed
     repeated `int32` out. `oneof`/wrappers, streaming, status responses, and gRPC admin reset deferred.
     See docs/parity/g13-grpc.md
+  - [x] G13c oneof + well-known wrappers — `oneof` is transparent (a member is an ordinary tagged field,
+    so only the set one is read/written — no codec change). The wrapper types (`StringValue`/`Int32Value`/
+    `Int64Value`/`BoolValue`/…) render as their **bare inner scalar** (not `{"value":…}`); the codec
+    detects them by full name and unwraps on decode (synthesizing the type default when the wire omits it)
+    / re-wraps on encode, confined to the message path so they work anywhere a message can. Validated
+    over the wire with a `Wrapped` call carrying wrappers + a oneof in both request and reply; the `.dsc`
+    was regenerated with `--include_imports`. Streaming/status/admin-reset deferred. See docs/parity/g13-grpc.md
 - [ ] **G14** GraphQL extension
   - [x] G14a Query matching — a `GraphqlQueryMatcher` (parse + AST-sort + canonical print, so equal
     queries match regardless of whitespace and field/argument order) via GraphQL-Parser; the adapter

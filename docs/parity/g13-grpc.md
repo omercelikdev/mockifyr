@@ -51,6 +51,36 @@ ARCHITECTURE.md called for. Validated against the **official WireMock gRPC exten
   served by the oracle and Mockifyr; the decoded replies (`summary`, `codes`) must match — so the
   request JSON Mockifyr decodes matches the stub's `equalToJson` exactly as the reference extension's
   does, across all these field kinds.
-- **Deferred (tracked):** `oneof` and the well-known wrapper types in the codec; streaming; gRPC
+- **Deferred (tracked):** `oneof` and the well-known wrapper types (→ G13c); streaming; gRPC
   status/error responses; gRPC admin reset.
 - **Regression case:** `G13bGrpcCodecTests.Describe_WithEnumMapRepeated_MatchesTheOracle`.
+
+## Codec expansion — oneof / well-known wrappers (G13c)
+
+- **Group / item:** G13c — validated over the wire against WireMock + its gRPC extension.
+- **`oneof` is transparent — no codec change.** A oneof member is an ordinary tagged field on the
+  wire, so decode reads whichever member's tag arrives, and encode writes only the member present in
+  the JSON (the field loop already skips absent properties). The oneof grouping in the descriptor
+  needs no special handling; a differential test simply pins that a set member round-trips and the
+  others stay absent.
+- **Well-known wrapper types** (`StringValue`, `Int32Value`, `Int64Value`, `BoolValue`, `DoubleValue`,
+  `FloatValue`, `UInt32Value`, `UInt64Value`, `BytesValue`) **do** need special-casing. In proto3 JSON a
+  wrapper renders as its **bare inner scalar** — `StringValue "x"` → `"x"`, not `{"value":"x"}` — even
+  though on the wire it is still a message with a single `value` field (#1). The codec detects a wrapper
+  by full name and, on the message path only:
+  - **decode:** unwraps the inner message to its `value` scalar; an absent `value` on the wire (proto3
+    omits default scalars) means the wrapper carries its type's **default** (`""`/`0`/`false`/`"0"` for
+    64-bit), which is synthesized so a present-but-default wrapper still renders.
+  - **encode:** re-wraps the bare scalar into `{value: …}` before encoding the message.
+  This is confined to `ReadValue`/`WriteValue`'s message case, so wrappers work anywhere a message can
+  appear (singular, repeated, map value).
+- **Validation.** A `Wrapped` call carries `StringValue`/`Int32Value`/`BoolValue` wrappers and the
+  `text` arm of a request `oneof`; the reply carries `StringValue`/`Int64Value` wrappers and the `ok`
+  arm of a reply `oneof`. Because the request's `equalToJson` (`{note,count,active,text}` with bare
+  values) matches on both sides, Mockifyr's decoded proto3 JSON is proven identical to the reference
+  extension's; the decoded replies (`label`, `total`, `ResultCase`/`ok`) must then match too. The
+  `.dsc` fixture was regenerated with `protoc … --include_imports` so `google/protobuf/wrappers.proto`
+  is resolvable in the descriptor set.
+- **Deferred (tracked):** wrapper fields left at their default value inside a repeated/map (only the
+  singular default is exercised); streaming; gRPC status/error responses; gRPC admin reset.
+- **Regression case:** `G13cGrpcWrappersOneofTests.Wrapped_WithWrappersAndOneof_MatchesTheOracle`.
