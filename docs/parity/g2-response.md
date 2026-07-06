@@ -34,6 +34,11 @@ oracle (`wiremock/wiremock:3.10.0`). See [README](README.md) for the format.
 - **Request model verified:** `{{request.method}}`, `{{request.url}}` (path + query),
   `{{request.path}}` (path only), `{{request.pathSegments.[n]}}` (0-indexed), `{{request.query.name}}`
   (first value), `{{request.headers.Name}}`, and `{{request.body}}`.
+- **More request-model fields (feature-audit backfill), byte-diffed:** `{{request.host}}` and
+  `{{request.port}}` (from the `Host` header), `{{request.scheme}}`, `{{request.baseUrl}}`
+  (`scheme://host[:port]`), `{{request.cookies.name}}` (cookie value), and `{{request.bodyAsBase64}}`.
+  `{{request.id}}` is a random per-request UUID (racy) and `{{request.multipart}}`/`parts` are deferred.
+  Validated with an explicit `Host` header + `Cookie`; regression `Templating_RequestModelFields`.
 - **No HTML escaping.** WireMock emits `{{ }}` output raw (`<a>&"` stays as-is); we disable the
   Handlebars.Net text encoder (`TextEncoder = null`) to match.
 - **Response headers are templated too**, not just the body.

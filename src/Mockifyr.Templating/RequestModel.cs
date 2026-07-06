@@ -23,6 +23,25 @@ internal static class RequestModel
         ["query"] = request.Query.ToDictionary(group => group.Key, group => (object?)group.First()),
         ["headers"] = request.Headers.ToDictionary(
             group => group.Key, group => (object?)group.First(), StringComparer.OrdinalIgnoreCase),
+        ["cookies"] = request.Cookies.ToDictionary(cookie => cookie.Key, cookie => (object?)cookie.Value, StringComparer.Ordinal),
         ["body"] = Encoding.UTF8.GetString(request.Body),
+        ["bodyAsBase64"] = Convert.ToBase64String(request.Body),
+        ["host"] = request.Host,
+        ["port"] = request.Port,
+        ["scheme"] = request.Scheme,
+        ["baseUrl"] = BaseUrl(request),
     };
+
+    // WireMock's request.baseUrl is `scheme://host[:port]`, from the request's scheme + Host header.
+    private static string? BaseUrl(CanonicalRequest request)
+    {
+        if (request.Scheme is null || request.Host is null)
+        {
+            return null;
+        }
+
+        return request.Port is { } port
+            ? $"{request.Scheme}://{request.Host}:{port}"
+            : $"{request.Scheme}://{request.Host}";
+    }
 }

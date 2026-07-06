@@ -203,7 +203,9 @@ public sealed class DifferentialRunner : IAsyncDisposable
         }
 
         var oracle = await _oracle.SendAsync(request);
-        var mockifyr = _mockifyr.Send(request);
+        // The oracle is driven over plaintext HTTP, so mirror scheme=http into Mockifyr's request
+        // (for request.scheme/baseUrl templating). Host/port derive from the Host header in the builder.
+        var mockifyr = _mockifyr.Send(request, "http");
         var diff = ResponseDiffer.Compare(oracle, mockifyr, mockifyr.Headers.Keys);
         return new ProbeOutcome(oracle, mockifyr, diff);
     }
@@ -243,7 +245,9 @@ public sealed class DifferentialRunner : IAsyncDisposable
         oracleTimer.Stop();
 
         var mockifyrTimer = Stopwatch.StartNew();
-        var mockifyr = _mockifyr.Send(request);
+        // The oracle is driven over plaintext HTTP, so mirror scheme=http into Mockifyr's request
+        // (for request.scheme/baseUrl templating). Host/port derive from the Host header in the builder.
+        var mockifyr = _mockifyr.Send(request, "http");
         mockifyrTimer.Stop();
 
         var diff = ResponseDiffer.Compare(oracle, mockifyr, mockifyr.Headers.Keys);

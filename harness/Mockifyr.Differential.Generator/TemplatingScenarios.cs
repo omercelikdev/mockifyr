@@ -383,6 +383,30 @@ public static class TemplatingScenarios
         yield return Get("parity", "/par", "{{isOdd 3}}-{{isEven 4}}-{{isOdd 2}}-{{isEven 5}}-{{isOdd 7 'YES'}}");
     }
 
+    /// <summary>
+    /// Request-model fields surfaced by the WireMock feature audit: <c>request.host</c>/<c>port</c>/
+    /// <c>scheme</c>/<c>baseUrl</c>/<c>cookies</c>/<c>bodyAsBase64</c>. Driven with an explicit <c>Host</c>
+    /// header + <c>Cookie</c> so host/port/cookies are deterministic and byte-diffable; <c>request.id</c>
+    /// (a random UUID) is racy and excluded. See docs/parity/g2-response.md.
+    /// </summary>
+    public static IEnumerable<MatcherScenario> RequestModelFields()
+    {
+        var request = new RequestSpec
+        {
+            Method = "POST",
+            Url = "/rm",
+            Headers = [new("Host", "myhost:1234"), new("Cookie", "sid=abc; other=z")],
+            Body = Encoding.UTF8.GetBytes("hi there"),
+        };
+
+        yield return Get(
+            "request-model-fields", "/rm",
+            "host={{request.host}}|port={{request.port}}|scheme={{request.scheme}}|" +
+            "baseUrl={{request.baseUrl}}|cookie={{request.cookies.sid}}|b64={{request.bodyAsBase64}}",
+            request: request,
+            unmatchedUrl: "/rm-nope");
+    }
+
     private static MatcherScenario Get(
         string description, string url, string body, RequestSpec? request = null, string? unmatchedUrl = null)
     {
