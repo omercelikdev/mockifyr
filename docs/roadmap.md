@@ -304,6 +304,24 @@ Detailed rationale and per-group contents:
     sharing Redis (create/delete on one propagates to the other without a restart). Postgres
     LISTEN/NOTIFY + multi-tenant reload deferred. See docs/parity/g16-persistence.md
 
+## Out of scope — WireMock **Cloud**, not open-source (no OSS oracle)
+
+These exist only in WireMock Cloud; the pinned OSS oracle (`wiremock/wiremock:3.10.0`) **rejects them
+with `422`**. Implementing them would make Mockifyr *diverge* from OSS WireMock rather than close a
+parity gap — the opposite of the goal — and, with no oracle, could only be self-validated (against
+golden rule #3). They are therefore deliberately unsupported. Reaching **Cloud** parity is a separate
+track that would need a Cloud reference/oracle of its own.
+
+- **`clientIp` request matching** — OSS rejects the stub (`422`). (`CanonicalRequest.ClientIp` is
+  carried, so a future Cloud track has the plumbing.)
+- **Standalone number matchers** (`equalToNumber`/`greaterThan`/`greaterThanOrEqual`/`lessThan`/
+  `lessThanOrEqual`) — Cloud-only. The OSS-available route (**JSONPath numeric filters**, G1j) is
+  already delivered and oracle-validated.
+- **`systemProperty`/`env` helpers** — the OSS `systemValue` helper (with `type=PROPERTY|ENVIRONMENT`,
+  deny-by-default) already covers this surface (G2h); the distinct Cloud helper names are not in OSS.
+- **`math` `%`/`^` operators** — OSS WireMock's own `math` helper rejects them at registration, so *not*
+  supporting them is correct parity.
+
 ## Post-phase (not now — architecture is ready for it)
 
 - [ ] UI / dashboard (dark mode, design system, omercelik.dev brand language)
