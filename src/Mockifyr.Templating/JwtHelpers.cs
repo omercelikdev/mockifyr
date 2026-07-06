@@ -22,10 +22,16 @@ internal static class JwtHelpers
     // a follow-up). Content parity does not depend on the secret, only the claims.
     private const string DefaultSecret = "mockifyr-default-hs256-secret";
 
+    // The RSA key + key id for RS256, generated once per instance (like the reference extension). Both
+    // are effectively random, so — like the HS256 signature — they are excluded from content parity.
+    private static readonly RSA RsaKey = RSA.Create(2048);
+    private static readonly string Kid = Base64Url(RandomNumberGenerator.GetBytes(23))[..30];
+
     // Handled specially or consumed (not emitted as private claims). WireMock reserves iss/aud/sub/
-    // exp/nbf; Mockifyr also consumes maxAge and alg rather than leaking them into the payload.
+    // exp/nbf; Mockifyr also consumes maxAge. `alg` selects the algorithm AND (like the reference) leaks
+    // into the payload as a claim, so it is not reserved.
     private static readonly HashSet<string> Reserved =
-        new(StringComparer.Ordinal) { "exp", "iss", "aud", "sub", "nbf", "maxAge", "alg" };
+        new(StringComparer.Ordinal) { "exp", "iss", "aud", "sub", "nbf", "maxAge" };
 
     public static void Register(IHandlebars handlebars) =>
         handlebars.RegisterHelper("jwt", (_, arguments) => CreateToken(arguments.Hash));
@@ -53,9 +59,18 @@ internal static class JwtHelpers
             }
         }
 
-        var header = new JsonObject { ["alg"] = "HS256", ["typ"] = "JWT" };
+        var alg = Get(hash, "alg") ?? "HS256";
+        var header = new JsonObject { ["alg"] = alg, ["typ"] = "JWT" };
+        if (alg == "RS256")
+        {
+            header["kid"] = Kid;
+        }
+
         var signingInput = Base64Url(Bytes(header)) + "." + Base64Url(Bytes(payload));
-        return signingInput + "." + Base64Url(Sign(signingInput));
+        var signature = alg == "RS256"
+            ? RsaKey.SignData(Encoding.UTF8.GetBytes(signingInput), HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1)
+            : Sign(signingInput);
+        return signingInput + "." + Base64Url(signature);
     }
 
     // "amount unit" (e.g. "12 days"); default 36500 days, matching the reference.

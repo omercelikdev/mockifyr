@@ -37,10 +37,14 @@ oracle and will use alternative validation. Each slice states its method.
   content parity. The oracle producing those claims proves it is real extension behavior; Mockifyr
   producing the same claims is the parity claim. The racy `iat`/`exp` are checked structurally
   (`iat` ~now, `exp = iat + default maxAge`) and the signature must be well-formed.
-- **Deferred (tracked):** RS256 + JWKS (`{{jwks}}`), a configurable signing secret (so tokens are
-  byte-compatible with a specific WireMock instance), `nbf`, array/object claims, and the claim-parsing
-  helpers. WireMock also (quirkily) leaks `maxAge`/`alg` into the payload as claims; Mockifyr consumes
-  them instead — a deliberate, documented deviation.
+- **RS256 (feature audit).** `{{jwt alg='RS256' …}}` signs with **RS256** (a per-instance RSA key,
+  `RSA.Create`), the header carrying `alg=RS256` + a random `kid` and the payload leaking the `alg`
+  claim — matching the reference. Content-validated the same way (the `kid` is key-specific/random, so —
+  like the signature — it is excluded from parity; the RSA signature must be well-formed).
+- **Deferred (tracked):** JWKS (`{{jwks}}` public-key publishing), a configurable signing secret (so
+  tokens are byte-compatible with a specific WireMock instance), `nbf`, array/object claims, and the
+  claim-parsing helpers. WireMock also (quirkily) leaks `maxAge` into the payload as a claim; Mockifyr
+  consumes it instead — a deliberate, documented deviation.
 - **Regression case:** `G15bJwtTests.Jwt_ContentMatchesTheOracle`.
 
 ## Multi-domain matching — `host` / `port` / `scheme` (G15c)

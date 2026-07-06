@@ -35,6 +35,7 @@ public sealed class G15bJwtTests : IAsyncLifetime
     {
         yield return new Case("defaults", "{{jwt}}");
         yield return new Case("overrides+custom", "{{jwt sub='u1' iss='acme' aud='api' role='admin' scope='read'}}");
+        yield return new Case("rs256", "{{jwt alg='RS256' sub='u1' role='admin'}}");
     }
 
     [Fact]
@@ -107,6 +108,9 @@ public sealed class G15bJwtTests : IAsyncLifetime
 
         var header = JsonNode.Parse(Base64UrlDecode(parts[0]))!.AsObject();
         var payload = JsonNode.Parse(Base64UrlDecode(parts[1]))!.AsObject();
+
+        // RS256 headers carry a random `kid` (like the signature, key-specific) — exclude it from parity.
+        header.Remove("kid");
 
         var iat = payload["iat"]!.GetValue<long>();
         var exp = payload["exp"]!.GetValue<long>();
