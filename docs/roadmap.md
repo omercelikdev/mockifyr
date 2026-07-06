@@ -342,11 +342,12 @@ below — none is a silent gap.
   result), `arrayRemove` (removes the last element regardless of index), `matchesJsonPath` array-size
   (`length()`/`size()` filters don't match).
 - **③ Separate efforts if wanted (real features, each a mini-project with its own validation setup).**
-  Not quick edges: **RS256/JWKS** JWT + configurable signing secret + `nbf`/array claims; **remote/URL
-  `$ref`** JSON Schema (needs a host-side schema server); **mTLS** / configured keystore; Postgres
-  `LISTEN`/`NOTIFY` change feed (Redis is the reference, done); multi-tenant persistence *reload*;
-  gRPC **streaming**; WebSocket broadcast / `channels/send` / connect-time / `filePath`; the Datafaker
-  long tail; `request.multipart`/`parts`; GraphQL fragment/directive ordering.
+  Done in this bucket (each oracle- or self-validated, own PR): **RS256** JWT (#1), **remote/URL `$ref`**
+  JSON Schema (#2), single-message gRPC **streaming** (#3), WebSocket **broadcast** / `channels/send` (#4),
+  the **Datafaker long tail** (#5), and multipart **`request.parts`** templating (#6).
+  Remaining: **mTLS** / configured keystore (#7); Postgres `LISTEN`/`NOTIFY` change feed — Redis is the
+  reference, done (#8); multi-tenant persistence *reload* (#9). Still-deferred micro-edges: JWKS endpoint;
+  WebSocket connect-time (unsolicited) messages / `filePath` bodies; GraphQL fragment/directive ordering.
 - **④ Out of scope — WireMock Cloud, not OSS.** See the section above (`clientIp`, standalone number
   matchers, `systemProperty`/`env`, `math` `%`/`^`) — implementing would *diverge* from the OSS oracle.
 
