@@ -47,6 +47,25 @@ came over TLS. Validated over a real socket against the oracle's own HTTPS liste
   against). Mockifyr's plaintext listener is left `Http1AndHttp2` (h2c-capable, deterministic via
   Kestrel) so it matches WireMock whenever WireMock does serve h2c, and HTTP/1.1 always works. TLS is
   the deterministic, asserted HTTP/2 path.
-- **Deferred:** a configured (non-self-signed) keystore and client-certificate/mTLS remain out of
-  scope (noted in G11a).
 - **Regression case:** `G11bHttp2Tests.Http2_OverTls_NegotiatedByBothSides`.
+
+## Configured keystore + mutual TLS (G11c)
+
+- **Group / item:** G11c — **self-tested** (no differential). Closes the last G11 TLS edges.
+- **Configured keystore.** `--https-keystore` (+ `--https-keystore-password`) loads the HTTPS listener's
+  server certificate from a PFX/PKCS#12 file instead of the ephemeral self-signed cert — WireMock's
+  `--https-keystore`/`--keystore-password`. Absent, the self-signed default (G11a) still applies.
+- **Mutual TLS.** `--https-require-client-auth` sets Kestrel's `ClientCertificateMode.RequireCertificate`,
+  and `--https-truststore` (+ optional `--https-truststore-password`) supplies the trust anchor the
+  presented client certificate must chain to (validated via a custom-root-trust `X509Chain`, so a cert
+  the OS happens to trust is not accepted unless it chains to the configured anchor). Mirrors WireMock's
+  `--https-require-client-auth` + `--https-truststore`/`--truststore-password`. Only the HTTPS listener
+  requires the client cert; the plaintext port is unaffected.
+- **Why self-tested, not diffed.** Mutual TLS is standard transport authentication — reject a handshake
+  with no client cert, accept one presenting a CA-signed cert — with **no WireMock-specific semantics**
+  to compare. Like WebSocket serving and plaintext h2c, there is no oracle truth beyond "TLS does TLS",
+  so it is validated structurally: a test CA signs a client cert, the host is started with the keystore +
+  truststore + `--https-require-client-auth`, and a client **with** the cert is served the stub while a
+  client **without** one fails the handshake.
+- **Regression cases:** `G11cMutualTlsTests.ClientCertificate_PresentedAndTrusted_ServesTheStub` and
+  `NoClientCertificate_IsRejected` (2 self-tests; no Docker).

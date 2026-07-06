@@ -174,8 +174,12 @@ Detailed rationale and per-group contents:
   - [x] G11b HTTP/2 — both Kestrel listeners `Http1AndHttp2`; **h2 over TLS (ALPN)** validated against
     the oracle (both negotiate `response.Version` == 2.0, matching body). Plaintext prior-knowledge
     h2c is *not* asserted — the oracle answers it nondeterministically (h2 vs `HTTP_1_1_REQUIRED`); the
-    plaintext listener is left h2c-capable to match. Configured keystore / mTLS deferred. See
-    docs/parity/g11-tls-http2.md
+    plaintext listener is left h2c-capable to match. See docs/parity/g11-tls-http2.md
+  - [x] G11c Configured keystore + mutual TLS — `--https-keystore`/`--https-keystore-password` load the
+    server cert from a PFX; `--https-require-client-auth` + `--https-truststore` require and CA-validate
+    a client certificate (custom-root-trust chain). **Self-tested** (standard transport auth, no
+    WireMock-specific semantics): a client with a CA-signed cert is served, one without fails the
+    handshake. See docs/parity/g11-tls-http2.md
 - [x] **G12** Transport HTTP facade + standalone/deploy + config
   - [x] G12a Mock-serving HTTP facade — `Mockifyr.Facade.Http` fallback (request → engine → wire),
     hosted by `Mockifyr.Server`. Validated **over the wire** against the oracle (status, reason
@@ -344,9 +348,10 @@ below — none is a silent gap.
 - **③ Separate efforts if wanted (real features, each a mini-project with its own validation setup).**
   Done in this bucket (each oracle- or self-validated, own PR): **RS256** JWT (#1), **remote/URL `$ref`**
   JSON Schema (#2), single-message gRPC **streaming** (#3), WebSocket **broadcast** / `channels/send` (#4),
-  the **Datafaker long tail** (#5), and multipart **`request.parts`** templating (#6).
-  Remaining: **mTLS** / configured keystore (#7); Postgres `LISTEN`/`NOTIFY` change feed — Redis is the
-  reference, done (#8); multi-tenant persistence *reload* (#9). Still-deferred micro-edges: JWKS endpoint;
+  the **Datafaker long tail** (#5), multipart **`request.parts`** templating (#6), and **mTLS** /
+  configured keystore (#7).
+  Remaining: Postgres `LISTEN`/`NOTIFY` change feed — Redis is the reference, done (#8); multi-tenant
+  persistence *reload* (#9). Still-deferred micro-edges: JWKS endpoint;
   WebSocket connect-time (unsolicited) messages / `filePath` bodies; GraphQL fragment/directive ordering.
 - **④ Out of scope — WireMock Cloud, not OSS.** See the section above (`clientIp`, standalone number
   matchers, `systemProperty`/`env`, `math` `%`/`^`) — implementing would *diverge* from the OSS oracle.
