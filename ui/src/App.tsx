@@ -17,6 +17,8 @@ function Page({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<div className="h-40 animate-pulse rounded-2xl bg-muted" />}>{children}</Suspense>
 }
 
+// The base path the app is served under — '/' in dev, or the embedded prefix (e.g. '/__mockifyr/')
+// when the .NET host serves the built dashboard. Vite injects it from its `base` config.
 const router = createBrowserRouter([
   {
     path: '/',
@@ -31,7 +33,7 @@ const router = createBrowserRouter([
       { path: 'settings', element: <Page><SettingsPage /></Page> },
     ],
   },
-])
+], { basename: import.meta.env.BASE_URL.replace(/\/$/, '') || '/' })
 
 export default function App() {
   const { theme } = useUi()

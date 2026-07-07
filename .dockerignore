@@ -1,0 +1,11 @@
+**/bin
+**/obj
+**/node_modules
+**/dist
+ui/dist
+harness
+tests
+docs
+.git
+.github
+*.md

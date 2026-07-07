@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:embedded": "vite build --base=/__mockifyr/"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",

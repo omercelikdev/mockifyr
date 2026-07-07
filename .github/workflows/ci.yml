@@ -26,6 +26,32 @@ jobs:
       - name: Test (unit)
         run: dotnet test --no-build -c Release --filter "FullyQualifiedName!~Differential"
 
+  ui:
+    name: Dashboard (build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build (type-check + bundle)
+        run: pnpm build
+
   differential:
     name: Differential (WireMock oracle)
     runs-on: ubuntu-latest

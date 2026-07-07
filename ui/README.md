@@ -32,5 +32,23 @@ admin data. In production the built `dist/` is served as static assets by the ho
 
 ## Internationalization
 
-Six locales — English, Türkçe, Français, العربية (RTL), 中文, 日本語 — in `src/lib/i18n.ts`.
-Switching to Arabic flips the whole layout to RTL via logical CSS properties.
+Six locales — English, Türkçe, Français, العربية (RTL), 中文, 日本語 — in `src/lib/i18n.ts`,
+all fully translated. Switching to Arabic flips the whole layout to RTL via logical CSS properties.
+Press **⌘K / Ctrl-K** anywhere for the command palette.
+
+## Deploy
+
+Two options:
+
+- **Embedded in the host** — `pnpm build:embedded` builds the dashboard under the `/__mockifyr/` base;
+  run the host with `--dashboard <path-to-dist>` and it is served at `/__mockifyr` (static assets + SPA
+  fallback), scoped so the mock-serving surface on every other path is untouched. The repo `Dockerfile`
+  does this end-to-end — one image serving the mock engine, admin API, and dashboard.
+
+  ```bash
+  docker build -t mockifyr .
+  docker run -p 8080:8080 mockifyr           # dashboard at http://localhost:8080/__mockifyr
+  ```
+
+- **Standalone** — `pnpm build` (base `/`) and serve `dist/` from any static host / CDN, pointed at a
+  Mockifyr host's `/__admin/*` (set up a proxy or CORS as needed).

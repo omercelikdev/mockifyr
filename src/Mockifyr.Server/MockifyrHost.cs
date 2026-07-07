@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.FileProviders;
 using Mockifyr.Facade.Grpc;
 using Microsoft.Extensions.DependencyInjection;
 using Mockifyr.Core;
@@ -165,6 +167,24 @@ public static class MockifyrHost
         }
 
         app.MapAdminEndpoints();
+
+        // Dashboard (optional): when --dashboard <dir> points at the built UI (ui/dist), serve it under
+        // the reserved /__mockifyr prefix — static assets plus an SPA fallback to index.html for client
+        // routes. Mapped before the mock-serving catch-all and scoped to /__mockifyr, so mocked APIs on
+        // every other path are untouched. The built UI uses base '/__mockifyr/', so its asset + router
+        // paths line up. Absent the flag, nothing changes.
+        var dashboardDir = builder.Configuration["dashboard"];
+        if (!string.IsNullOrWhiteSpace(dashboardDir) && Directory.Exists(dashboardDir))
+        {
+            var provider = new PhysicalFileProvider(Path.GetFullPath(dashboardDir));
+            app.UseStaticFiles(new StaticFileOptions { RequestPath = "/__mockifyr", FileProvider = provider });
+            app.MapGet("/__mockifyr/{**path}", async context =>
+            {
+                context.Response.ContentType = "text/html";
+                await context.Response.SendFileAsync(provider.GetFileInfo("index.html"));
+            });
+        }
+
         app.MapMockServing();
 
         ApplyStartupMappings(app);
