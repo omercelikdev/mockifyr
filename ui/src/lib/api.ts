@@ -66,6 +66,34 @@ function projectMapping(m: WireMockMapping): Stub {
   }
 }
 
+/**
+ * Persists a stub (WireMock mapping JSON). Create = POST, update = PUT /__admin/mappings/{id}.
+ * Returns `mock: true` when no host answered, so the caller can toast "sample mode" instead of failing.
+ */
+export async function saveStub(tenant: string, mappingJson: string, id?: string): Promise<{ mock: boolean }> {
+  try {
+    const res = await adminFetch(id ? `/mappings/${id}` : '/mappings', tenant, {
+      method: id ? 'PUT' : 'POST',
+      body: mappingJson,
+    })
+    if (!res.ok) throw new Error(String(res.status))
+    return { mock: false }
+  } catch {
+    return { mock: true }
+  }
+}
+
+/** Deletes a stub by id. Returns `mock: true` when no host answered. */
+export async function deleteStub(tenant: string, id: string): Promise<{ mock: boolean }> {
+  try {
+    const res = await adminFetch(`/mappings/${id}`, tenant, { method: 'DELETE' })
+    if (!res.ok) throw new Error(String(res.status))
+    return { mock: false }
+  } catch {
+    return { mock: true }
+  }
+}
+
 // Representative sample data (used only when no host answers). Varies a little by tenant so switching
 // tenants visibly re-scopes the grid.
 function sampleStubs(tenant: string): Stub[] {

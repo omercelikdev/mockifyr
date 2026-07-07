@@ -395,6 +395,12 @@ Delivered in phased, build-green PRs.
   HTTP/gRPC/GraphQL/WebSocket), method chips + status pills from the semantic token ramp. First-class
   **multi-tenancy**: a sidebar tenant switcher scopes the grid; TanStack Query + an admin API client
   send `X-Mockifyr-Tenant` and fall back to sample data when no host answers. `pnpm build` green.
-- [ ] UI-P1b Stub editor (form + JSON, all matchers/response/delay/fault/proxy/scenario/webhook)
+- [x] **UI-P1b** Stub editor — a right slide-over (Radix Dialog) with **Form + JSON** dual-mode
+  (React Hook Form + Zod; live form→JSON sync, raw-JSON escape hatch). Covers method, URL match
+  (url/urlPath/pattern), header/query/body matchers (field arrays), response status/headers/body +
+  templating, fixed delay, fault, proxy, scenario (name/required/new state), priority. Create/edit/delete
+  wired to `/__admin/mappings` (tenant-scoped, sonner toasts, query invalidation); sample-mode fallback
+  when no host. `pnpm build` green; verified in-browser. (Full-fidelity edit of an existing mapping's raw
+  body is P1c; edit currently seeds method/url/priority/scenario.)
 - [ ] Backend enabler: admin tenant-resolution from `X-Mockifyr-Tenant` (small, tested; header-absent = default)
 - [ ] UI-P2 Request journal (near-miss) · P3 Scenarios · P4 Recordings · P5 Settings/Status + polish
