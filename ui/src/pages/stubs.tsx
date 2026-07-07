@@ -46,6 +46,7 @@ export function StubsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [editorOpen, setEditorOpen] = useState(false)
   const [editing, setEditing] = useState<Stub | null>(null)
+  const [editorTab, setEditorTab] = useState<'form' | 'json'>('form')
   const refresh = useCallback(() => { void queryClient.invalidateQueries({ queryKey: ['stubs', tenant] }) }, [queryClient, tenant])
 
   // Deep-link: ?new=1 (e.g. from the command palette's "New stub") opens the editor once.
@@ -53,8 +54,9 @@ export function StubsPage() {
     if (searchParams.get('new') === '1') { setEditing(null); setEditorOpen(true); setSearchParams({}, { replace: true }) }
   }, [searchParams, setSearchParams])
 
-  const openNew = useCallback(() => { setEditing(null); setEditorOpen(true) }, [])
-  const openEdit = useCallback((stub: Stub) => { setEditing(stub); setEditorOpen(true) }, [])
+  const openNew = useCallback(() => { setEditing(null); setEditorTab('form'); setEditorOpen(true) }, [])
+  const openImport = useCallback(() => { setEditing(null); setEditorTab('json'); setEditorOpen(true) }, [])
+  const openEdit = useCallback((stub: Stub) => { setEditing(stub); setEditorTab('form'); setEditorOpen(true) }, [])
   const remove = useCallback(async (stub: Stub) => {
     const { mock } = await deleteStub(tenant, stub.id)
     toast[mock ? 'message' : 'success'](mock ? t('editor.savedSample') : t('editor.deleted'))
@@ -153,7 +155,7 @@ export function StubsPage() {
           <p className="mt-1 max-w-[62ch] text-sm text-muted-foreground">{t('stubs.subtitle')}</p>
         </div>
         <div className="ms-auto flex gap-2">
-          <Button variant="outline"><Import />{t('stubs.import')}</Button>
+          <Button variant="outline" onClick={openImport}><Import />{t('stubs.import')}</Button>
           <Button variant="primary" onClick={openNew}><Plus />{t('stubs.newStub')}</Button>
         </div>
       </header>
@@ -164,7 +166,7 @@ export function StubsPage() {
           {selectedCount > 0 ? (
             <>
               <span className="ps-1 text-sm font-medium">{t('stubs.selected', { count: selectedCount })}</span>
-              <Button variant="outline" size="sm" className="text-danger"
+              <Button variant="outline" className="text-danger"
                 onClick={async () => {
                   const rows = table.getSelectedRowModel().rows
                   await Promise.all(rows.map((r) => deleteStub(tenant, r.original.id)))
@@ -189,7 +191,7 @@ export function StubsPage() {
               )}
             </>
           )}
-          <Button variant="outline" size="sm" className="ms-auto" onClick={() => setDense((d) => !d)}>
+          <Button variant="outline" className="ms-auto" onClick={() => setDense((d) => !d)}>
             {dense ? <Rows3 /> : <Rows2 />}{t('stubs.density')}
           </Button>
         </div>
@@ -267,7 +269,7 @@ export function StubsPage() {
         </div>
       </div>
 
-      <StubEditor open={editorOpen} onOpenChange={setEditorOpen} editing={editing} onSaved={refresh} />
+      <StubEditor open={editorOpen} onOpenChange={setEditorOpen} editing={editing} onSaved={refresh} initialTab={editorTab} />
     </div>
   )
 }

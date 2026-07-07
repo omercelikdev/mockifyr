@@ -1,3 +1,4 @@
+import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
@@ -29,13 +30,18 @@ export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLab
 }
 
 export function NativeSelect({ className, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  // A native <select> with the browser chevron replaced by our own, so it reads as a standard styled
+  // control matching the inputs (same height, border, focus ring) across every locale/OS.
   return (
-    <select
-      className={cn(
-        'h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm outline-none transition-colors focus:border-ring focus:ring-1 focus:ring-ring',
-        className,
-      )}
-      {...props}
-    />
+    <div className="relative">
+      <select
+        className={cn(
+          'h-9 w-full appearance-none rounded-lg border border-input bg-background pe-8 ps-3 text-sm outline-none transition-colors focus:border-ring focus:ring-1 focus:ring-ring',
+          className,
+        )}
+        {...props}
+      />
+      <ChevronDown className="pointer-events-none absolute end-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+    </div>
   )
 }
