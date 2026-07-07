@@ -6,6 +6,7 @@ import { DashboardPage } from '@/pages/dashboard'
 import { StubsPage } from '@/pages/stubs'
 import { JournalPage } from '@/pages/journal'
 import { ScenariosPage } from '@/pages/scenarios'
+import { RecordingsPage } from '@/pages/recordings'
 import { PlaceholderPage } from '@/pages/placeholder'
 
 const router = createBrowserRouter([
@@ -17,7 +18,7 @@ const router = createBrowserRouter([
       { path: 'stubs', element: <StubsPage /> },
       { path: 'journal', element: <JournalPage /> },
       { path: 'scenarios', element: <ScenariosPage /> },
-      { path: 'recordings', element: <PlaceholderPage titleKey="nav.recordings" /> },
+      { path: 'recordings', element: <RecordingsPage /> },
       { path: 'extensions', element: <PlaceholderPage titleKey="nav.extensions" /> },
       { path: 'settings', element: <PlaceholderPage titleKey="nav.settings" /> },
     ],

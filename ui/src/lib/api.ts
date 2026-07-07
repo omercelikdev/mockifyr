@@ -83,6 +83,54 @@ export async function saveStub(tenant: string, mappingJson: string, id?: string)
   }
 }
 
+// Record-through-proxy session (G8/G9). Not tenant-scoped — the recording session is global.
+export type RecordingStatus = 'Recording' | 'Stopped'
+export interface CapturedStub { method: string; url: string; raw: string }
+
+export async function fetchRecordingStatus(tenant: string): Promise<{ status: RecordingStatus; mock: boolean }> {
+  try {
+    const res = await adminFetch('/recordings/status', tenant)
+    if (!res.ok) throw new Error(String(res.status))
+    const body = (await res.json()) as { status?: string }
+    return { status: body.status === 'Recording' ? 'Recording' : 'Stopped', mock: false }
+  } catch {
+    return { status: 'Stopped', mock: true }
+  }
+}
+
+export async function startRecording(tenant: string, targetBaseUrl: string): Promise<{ mock: boolean }> {
+  try {
+    const res = await adminFetch('/recordings/start', tenant, { method: 'POST', body: JSON.stringify({ targetBaseUrl }) })
+    if (!res.ok) throw new Error(String(res.status))
+    return { mock: false }
+  } catch {
+    return { mock: true }
+  }
+}
+
+async function captureVia(tenant: string, path: string): Promise<{ stubs: CapturedStub[]; mock: boolean }> {
+  try {
+    const res = await adminFetch(path, tenant, { method: 'POST' })
+    if (!res.ok) throw new Error(String(res.status))
+    const body = (await res.json()) as { mappings?: WireMockMapping[] }
+    return { stubs: (body.mappings ?? []).map(projectCaptured), mock: false }
+  } catch {
+    return { stubs: [], mock: true }
+  }
+}
+
+export const snapshotRecording = (tenant: string) => captureVia(tenant, '/recordings/snapshot')
+export const stopRecording = (tenant: string) => captureVia(tenant, '/recordings/stop')
+
+function projectCaptured(m: WireMockMapping): CapturedStub {
+  const req = m.request ?? {}
+  return {
+    method: (req.method ?? 'ANY').toUpperCase(),
+    url: req.url ?? req.urlPath ?? req.urlPattern ?? req.urlPathPattern ?? '/',
+    raw: JSON.stringify(m, null, 2),
+  }
+}
+
 // A scenario (stateful stub group) and its state machine.
 export interface Scenario {
   name: string
