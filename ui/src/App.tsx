@@ -1,5 +1,7 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import { Toaster } from 'sonner'
 import { AppShell } from '@/components/layout/app-shell'
+import { useUi } from '@/components/providers'
 import { DashboardPage } from '@/pages/dashboard'
 import { StubsPage } from '@/pages/stubs'
 import { PlaceholderPage } from '@/pages/placeholder'
@@ -21,5 +23,11 @@ const router = createBrowserRouter([
 ])
 
 export default function App() {
-  return <RouterProvider router={router} />
+  const { theme } = useUi()
+  return (
+    <>
+      <RouterProvider router={router} />
+      <Toaster theme={theme} position="bottom-right" toastOptions={{ style: { borderRadius: '10px' } }} />
+    </>
+  )
 }

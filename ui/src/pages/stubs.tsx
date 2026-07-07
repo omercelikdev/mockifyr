@@ -1,18 +1,23 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import {
   type ColumnDef, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel,
   getSortedRowModel, type SortingState, useReactTable,
 } from '@tanstack/react-table'
 import {
-  ArrowUpDown, ChevronLeft, ChevronRight, Import, MoreHorizontal, Plus, Rows2, Rows3, Search, Trash2,
+  ArrowUpDown, ChevronLeft, ChevronRight, Import, MoreHorizontal, Pencil, Plus, Rows2, Rows3, Search, Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
-import { fetchStubs, type Protocol, type Stub } from '@/lib/api'
+import { deleteStub, fetchStubs, type Protocol, type Stub } from '@/lib/api'
 import { MethodChip, StatusPill } from '@/components/ui/badges'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { StubEditor } from '@/components/stubs/stub-editor'
 
 const PROTOCOLS: { key: 'all' | Protocol; label: string }[] = [
   { key: 'all', label: 'all' }, { key: 'http', label: 'HTTP' }, { key: 'grpc', label: 'gRPC' },
@@ -22,7 +27,20 @@ const PROTOCOLS: { key: 'all' | Protocol; label: string }[] = [
 export function StubsPage() {
   const { t } = useTranslation()
   const { tenant } = useUi()
+  const queryClient = useQueryClient()
   const { data, isLoading } = useQuery({ queryKey: ['stubs', tenant], queryFn: () => fetchStubs(tenant) })
+
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [editing, setEditing] = useState<Stub | null>(null)
+  const refresh = useCallback(() => { void queryClient.invalidateQueries({ queryKey: ['stubs', tenant] }) }, [queryClient, tenant])
+
+  const openNew = useCallback(() => { setEditing(null); setEditorOpen(true) }, [])
+  const openEdit = useCallback((stub: Stub) => { setEditing(stub); setEditorOpen(true) }, [])
+  const remove = useCallback(async (stub: Stub) => {
+    const { mock } = await deleteStub(tenant, stub.id)
+    toast[mock ? 'message' : 'success'](mock ? t('editor.savedSample') : t('editor.deleted'))
+    refresh()
+  }, [tenant, refresh, t])
 
   const [proto, setProto] = useState<'all' | Protocol>('all')
   const [globalFilter, setGlobalFilter] = useState('')
@@ -59,11 +77,21 @@ export function StubsPage() {
     {
       id: 'actions',
       header: () => null,
-      cell: () => <Button variant="ghost" size="iconSm" aria-label="Actions"><MoreHorizontal /></Button>,
+      cell: ({ row }) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="iconSm" aria-label="Actions"><MoreHorizontal /></Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-40">
+            <DropdownMenuItem onSelect={() => openEdit(row.original)}><Pencil className="size-4 text-muted-foreground" />{t('stubs.edit')}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => remove(row.original)} className="text-danger"><Trash2 className="size-4" />{t('stubs.delete')}</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
       enableSorting: false,
       size: 44,
     },
-  ], [t])
+  ], [t, openEdit, remove])
 
   const table = useReactTable({
     data: stubs,
@@ -103,7 +131,7 @@ export function StubsPage() {
         </div>
         <div className="ms-auto flex gap-2">
           <Button variant="outline"><Import />{t('stubs.import')}</Button>
-          <Button variant="primary"><Plus />{t('stubs.newStub')}</Button>
+          <Button variant="primary" onClick={openNew}><Plus />{t('stubs.newStub')}</Button>
         </div>
       </header>
 
@@ -113,7 +141,16 @@ export function StubsPage() {
           {selectedCount > 0 ? (
             <>
               <span className="ps-1 text-sm font-medium">{t('stubs.selected', { count: selectedCount })}</span>
-              <Button variant="outline" size="sm" className="text-danger"><Trash2 />{t('stubs.delete')}</Button>
+              <Button variant="outline" size="sm" className="text-danger"
+                onClick={async () => {
+                  const rows = table.getSelectedRowModel().rows
+                  await Promise.all(rows.map((r) => deleteStub(tenant, r.original.id)))
+                  toast.success(t('editor.deleted'))
+                  setRowSelection({})
+                  refresh()
+                }}>
+                <Trash2 />{t('stubs.delete')}
+              </Button>
             </>
           ) : (
             <label className="flex h-9 min-w-[220px] items-center gap-2 rounded-lg border border-border bg-muted/50 px-3">
@@ -199,6 +236,8 @@ export function StubsPage() {
           </div>
         </div>
       </div>
+
+      <StubEditor open={editorOpen} onOpenChange={setEditorOpen} editing={editing} onSaved={refresh} />
     </div>
   )
 }
