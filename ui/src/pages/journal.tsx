@@ -5,7 +5,7 @@ import {
   type ColumnDef, flexRender, getCoreRowModel, getPaginationRowModel,
   getSortedRowModel, type SortingState, useReactTable,
 } from '@tanstack/react-table'
-import { ArrowUpDown, CheckCircle2, ChevronLeft, ChevronRight, XCircle } from 'lucide-react'
+import { ArrowUpDown, CheckCircle2, ChevronLeft, ChevronRight, Rows2, Rows3, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
 import { fetchJournal, type JournalEntry } from '@/lib/api'
@@ -58,6 +58,7 @@ export function JournalPage() {
   const [selected, setSelected] = useState<Selections>({})
   const [search, setSearch] = useState('')
   const [sorting, setSorting] = useState<SortingState>([])
+  const [dense, setDense] = useState(false)
 
   const columns = useMemo<ColumnDef<JournalEntry>[]>(() => [
     { accessorKey: 'method', header: () => t('stubs.method'), cell: ({ getValue }) => <MethodChip method={getValue<string>()} /> },
@@ -120,6 +121,9 @@ export function JournalPage() {
           {activeCount > 0 && (
             <Button variant="ghost" size="sm" onClick={() => setSelected({})}>{t('common.clear')}</Button>
           )}
+          <Button variant="outline" className="ms-auto" onClick={() => setDense((d) => !d)}>
+            {dense ? <Rows3 /> : <Rows2 />}{t('stubs.density')}
+          </Button>
         </div>
 
         <div className="scroll-area overflow-x-auto">
@@ -149,7 +153,7 @@ export function JournalPage() {
                 table.getRowModel().rows.map((row) => (
                   <tr key={row.id} className="border-b border-border transition-colors hover:bg-muted/40">
                     {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-4 py-3 align-middle">{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
+                      <td key={cell.id} className={cn('px-4 align-middle', dense ? 'py-2' : 'py-3')}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
                     ))}
                   </tr>
                 ))

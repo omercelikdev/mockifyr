@@ -18,11 +18,12 @@ function seedFrom(stub: Stub | null): StubForm {
   return { ...emptyStub, method: stub.method === 'ANY' ? 'GET' : stub.method, urlValue: stub.url, priority: stub.priority, scenarioName: stub.scenario ?? '' }
 }
 
-export function StubEditor({ open, onOpenChange, editing, onSaved }: {
+export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 'form' }: {
   open: boolean
   onOpenChange: (o: boolean) => void
   editing: Stub | null
   onSaved: () => void
+  initialTab?: 'form' | 'json'
 }) {
   const { t } = useTranslation()
   const { tenant } = useUi()
@@ -36,8 +37,8 @@ export function StubEditor({ open, onOpenChange, editing, onSaved }: {
   const { register, control, reset, getValues, watch, handleSubmit } = form
 
   useEffect(() => {
-    if (open) { const seed = seedFrom(editing); reset(seed); setRawJson(toJson(seed)); setTab('form') }
-  }, [open, editing, reset])
+    if (open) { const seed = seedFrom(editing); reset(seed); setRawJson(toJson(seed)); setTab(initialTab) }
+  }, [open, editing, reset, initialTab])
 
   // Keep the JSON preview live while editing the form (form is the source of truth on the Form tab).
   useEffect(() => {
@@ -94,8 +95,8 @@ export function StubEditor({ open, onOpenChange, editing, onSaved }: {
                 </>)} />
               <Rows label={t('editor.bodyMatchers')} fields={bodyPatterns.fields} onAdd={() => bodyPatterns.append({ operator: 'equalToJson', value: '' })} onRemove={bodyPatterns.remove}
                 render={(i) => (<>
-                  <NativeSelect {...register(`bodyPatterns.${i}.operator`)} className="col-span-1">{BODY_OPS.map((o) => <option key={o}>{o}</option>)}</NativeSelect>
-                  <Input {...register(`bodyPatterns.${i}.value`)} placeholder={t('editor.value')} className="col-span-2 font-mono" />
+                  <NativeSelect {...register(`bodyPatterns.${i}.operator`)}>{BODY_OPS.map((o) => <option key={o}>{o}</option>)}</NativeSelect>
+                  <Input {...register(`bodyPatterns.${i}.value`)} placeholder={t('editor.value')} className="font-mono" />
                 </>)} twoCol />
             </Section>
 
@@ -107,8 +108,8 @@ export function StubEditor({ open, onOpenChange, editing, onSaved }: {
               </div>
               <Rows label={t('editor.responseHeaders')} fields={responseHeaders.fields} onAdd={() => responseHeaders.append({ name: '', value: '' })} onRemove={responseHeaders.remove}
                 render={(i) => (<>
-                  <Input {...register(`responseHeaders.${i}.name`)} placeholder="Header" className="col-span-1" />
-                  <Input {...register(`responseHeaders.${i}.value`)} placeholder={t('editor.value')} className="col-span-2" />
+                  <Input {...register(`responseHeaders.${i}.name`)} placeholder="Header" />
+                  <Input {...register(`responseHeaders.${i}.value`)} placeholder={t('editor.value')} />
                 </>)} twoCol />
               <div><Label>{t('editor.body')}</Label><Textarea rows={5} {...register('responseBody')} className="font-mono text-[12.5px]" placeholder='{"ok": true}' /></div>
               <label className="flex items-center gap-2.5 text-sm">
@@ -171,7 +172,7 @@ function Rows({ label, fields, onAdd, onRemove, render, twoCol }: {
       </div>
       <div className="space-y-2">
         {fields.map((f, i) => (
-          <div key={f.id} className={`grid ${twoCol ? 'grid-cols-[1fr_2fr]' : 'grid-cols-[1fr_130px_1fr]'} items-center gap-2`}>
+          <div key={f.id} className={`grid ${twoCol ? 'grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto]' : 'grid-cols-[minmax(0,1fr)_130px_minmax(0,1fr)_auto]'} items-center gap-2`}>
             {render(i)}
             <Button type="button" variant="ghost" size="iconSm" onClick={() => onRemove(i)} className="text-muted-foreground"><Trash2 /></Button>
           </div>
