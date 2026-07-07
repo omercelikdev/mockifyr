@@ -402,5 +402,9 @@ Delivered in phased, build-green PRs.
   wired to `/__admin/mappings` (tenant-scoped, sonner toasts, query invalidation); sample-mode fallback
   when no host. `pnpm build` green; verified in-browser. (Full-fidelity edit of an existing mapping's raw
   body is P1c; edit currently seeds method/url/priority/scenario.)
-- [ ] Backend enabler: admin tenant-resolution from `X-Mockifyr-Tenant` (small, tested; header-absent = default)
+- [x] **G7b** Admin tenant resolution — every `/__admin/*` route now scopes to the tenant named by the
+  `X-Mockifyr-Tenant` header (the same header the mock-serving facade honours); an absent header resolves
+  to the default tenant, so single-tenant callers are unchanged. Makes the UI tenant switcher real
+  end-to-end. Self-tested isolation (`G7bAdminTenantTests`) — a stub created under one tenant is visible
+  only to it; no oracle (WireMock is single-tenant). Recordings/`ext` stay global.
 - [ ] UI-P2 Request journal (near-miss) · P3 Scenarios · P4 Recordings · P5 Settings/Status + polish
