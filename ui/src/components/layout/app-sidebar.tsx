@@ -1,0 +1,213 @@
+import { NavLink } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import {
+  Activity, Bug, ChevronsRight, ChevronsUpDown, Disc, Globe, LayoutDashboard, LayoutGrid,
+  ListTree, LogOut, Moon, Search, Settings, UserCircle, Waypoints,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { useUi } from '@/components/providers'
+import { LOCALES } from '@/lib/i18n'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  DropdownMenu, DropdownMenuCheckItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
+  DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Switch } from '@/components/ui/switch'
+
+interface NavItem { to: string; key: string; icon: React.ComponentType<{ className?: string }>; badge?: string }
+
+const GROUPS: { label: string; items: NavItem[] }[] = [
+  { label: 'nav.overview', items: [{ to: '/', key: 'nav.dashboard', icon: LayoutDashboard }] },
+  { label: 'nav.mocking', items: [
+    { to: '/stubs', key: 'nav.stubs', icon: ListTree, badge: '248' },
+    { to: '/journal', key: 'nav.journal', icon: Activity, badge: '1.2k' },
+    { to: '/scenarios', key: 'nav.scenarios', icon: Waypoints, badge: '12' },
+    { to: '/recordings', key: 'nav.recordings', icon: Disc },
+  ] },
+  { label: 'nav.platform', items: [
+    { to: '/extensions', key: 'nav.extensions', icon: LayoutGrid },
+    { to: '/settings', key: 'nav.settings', icon: Settings },
+  ] },
+]
+
+export function AppSidebar() {
+  const { t } = useTranslation()
+  const { collapsed, toggleCollapsed } = useUi()
+
+  return (
+    <TooltipProvider delayDuration={0}>
+      <nav className="flex h-full w-full select-none flex-col overflow-hidden">
+        {/* Header: collapsed → expand button on top, logo below; expanded → logo row with toggle at the end */}
+        {collapsed ? (
+          <div className="shrink-0 px-2 pb-1 pt-[18px]">
+            <IconButton label={t('common.expand')} onClick={toggleCollapsed}>
+              <ChevronsRight className="size-[18px] text-muted-foreground" />
+            </IconButton>
+            <div className="pt-2">
+              <IconButton label={t('brand.name')} to="/">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground shadow-sm">M</span>
+              </IconButton>
+            </div>
+          </div>
+        ) : (
+          <div className="flex shrink-0 items-center gap-1 px-2 pb-1 pt-[18px]">
+            <NavLink to="/" className="flex h-11 flex-1 items-center gap-2.5 rounded-lg px-2 transition-colors hover:bg-muted">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground shadow-sm">M</span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold leading-tight">{t('brand.name')}</span>
+                <span className="block truncate text-xs leading-tight text-muted-foreground">{t('brand.sub')}</span>
+              </span>
+            </NavLink>
+            <button onClick={toggleCollapsed} aria-label={t('common.collapse')} className="shrink-0 rounded-lg p-1.5 text-faint transition-colors hover:bg-muted hover:text-foreground">
+              <ChevronsRight className="size-4 rotate-180 rtl:rotate-0" />
+            </button>
+          </div>
+        )}
+
+        {/* Search */}
+        <div className="px-3 pb-2 pt-1">
+          {collapsed ? (
+            <IconButton label={t('common.search')}>
+              <Search className="size-[18px] text-muted-foreground" />
+            </IconButton>
+          ) : (
+            <button className="flex h-9 w-full items-center gap-2.5 rounded-lg border border-border bg-muted/60 px-3 text-sm text-muted-foreground transition-colors hover:border-border-strong">
+              <Search className="size-4" />
+              <span>{t('common.search')}</span>
+              <kbd className="ms-auto rounded-md border border-border bg-background px-1.5 font-mono text-[11px]">⌘K</kbd>
+            </button>
+          )}
+        </div>
+
+        {/* Navigation */}
+        <div className="scroll-area min-h-0 flex-1 overflow-y-auto px-3">
+          {GROUPS.map((group) => (
+            <div key={group.label} className="mb-2">
+              {collapsed ? (
+                <div className="mx-3 my-2 h-px bg-border" />
+              ) : (
+                <div className="px-2.5 pb-1 pt-2.5 text-[10.5px] font-semibold uppercase tracking-wider text-faint">{t(group.label)}</div>
+              )}
+              {group.items.map((item) => (
+                <NavRow key={item.to} item={item} collapsed={collapsed} label={t(item.key)} />
+              ))}
+            </div>
+          ))}
+        </div>
+
+        {/* Profile + menu (language submenu + dark toggle live here) */}
+        <div className="shrink-0 p-3">
+          <ProfileMenu collapsed={collapsed} />
+        </div>
+      </nav>
+    </TooltipProvider>
+  )
+}
+
+function NavRow({ item, collapsed, label }: { item: NavItem; collapsed: boolean; label: string }) {
+  const Icon = item.icon
+  const link = (
+    <NavLink
+      to={item.to}
+      end={item.to === '/'}
+      className={({ isActive }) =>
+        cn(
+          'group relative mb-0.5 flex h-9 items-center rounded-lg text-sm font-medium transition-colors',
+          collapsed ? 'mx-auto w-10 justify-center' : 'gap-2.5 px-2.5',
+          isActive
+            ? 'bg-sidebar-accent text-sidebar-accent-foreground font-semibold'
+            : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+        )
+      }
+    >
+      {({ isActive }) => (
+        <>
+          {isActive && !collapsed && <span className="absolute inset-y-1.5 start-0 w-[3px] rounded-full bg-primary" />}
+          <Icon className="size-[18px] shrink-0" />
+          {!collapsed && <span className="truncate">{label}</span>}
+          {!collapsed && item.badge && (
+            <span className="ms-auto rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground group-[.font-semibold]:bg-background">
+              {item.badge}
+            </span>
+          )}
+        </>
+      )}
+    </NavLink>
+  )
+
+  if (!collapsed) return link
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{link}</TooltipTrigger>
+      <TooltipContent side="right">{label}</TooltipContent>
+    </Tooltip>
+  )
+}
+
+function ProfileMenu({ collapsed }: { collapsed: boolean }) {
+  const { t } = useTranslation()
+  const { theme, setTheme, locale, setLocale } = useUi()
+  const active = LOCALES.find((l) => l.code === locale) ?? LOCALES[0]
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className={cn('flex w-full items-center gap-2.5 rounded-lg border border-border bg-muted/60 text-start transition-colors hover:border-border-strong', collapsed ? 'justify-center p-1.5' : 'p-2')}>
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">ÖÇ</span>
+          {!collapsed && (
+            <>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold leading-tight">Ömer Çelik</span>
+                <span className="block truncate text-xs leading-tight text-muted-foreground">{t('common.administrator')}</span>
+              </span>
+              <ChevronsUpDown className="size-4 shrink-0 text-faint" />
+            </>
+          )}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="top" align="start" className="w-[--radix-dropdown-menu-trigger-width] min-w-56">
+        <DropdownMenuLabel>omer.celik@omercelik.dev</DropdownMenuLabel>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <Globe className="size-4 text-muted-foreground" />
+            {t('common.language')}
+            <span className="ms-auto text-xs text-muted-foreground">{active.native}</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            {LOCALES.map((l) => (
+              <DropdownMenuCheckItem key={l.code} selected={l.code === locale} onSelect={() => setLocale(l.code)}>
+                {l.name}
+              </DropdownMenuCheckItem>
+            ))}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setTheme(theme === 'dark' ? 'light' : 'dark') }}>
+          <Moon className="size-4 text-muted-foreground" />
+          {t('common.darkMode')}
+          <Switch checked={theme === 'dark'} className="ms-auto" tabIndex={-1} />
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem><Settings className="size-4 text-muted-foreground" />{t('nav.settings')}</DropdownMenuItem>
+        <DropdownMenuItem><UserCircle className="size-4 text-muted-foreground" />{t('common.profile')}</DropdownMenuItem>
+        <DropdownMenuItem><Bug className="size-4 text-muted-foreground" />{t('common.reportIssue')}</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem><LogOut className="size-4 text-muted-foreground" />{t('common.signOut')}</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/** A centered 40×36 icon button with a right-side tooltip — the collapsed-rail affordance. */
+function IconButton({ label, to, onClick, children }: { label: string; to?: string; onClick?: () => void; children: React.ReactNode }) {
+  const inner = to ? (
+    <NavLink to={to} className="mx-auto flex h-9 w-10 items-center justify-center rounded-lg transition-colors hover:bg-muted">{children}</NavLink>
+  ) : (
+    <button onClick={onClick} aria-label={label} className="mx-auto flex h-9 w-10 items-center justify-center rounded-lg transition-colors hover:bg-muted">{children}</button>
+  )
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{inner}</TooltipTrigger>
+      <TooltipContent side="right">{label}</TooltipContent>
+    </Tooltip>
+  )
+}
