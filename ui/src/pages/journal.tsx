@@ -126,7 +126,10 @@ export function JournalPage() {
           {data?.mock && (
             <span className="inline-flex items-center gap-1.5 rounded-full border border-warning-border bg-warning-bg px-2.5 py-0.5 text-[11.5px] font-medium text-warning">{t('stubs.sample')}</span>
           )}
-          <span>{t('stubs.showing')} <b className="tabular-nums">{table.getRowModel().rows.length}</b> {t('stubs.of')} <b className="tabular-nums">{data?.entries.length ?? 0}</b></span>
+          <span>{t('stubs.showing')} <b className="tabular-nums">{table.getRowModel().rows.length}</b> {t('stubs.of')} <b className="tabular-nums">{data?.total ?? 0}</b></span>
+          {data && data.total > data.entries.length && (
+            <span className="text-warning">· {t('journal.capped', { cap: data.entries.length })}</span>
+          )}
           <div className="ms-auto flex items-center gap-1.5">
             <Button variant="outline" size="iconSm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()} aria-label="Previous"><ChevronLeft className="rtl:rotate-180" /></Button>
             <span className="px-1 tabular-nums">{table.getState().pagination.pageIndex + 1} / {Math.max(1, table.getPageCount())}</span>

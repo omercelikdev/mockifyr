@@ -220,16 +220,24 @@ export interface JournalEntry {
   wasMatched: boolean
 }
 
+// The journal is an inspection view of recent traffic. A long-running host can accumulate tens of
+// thousands of serve events; handing all of them to the client-side table (which builds a full row
+// model for sorting/filtering on every render and poll) blocks the main thread and freezes the tab.
+// Cap to the most recent slice so the grid stays responsive, and report the true total separately.
+const JOURNAL_CAP = 500
+
 /** Loads the tenant's request journal (GET /__admin/requests), with a sample fallback when no host. */
-export async function fetchJournal(tenant: string, unmatchedOnly: boolean): Promise<{ entries: JournalEntry[]; mock: boolean }> {
+export async function fetchJournal(tenant: string, unmatchedOnly: boolean): Promise<{ entries: JournalEntry[]; total: number; mock: boolean }> {
   try {
     const res = await adminFetch(`/requests${unmatchedOnly ? '?unmatched=true' : ''}`, tenant)
     if (!res.ok) throw new Error(String(res.status))
     const body = (await res.json()) as { requests?: JournalEntry[] }
-    return { entries: body.requests ?? [], mock: false }
+    const all = body.requests ?? []
+    return { entries: all.slice(0, JOURNAL_CAP), total: all.length, mock: false }
   } catch {
     const all = sampleJournal(tenant)
-    return { entries: unmatchedOnly ? all.filter((e) => !e.wasMatched) : all, mock: true }
+    const filtered = unmatchedOnly ? all.filter((e) => !e.wasMatched) : all
+    return { entries: filtered.slice(0, JOURNAL_CAP), total: filtered.length, mock: true }
   }
 }
 
