@@ -379,6 +379,15 @@ below — none is a silent gap.
 - **④ Out of scope — WireMock Cloud, not OSS.** See the section above (`clientIp`, standalone number
   matchers, `systemProperty`/`env`, `math` `%`/`^`) — implementing would *diverge* from the OSS oracle.
 
-## Post-phase (not now — architecture is ready for it)
+## Post-phase — UI / dashboard (`ui/`)
 
-- [ ] UI / dashboard (dark mode, design system, omercelik.dev brand language)
+The dashboard is a decoupled React SPA (`ui/`) that consumes only the `/__admin/*` REST API — it
+cannot touch the engine, so the .NET side stays untouched (differential suites remain the safety net).
+Delivered in phased, build-green PRs.
+
+- [x] **UI-P0** Foundation + app shell — React 19 + TS + Vite + Tailwind v4 + shadcn/ui (Radix).
+  Token-first design system (near-black accent, one-file re-skin), class-driven dark mode, 6 locales
+  incl. RTL (react-i18next). Praxis-style shell: pill nav, segmented tabs, rounded auto-scroll surface,
+  collapsible sidebar (icon rail + tooltips), bottom profile menu (language + dark mode). Dashboard page
+  with KPI cards. `pnpm build` green; `dotnet build` unaffected. See `ui/README.md`.
+- [ ] UI-P1 Stubs (list/create/edit/delete) · P2 Request journal · P3 Scenarios · P4 Recordings · P5 polish
