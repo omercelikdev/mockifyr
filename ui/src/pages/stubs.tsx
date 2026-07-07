@@ -4,17 +4,22 @@ import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
-  type ColumnDef, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel,
+  type ColumnDef, flexRender, getCoreRowModel, getPaginationRowModel,
   getSortedRowModel, type SortingState, useReactTable,
 } from '@tanstack/react-table'
 import {
-  ArrowUpDown, ChevronLeft, ChevronRight, Import, MoreHorizontal, Pencil, Plus, Rows2, Rows3, Search, Trash2,
+  ArrowUpDown, ChevronLeft, ChevronRight, Import, MoreHorizontal, Pencil, Plus, Rows2, Rows3, Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
 import { deleteStub, fetchStubs, type Protocol, type Stub } from '@/lib/api'
 import { MethodChip, StatusPill } from '@/components/ui/badges'
 import { Button } from '@/components/ui/button'
+import { FacetFilter } from '@/components/ui/facet-filter'
+import { SearchBox } from '@/components/ui/search-box'
+import {
+  applyFilters, clearFacet, countSelected, type FacetDef, facetOptions, type Selections, toggleSelection,
+} from '@/lib/faceted'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
@@ -23,6 +28,13 @@ import { StubEditor } from '@/components/stubs/stub-editor'
 const PROTOCOLS: { key: 'all' | Protocol; label: string }[] = [
   { key: 'all', label: 'all' }, { key: 'http', label: 'HTTP' }, { key: 'grpc', label: 'gRPC' },
   { key: 'graphql', label: 'GraphQL' }, { key: 'websocket', label: 'WebSocket' },
+]
+
+const EMPTY_SET = new Set<string>()
+const FACETS: FacetDef<Stub>[] = [
+  { id: 'method', get: (s) => s.method },
+  { id: 'status', get: (s) => s.status },
+  { id: 'persistence', get: (s) => s.persistence },
 ]
 
 export function StubsPage() {
@@ -50,15 +62,21 @@ export function StubsPage() {
   }, [tenant, refresh, t])
 
   const [proto, setProto] = useState<'all' | Protocol>('all')
-  const [globalFilter, setGlobalFilter] = useState('')
+  const [selected, setSelected] = useState<Selections>({})
+  const [search, setSearch] = useState('')
   const [sorting, setSorting] = useState<SortingState>([])
   const [rowSelection, setRowSelection] = useState({})
   const [dense, setDense] = useState(false)
 
+  // Protocol (segmented) narrows first; facets + search then filter that set on the client.
   const stubs = useMemo(
     () => (data?.stubs ?? []).filter((s) => proto === 'all' || s.protocol === proto),
     [data, proto],
   )
+  const methodOptions = useMemo(() => facetOptions(stubs, (s) => s.method), [stubs])
+  const statusOptions = useMemo(() => facetOptions(stubs, (s) => s.status), [stubs])
+  const persistenceOptions = useMemo(() => facetOptions(stubs, (s) => s.persistence), [stubs])
+  const filtered = useMemo(() => applyFilters(stubs, FACETS, selected, search, (s) => s.url), [stubs, selected, search])
 
   const columns = useMemo<ColumnDef<Stub>[]>(() => [
     {
@@ -101,17 +119,15 @@ export function StubsPage() {
   ], [t, openEdit, remove])
 
   const table = useReactTable({
-    data: stubs,
+    data: filtered,
     columns,
-    state: { sorting, globalFilter, rowSelection },
+    state: { sorting, rowSelection },
     onSortingChange: setSorting,
-    onGlobalFilterChange: setGlobalFilter,
     onRowSelectionChange: setRowSelection,
-    globalFilterFn: (row, _id, value) => row.original.url.toLowerCase().includes(String(value).toLowerCase()),
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    autoResetPageIndex: false,
     initialState: { pagination: { pageSize: 8 } },
   })
 
@@ -160,11 +176,18 @@ export function StubsPage() {
               </Button>
             </>
           ) : (
-            <label className="flex h-9 min-w-[220px] items-center gap-2 rounded-lg border border-border bg-muted/50 px-3">
-              <Search className="size-4 text-muted-foreground" />
-              <input value={globalFilter} onChange={(e) => setGlobalFilter(e.target.value)} placeholder={t('stubs.filter')}
-                className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
-            </label>
+            <>
+              <SearchBox value={search} onCommit={setSearch} placeholder={t('stubs.filter')} />
+              <FacetFilter label={t('stubs.method')} options={methodOptions} selected={selected.method ?? EMPTY_SET}
+                onToggle={(v) => setSelected((s) => toggleSelection(s, 'method', v))} onClear={() => setSelected((s) => clearFacet(s, 'method'))} clearLabel={t('common.clear')} />
+              <FacetFilter label={t('stubs.status')} options={statusOptions} selected={selected.status ?? EMPTY_SET}
+                onToggle={(v) => setSelected((s) => toggleSelection(s, 'status', v))} onClear={() => setSelected((s) => clearFacet(s, 'status'))} clearLabel={t('common.clear')} />
+              <FacetFilter label={t('stubs.persistence')} options={persistenceOptions} selected={selected.persistence ?? EMPTY_SET}
+                onToggle={(v) => setSelected((s) => toggleSelection(s, 'persistence', v))} onClear={() => setSelected((s) => clearFacet(s, 'persistence'))} clearLabel={t('common.clear')} />
+              {countSelected(selected) > 0 && (
+                <Button variant="ghost" size="sm" onClick={() => setSelected({})}>{t('common.clear')}</Button>
+              )}
+            </>
           )}
           <Button variant="outline" size="sm" className="ms-auto" onClick={() => setDense((d) => !d)}>
             {dense ? <Rows3 /> : <Rows2 />}{t('stubs.density')}
@@ -228,7 +251,7 @@ export function StubsPage() {
           )}
           <span>
             {t('stubs.showing')} <b className="tabular-nums">{table.getRowModel().rows.length}</b> {t('stubs.of')}{' '}
-            <b className="tabular-nums">{stubs.length}</b>
+            <b className="tabular-nums">{filtered.length}</b>
           </span>
           <div className="ms-auto flex items-center gap-1.5">
             <Button variant="outline" size="iconSm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()} aria-label="Previous">
