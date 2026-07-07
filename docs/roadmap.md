@@ -390,4 +390,11 @@ Delivered in phased, build-green PRs.
   incl. RTL (react-i18next). Praxis-style shell: pill nav, segmented tabs, rounded auto-scroll surface,
   collapsible sidebar (icon rail + tooltips), bottom profile menu (language + dark mode). Dashboard page
   with KPI cards. `pnpm build` green; `dotnet build` unaffected. See `ui/README.md`.
-- [ ] UI-P1 Stubs (list/create/edit/delete) · P2 Request journal · P3 Scenarios · P4 Recordings · P5 polish
+- [x] **UI-P1a** Stubs data-grid + tenant switcher — TanStack Table (sortable columns, URL filter,
+  density toggle, row selection + bulk bar, pagination, skeleton/empty states, protocol tabs
+  HTTP/gRPC/GraphQL/WebSocket), method chips + status pills from the semantic token ramp. First-class
+  **multi-tenancy**: a sidebar tenant switcher scopes the grid; TanStack Query + an admin API client
+  send `X-Mockifyr-Tenant` and fall back to sample data when no host answers. `pnpm build` green.
+- [ ] UI-P1b Stub editor (form + JSON, all matchers/response/delay/fault/proxy/scenario/webhook)
+- [ ] Backend enabler: admin tenant-resolution from `X-Mockifyr-Tenant` (small, tested; header-absent = default)
+- [ ] UI-P2 Request journal (near-miss) · P3 Scenarios · P4 Recordings · P5 Settings/Status + polish

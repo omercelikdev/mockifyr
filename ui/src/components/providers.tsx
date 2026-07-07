@@ -1,8 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { applyLocale, LOCALES, type LocaleCode } from '@/lib/i18n'
+import { TENANTS } from '@/lib/tenants'
 
-// Small app-wide UI state: sidebar collapse, theme (light/dark), and locale — each persisted so a
-// reload keeps the operator's choices. Deliberately tiny; server state (stubs, journal…) is separate.
+// Small app-wide UI state: sidebar collapse, theme (light/dark), locale, and the active tenant — each
+// persisted so a reload keeps the operator's context. Deliberately tiny; server state (stubs, journal…)
+// is fetched separately (TanStack Query), scoped by the active tenant.
 
 type Theme = 'light' | 'dark'
 
@@ -13,6 +15,8 @@ interface UiState {
   setTheme: (t: Theme) => void
   locale: LocaleCode
   setLocale: (c: LocaleCode) => void
+  tenant: string
+  setTenant: (id: string) => void
 }
 
 const UiContext = createContext<UiState | null>(null)
@@ -27,6 +31,10 @@ export function UiProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = useState<LocaleCode>(() => {
     const stored = readStored<LocaleCode>('ui.locale', 'en')
     return LOCALES.some((l) => l.code === stored) ? stored : 'en'
+  })
+  const [tenant, setTenantState] = useState<string>(() => {
+    const stored = localStorage.getItem('ui.tenant') ?? TENANTS[0].id
+    return TENANTS.some((tn) => tn.id === stored) ? stored : TENANTS[0].id
   })
 
   useEffect(() => {
@@ -46,9 +54,14 @@ export function UiProvider({ children }: { children: React.ReactNode }) {
     })
   }, [])
 
+  const setTenant = useCallback((id: string) => {
+    localStorage.setItem('ui.tenant', id)
+    setTenantState(id)
+  }, [])
+
   const value = useMemo<UiState>(
-    () => ({ collapsed, toggleCollapsed, theme, setTheme: setThemeState, locale, setLocale: setLocaleState }),
-    [collapsed, toggleCollapsed, theme, locale],
+    () => ({ collapsed, toggleCollapsed, theme, setTheme: setThemeState, locale, setLocale: setLocaleState, tenant, setTenant }),
+    [collapsed, toggleCollapsed, theme, locale, tenant, setTenant],
   )
 
   return <UiContext value={value}>{children}</UiContext>
