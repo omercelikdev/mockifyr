@@ -31,6 +31,8 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
   ] },
 ]
 
+const openCommand = () => window.dispatchEvent(new Event('open-command'))
+
 export function AppSidebar() {
   const { t } = useTranslation()
   const { collapsed, toggleCollapsed } = useUi()
@@ -65,14 +67,14 @@ export function AppSidebar() {
           </div>
         )}
 
-        {/* Search */}
+        {/* Search — opens the command palette (⌘K) */}
         <div className="px-3 pb-2 pt-1">
           {collapsed ? (
-            <IconButton label={t('common.search')}>
+            <IconButton label={t('common.search')} onClick={openCommand}>
               <Search className="size-[18px] text-muted-foreground" />
             </IconButton>
           ) : (
-            <button className="flex h-9 w-full items-center gap-2.5 rounded-lg border border-border bg-muted/60 px-3 text-sm text-muted-foreground transition-colors hover:border-border-strong">
+            <button onClick={openCommand} className="flex h-9 w-full items-center gap-2.5 rounded-lg border border-border bg-muted/60 px-3 text-sm text-muted-foreground transition-colors hover:border-border-strong">
               <Search className="size-4" />
               <span>{t('common.search')}</span>
               <kbd className="ms-auto rounded-md border border-border bg-background px-1.5 font-mono text-[11px]">⌘K</kbd>
