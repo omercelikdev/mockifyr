@@ -1,0 +1,87 @@
+import { TENANT_HEADER } from '@/lib/tenants'
+
+// A stub row as the dashboard needs it — a flat projection of a WireMock-format mapping.
+export type Protocol = 'http' | 'grpc' | 'graphql' | 'websocket'
+export type StubStatus = 'live' | 'proxy' | 'draft'
+
+export interface Stub {
+  id: string
+  method: string
+  url: string
+  protocol: Protocol
+  priority: number
+  scenario: string | null
+  persistence: string
+  lastMatched: string | null
+  status: StubStatus
+}
+
+/** Low-level admin fetch: scopes every call to the active tenant via the X-Mockifyr-Tenant header. */
+async function adminFetch(path: string, tenant: string, init?: RequestInit): Promise<Response> {
+  return fetch(`/__admin${path}`, {
+    ...init,
+    headers: { 'Content-Type': 'application/json', [TENANT_HEADER]: tenant, ...init?.headers },
+  })
+}
+
+/**
+ * Loads the tenant's stubs. Talks to GET /__admin/mappings when a host is reachable; when it isn't
+ * (design-time / no server), it falls back to representative sample data so the dashboard is always
+ * explorable. The `mock` flag lets the UI show a "sample data" hint.
+ */
+export async function fetchStubs(tenant: string): Promise<{ stubs: Stub[]; mock: boolean }> {
+  try {
+    const res = await adminFetch('/mappings', tenant)
+    if (!res.ok) throw new Error(String(res.status))
+    const body = (await res.json()) as { mappings?: WireMockMapping[] }
+    return { stubs: (body.mappings ?? []).map(projectMapping), mock: false }
+  } catch {
+    return { stubs: sampleStubs(tenant), mock: true }
+  }
+}
+
+interface WireMockMapping {
+  id?: string
+  uuid?: string
+  priority?: number
+  scenarioName?: string
+  request?: { method?: string; url?: string; urlPath?: string; urlPattern?: string; urlPathPattern?: string }
+  response?: { proxyBaseUrl?: string }
+  metadata?: { 'mockifyr:persistence'?: string }
+}
+
+function projectMapping(m: WireMockMapping): Stub {
+  const req = m.request ?? {}
+  const url = req.url ?? req.urlPath ?? req.urlPattern ?? req.urlPathPattern ?? '/'
+  return {
+    id: m.id ?? m.uuid ?? crypto.randomUUID(),
+    method: (req.method ?? 'ANY').toUpperCase(),
+    url,
+    protocol: url.includes('/grpc') ? 'grpc' : url.includes('graphql') ? 'graphql' : 'http',
+    priority: m.priority ?? 5,
+    scenario: m.scenarioName ?? null,
+    persistence: m.metadata?.['mockifyr:persistence'] ?? 'In-memory',
+    lastMatched: null,
+    status: m.response?.proxyBaseUrl ? 'proxy' : 'live',
+  }
+}
+
+// Representative sample data (used only when no host answers). Varies a little by tenant so switching
+// tenants visibly re-scopes the grid.
+function sampleStubs(tenant: string): Stub[] {
+  const base: Stub[] = [
+    { id: '1', method: 'GET', url: '/api/v2/accounts/{id}', protocol: 'http', priority: 5, scenario: null, persistence: 'Postgres', lastMatched: '12s', status: 'live' },
+    { id: '2', method: 'POST', url: '/api/v2/payments', protocol: 'http', priority: 10, scenario: 'Checkout', persistence: 'Postgres', lastMatched: '3s', status: 'live' },
+    { id: '3', method: 'POST', url: '/api/v2/payments/{id}/capture', protocol: 'http', priority: 10, scenario: 'Checkout', persistence: 'Postgres', lastMatched: '7s', status: 'live' },
+    { id: '4', method: 'GET', url: '/api/v2/rates?from={a}&to={b}', protocol: 'http', priority: 3, scenario: null, persistence: 'Redis', lastMatched: '1m', status: 'proxy' },
+    { id: '5', method: 'PUT', url: '/api/v2/accounts/{id}/limits', protocol: 'http', priority: 5, scenario: null, persistence: 'Postgres', lastMatched: '18m', status: 'live' },
+    { id: '6', method: 'DELETE', url: '/api/v2/mandates/{id}', protocol: 'http', priority: 5, scenario: null, persistence: 'Postgres', lastMatched: '2h', status: 'draft' },
+    { id: '7', method: 'PATCH', url: '/api/v2/webhooks/{id}', protocol: 'http', priority: 1, scenario: null, persistence: 'LiteDB', lastMatched: '1d', status: 'live' },
+    { id: '8', method: 'POST', url: 'mockifyr.grpc.Greeter/SayHello', protocol: 'grpc', priority: 8, scenario: null, persistence: 'Postgres', lastMatched: '41s', status: 'live' },
+    { id: '9', method: 'POST', url: '/graphql · query Balance', protocol: 'graphql', priority: 8, scenario: null, persistence: 'Postgres', lastMatched: '55s', status: 'live' },
+    { id: '10', method: 'GET', url: '/ws/notifications', protocol: 'websocket', priority: 5, scenario: null, persistence: 'In-memory', lastMatched: '2m', status: 'live' },
+  ]
+  if (tenant === 'globex') return base.slice(0, 6).map((s) => ({ ...s, url: s.url.replace('/api/v2', '/retail/v1') }))
+  if (tenant === 'default') return base.slice(0, 3)
+  return base
+}

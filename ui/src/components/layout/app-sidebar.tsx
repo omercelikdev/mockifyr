@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
 import { LOCALES } from '@/lib/i18n'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { TenantSwitcher } from './tenant-switcher'
 import {
   DropdownMenu, DropdownMenuCheckItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger,
@@ -95,8 +96,9 @@ export function AppSidebar() {
           ))}
         </div>
 
-        {/* Profile + menu (language submenu + dark toggle live here) */}
-        <div className="shrink-0 p-3">
+        {/* Tenant switcher (multi-tenancy) + profile menu (language submenu + dark toggle) */}
+        <div className="flex shrink-0 flex-col gap-2 p-3">
+          <TenantSwitcher collapsed={collapsed} />
           <ProfileMenu collapsed={collapsed} />
         </div>
       </nav>
