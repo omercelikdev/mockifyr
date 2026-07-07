@@ -5,6 +5,7 @@ import { useUi } from '@/components/providers'
 import { DashboardPage } from '@/pages/dashboard'
 import { StubsPage } from '@/pages/stubs'
 import { JournalPage } from '@/pages/journal'
+import { ScenariosPage } from '@/pages/scenarios'
 import { PlaceholderPage } from '@/pages/placeholder'
 
 const router = createBrowserRouter([
@@ -15,7 +16,7 @@ const router = createBrowserRouter([
       { index: true, element: <DashboardPage /> },
       { path: 'stubs', element: <StubsPage /> },
       { path: 'journal', element: <JournalPage /> },
-      { path: 'scenarios', element: <PlaceholderPage titleKey="nav.scenarios" /> },
+      { path: 'scenarios', element: <ScenariosPage /> },
       { path: 'recordings', element: <PlaceholderPage titleKey="nav.recordings" /> },
       { path: 'extensions', element: <PlaceholderPage titleKey="nav.extensions" /> },
       { path: 'settings', element: <PlaceholderPage titleKey="nav.settings" /> },

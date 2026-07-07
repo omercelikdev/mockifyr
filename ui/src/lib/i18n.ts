@@ -40,6 +40,9 @@ const resources = {
     journal: { subtitle: 'Every request served to this tenant — matched or not. Unmatched requests are the near-miss candidates.',
       allRequests: 'All requests', unmatchedOnly: 'Unmatched', status: 'Status', result: 'Result', matched: 'Matched',
       unmatched: 'Unmatched', filter: 'Filter by URL…', empty: 'No requests recorded yet.' },
+    scenarios: { subtitle: 'Stateful stub groups. Move a scenario between its states, or reset them all to the start state.',
+      resetAll: 'Reset all', currentState: 'Current state', states: 'states', stateSet: 'Scenario state updated',
+      reset: 'Scenarios reset', empty: 'No scenarios defined for this tenant.' },
   } },
   tr: { translation: {
     brand: { name: 'Mockifyr', sub: 'Mock Platformu' },
@@ -67,6 +70,9 @@ const resources = {
     journal: { subtitle: 'Bu kiracıya sunulan her istek — eşleşen ya da eşleşmeyen. Eşleşmeyenler near-miss adayları.',
       allRequests: 'Tüm istekler', unmatchedOnly: 'Eşleşmeyen', status: 'Durum', result: 'Sonuç', matched: 'Eşleşti',
       unmatched: 'Eşleşmedi', filter: "URL'ye göre filtrele…", empty: 'Henüz kayıtlı istek yok.' },
+    scenarios: { subtitle: "Durum-bilgili stub grupları. Bir senaryoyu durumları arasında taşı ya da hepsini başlangıç durumuna sıfırla.",
+      resetAll: 'Hepsini sıfırla', currentState: 'Mevcut durum', states: 'durum', stateSet: 'Senaryo durumu güncellendi',
+      reset: 'Senaryolar sıfırlandı', empty: 'Bu kiracı için tanımlı senaryo yok.' },
   } },
   fr: { translation: {
     brand: { name: 'Mockifyr', sub: 'Plateforme Mock' },
