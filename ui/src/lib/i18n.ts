@@ -43,6 +43,11 @@ const resources = {
     scenarios: { subtitle: 'Stateful stub groups. Move a scenario between its states, or reset them all to the start state.',
       resetAll: 'Reset all', currentState: 'Current state', states: 'states', stateSet: 'Scenario state updated',
       reset: 'Scenarios reset', empty: 'No scenarios defined for this tenant.' },
+    recordings: { subtitle: 'Record through a proxy: point at an upstream, drive traffic, then snapshot the generated stubs.',
+      recording: 'Recording', stopped_: 'Stopped', target: 'Target base URL', start: 'Start recording', snapshot: 'Snapshot',
+      stop: 'Stop', hint: 'While recording, every unmatched request is proxied to the target and captured as a stub.',
+      captured: 'Captured stubs', captureEmpty: 'Snapshot or stop a recording to capture stubs.', viewJson: 'View JSON',
+      started: 'Recording started', snapshotTaken: 'Captured {{count}} stubs', stopped: 'Stopped · {{count}} stubs captured' },
   } },
   tr: { translation: {
     brand: { name: 'Mockifyr', sub: 'Mock Platformu' },
@@ -73,6 +78,11 @@ const resources = {
     scenarios: { subtitle: "Durum-bilgili stub grupları. Bir senaryoyu durumları arasında taşı ya da hepsini başlangıç durumuna sıfırla.",
       resetAll: 'Hepsini sıfırla', currentState: 'Mevcut durum', states: 'durum', stateSet: 'Senaryo durumu güncellendi',
       reset: 'Senaryolar sıfırlandı', empty: 'Bu kiracı için tanımlı senaryo yok.' },
+    recordings: { subtitle: 'Proxy üzerinden kayıt: bir upstream göster, trafiği sür, sonra oluşan stubları yakala.',
+      recording: 'Kaydediyor', stopped_: 'Durdu', target: 'Hedef base URL', start: 'Kaydı başlat', snapshot: 'Anlık al',
+      stop: 'Durdur', hint: 'Kayıt sırasında eşleşmeyen her istek hedefe proxy edilip stub olarak yakalanır.',
+      captured: 'Yakalanan stublar', captureEmpty: 'Stub yakalamak için anlık al ya da kaydı durdur.', viewJson: "JSON'ı gör",
+      started: 'Kayıt başladı', snapshotTaken: '{{count}} stub yakalandı', stopped: 'Durdu · {{count}} stub yakalandı' },
   } },
   fr: { translation: {
     brand: { name: 'Mockifyr', sub: 'Plateforme Mock' },

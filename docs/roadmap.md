@@ -418,4 +418,8 @@ Delivered in phased, build-green PRs.
   `PUT /__admin/scenarios/{name}/state`) plus a **Reset all** action (`POST /__admin/scenarios/reset`).
   Tenant-scoped (TanStack Query + mutations, sonner toasts); sample fallback when no host. UI-only —
   the admin endpoints already existed. `pnpm build` green; verified in-browser.
-- [ ] UI-P4 Recordings · P5 Settings/Status + polish
+- [x] **UI-P4** Recordings — a record-through-proxy control (target base URL → Start; live Recording/
+  Stopped status with 4s poll; Snapshot / Stop capture the generated stubs) plus a captured-stubs list.
+  Wired to `/__admin/recordings/{start,status,snapshot,stop}` (session is global, not tenant-scoped);
+  sonner toasts + sample fallback. UI-only. `pnpm build` green; verified in-browser.
+- [ ] UI-P5 Settings/Status (persistence / TLS-mTLS / multi-domain read-only status) + polish
