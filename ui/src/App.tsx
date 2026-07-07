@@ -7,7 +7,8 @@ import { StubsPage } from '@/pages/stubs'
 import { JournalPage } from '@/pages/journal'
 import { ScenariosPage } from '@/pages/scenarios'
 import { RecordingsPage } from '@/pages/recordings'
-import { PlaceholderPage } from '@/pages/placeholder'
+import { ExtensionsPage } from '@/pages/extensions'
+import { SettingsPage } from '@/pages/settings'
 
 const router = createBrowserRouter([
   {
@@ -19,8 +20,8 @@ const router = createBrowserRouter([
       { path: 'journal', element: <JournalPage /> },
       { path: 'scenarios', element: <ScenariosPage /> },
       { path: 'recordings', element: <RecordingsPage /> },
-      { path: 'extensions', element: <PlaceholderPage titleKey="nav.extensions" /> },
-      { path: 'settings', element: <PlaceholderPage titleKey="nav.settings" /> },
+      { path: 'extensions', element: <ExtensionsPage /> },
+      { path: 'settings', element: <SettingsPage /> },
     ],
   },
 ])
