@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import { AppSidebar } from './app-sidebar'
 import { CommandPalette } from '@/components/command-palette'
+import { ErrorBoundary } from '@/components/error-boundary'
 import { useUi } from '@/components/providers'
 import { cn } from '@/lib/utils'
 
@@ -21,10 +22,14 @@ export function AppShell() {
       </aside>
       <div className="min-w-0 flex-1 p-3 pe-3 ps-0">
         <main className="scroll-area h-full overflow-y-auto rounded-2xl border border-border bg-surface p-6 shadow-surface md:p-7">
-          <Outlet />
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
-      <CommandPalette />
+      <ErrorBoundary>
+        <CommandPalette />
+      </ErrorBoundary>
     </div>
   )
 }

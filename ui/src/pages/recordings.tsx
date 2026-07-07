@@ -19,7 +19,7 @@ export function RecordingsPage() {
   const [target, setTarget] = useState('https://api.example.com')
   const [captured, setCaptured] = useState<CapturedStub[]>([])
 
-  const { data } = useQuery({ queryKey: ['recording-status', tenant], queryFn: () => fetchRecordingStatus(tenant), refetchInterval: 4000 })
+  const { data } = useQuery({ queryKey: ['recording-status', tenant], queryFn: () => fetchRecordingStatus(tenant), refetchInterval: (q) => (q.state.data?.mock ? false : 4000) })
   const recording = data?.status === 'Recording'
   const refreshStatus = () => void queryClient.invalidateQueries({ queryKey: ['recording-status', tenant] })
 
