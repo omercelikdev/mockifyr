@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   Activity, Bug, ChevronsRight, ChevronsUpDown, Disc, Globe, LayoutDashboard, LayoutGrid,
@@ -110,31 +110,30 @@ export function AppSidebar() {
 
 function NavRow({ item, collapsed, label }: { item: NavItem; collapsed: boolean; label: string }) {
   const Icon = item.icon
+  // Compute active from the location and pass a STRING className. A function className is stringified
+  // by Radix's Slot when the link is wrapped by TooltipTrigger asChild (collapsed mode), which silently
+  // dropped the collapsed centering — so we resolve it ourselves.
+  const { pathname } = useLocation()
+  const isActive = item.to === '/' ? pathname === '/' : pathname === item.to || pathname.startsWith(`${item.to}/`)
   const link = (
     <NavLink
       to={item.to}
       end={item.to === '/'}
-      className={({ isActive }) =>
-        cn(
-          'group relative mb-0.5 flex h-9 items-center rounded-lg text-sm font-medium transition-colors',
-          collapsed ? 'mx-auto w-10 justify-center' : 'gap-2.5 px-2.5',
-          isActive
-            ? 'bg-sidebar-accent text-sidebar-accent-foreground font-semibold'
-            : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-        )
-      }
+      className={cn(
+        'group relative mb-0.5 flex h-9 items-center rounded-lg text-sm font-medium transition-colors',
+        collapsed ? 'mx-auto w-10 justify-center' : 'gap-2.5 px-2.5',
+        isActive
+          ? 'bg-sidebar-accent text-sidebar-accent-foreground font-semibold'
+          : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+      )}
     >
-      {({ isActive }) => (
-        <>
-          {isActive && !collapsed && <span className="absolute inset-y-1.5 start-0 w-[3px] rounded-full bg-primary" />}
-          <Icon className="size-[18px] shrink-0" />
-          {!collapsed && <span className="truncate">{label}</span>}
-          {!collapsed && item.badge && (
-            <span className="ms-auto rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground group-[.font-semibold]:bg-background">
-              {item.badge}
-            </span>
-          )}
-        </>
+      {isActive && !collapsed && <span className="absolute inset-y-1.5 start-0 w-[3px] rounded-full bg-primary" />}
+      <Icon className="size-[18px] shrink-0" />
+      {!collapsed && <span className="truncate">{label}</span>}
+      {!collapsed && item.badge && (
+        <span className={cn('ms-auto rounded-md px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground', isActive ? 'bg-background' : 'bg-muted')}>
+          {item.badge}
+        </span>
       )}
     </NavLink>
   )

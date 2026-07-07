@@ -1,32 +1,12 @@
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Activity, CheckCircle2, Clock, ListTree, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-const TABS = ['overview', 'activity', 'health'] as const
-
 export function DashboardPage() {
   const { t } = useTranslation()
-  const [tab, setTab] = useState<(typeof TABS)[number]>('overview')
 
   return (
     <div className="mx-auto max-w-[1360px]">
-      {/* Segmented tabs (pill, not underlined) */}
-      <div className="mb-6 inline-flex gap-1 rounded-xl bg-muted p-1">
-        {TABS.map((k) => (
-          <button
-            key={k}
-            onClick={() => setTab(k)}
-            className={cn(
-              'rounded-lg px-3.5 py-1.5 text-sm font-semibold capitalize transition-colors',
-              tab === k ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {k}
-          </button>
-        ))}
-      </div>
-
       <header className="mb-6">
         <h1 className="text-[22px] font-bold tracking-tight">{t('dashboard.title')}</h1>
         <p className="mt-1 max-w-[62ch] text-sm text-muted-foreground">{t('dashboard.subtitle')}</p>

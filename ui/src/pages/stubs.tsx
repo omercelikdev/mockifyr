@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -30,9 +31,15 @@ export function StubsPage() {
   const queryClient = useQueryClient()
   const { data, isLoading } = useQuery({ queryKey: ['stubs', tenant], queryFn: () => fetchStubs(tenant) })
 
+  const [searchParams, setSearchParams] = useSearchParams()
   const [editorOpen, setEditorOpen] = useState(false)
   const [editing, setEditing] = useState<Stub | null>(null)
   const refresh = useCallback(() => { void queryClient.invalidateQueries({ queryKey: ['stubs', tenant] }) }, [queryClient, tenant])
+
+  // Deep-link: ?new=1 (e.g. from the command palette's "New stub") opens the editor once.
+  useEffect(() => {
+    if (searchParams.get('new') === '1') { setEditing(null); setEditorOpen(true); setSearchParams({}, { replace: true }) }
+  }, [searchParams, setSearchParams])
 
   const openNew = useCallback(() => { setEditing(null); setEditorOpen(true) }, [])
   const openEdit = useCallback((stub: Stub) => { setEditing(stub); setEditorOpen(true) }, [])

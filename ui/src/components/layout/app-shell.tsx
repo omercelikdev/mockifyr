@@ -20,7 +20,7 @@ export function AppShell() {
         <AppSidebar />
       </aside>
       <div className="min-w-0 flex-1 p-3 pe-3 ps-0">
-        <main className="scroll-area h-full overflow-y-auto rounded-2xl border border-border bg-background p-6 shadow-surface md:p-7">
+        <main className="scroll-area h-full overflow-y-auto rounded-2xl border border-border bg-surface p-6 shadow-surface md:p-7">
           <Outlet />
         </main>
       </div>
