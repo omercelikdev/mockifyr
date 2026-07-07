@@ -26,7 +26,9 @@ export function JournalPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['journal', tenant, unmatchedOnly],
     queryFn: () => fetchJournal(tenant, unmatchedOnly),
-    refetchInterval: 5000,
+    // Poll only when a host is actually answering; in sample mode (no host) fetch once and stop, so we
+    // don't hammer a dead endpoint.
+    refetchInterval: (query) => (query.state.data?.mock ? false : 5000),
   })
 
   const [globalFilter, setGlobalFilter] = useState('')
