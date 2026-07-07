@@ -432,3 +432,10 @@ Delivered in phased, build-green PRs.
 **UI complete** — every nav destination (Dashboard · Stubs · Journal · Scenarios · Recordings ·
 Extensions · Settings) is a real, tenant-aware, i18n'd (6 locales incl. RTL), dark-mode page. Mockifyr
 is now end-to-end: engine + platform + dashboard.
+
+- [x] **UI polish** — all 6 locales fully translated (no English fallback); ⌘K command palette (cmdk);
+  route-level code-splitting (editor deps load on demand).
+- [x] **UI deploy (G12g)** — `--dashboard <dir>` serves the built UI under the reserved `/__mockifyr`
+  prefix (static + SPA fallback), scoped so mock-serving is untouched (`G12gDashboardTests`);
+  `pnpm build:embedded` (base `/__mockifyr/`); a multi-stage **Dockerfile** builds one image serving the
+  engine + admin + dashboard; **CI** now also builds the dashboard on every PR.
