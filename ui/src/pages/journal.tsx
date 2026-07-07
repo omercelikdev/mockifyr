@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import {
-  type ColumnDef, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel,
+  type ColumnDef, type FilterFn, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel,
   getSortedRowModel, type SortingState, useReactTable,
 } from '@tanstack/react-table'
 import { ArrowUpDown, CheckCircle2, ChevronLeft, ChevronRight, Search, XCircle } from 'lucide-react'
@@ -18,6 +18,14 @@ function statusTone(status: number | null): string {
   if (status >= 400) return 'text-warning bg-warning-bg border-warning-border'
   return 'text-success bg-success-bg border-success-border'
 }
+
+// TanStack Table requires referentially-stable `data`, `columns` and option callbacks across renders;
+// a fresh array/function each render feeds an update→render→update cycle that pegs the main thread on a
+// visible tab (the scheduler runs it at full speed) while staying invisible on a throttled background
+// tab. Keep these module-level/stable and pass a stable empty array for the loading state.
+const EMPTY_ENTRIES: JournalEntry[] = []
+const filterByUrl: FilterFn<JournalEntry> = (row, _id, value) =>
+  row.original.url.toLowerCase().includes(String(value).toLowerCase())
 
 export function JournalPage() {
   const { t } = useTranslation()
@@ -52,17 +60,21 @@ export function JournalPage() {
     },
   ], [t])
 
+  // Stable data reference: only changes when the query result actually changes, never per-render.
+  const rows = useMemo<JournalEntry[]>(() => data?.entries ?? EMPTY_ENTRIES, [data])
+
   const table = useReactTable({
-    data: data?.entries ?? [],
+    data: rows,
     columns,
     state: { sorting, globalFilter },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
-    globalFilterFn: (row, _id, value) => row.original.url.toLowerCase().includes(String(value).toLowerCase()),
+    globalFilterFn: filterByUrl,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    autoResetPageIndex: false,
     initialState: { pagination: { pageSize: 12 } },
   })
 
