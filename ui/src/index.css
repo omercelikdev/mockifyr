@@ -11,10 +11,11 @@
   from the accent hue.
 */
 :root {
-  --app: #f3f3f5;            /* grey ground behind the rounded surface */
-  --background: #ffffff;     /* surface / cards */
+  --app: #ffffff;            /* outer frame — same tone as the sidebar */
+  --surface: #f5f5f7;        /* the rounded body area — a subtle grey so it separates from the white sidebar and lifts the white cards */
+  --background: #ffffff;     /* cards / panels */
   --foreground: #18181b;     /* text primary */
-  --muted: #f4f4f5;
+  --muted: #ececef;          /* segmented control / hover / chips — a touch darker than the surface so it reads on it */
   --muted-foreground: #71717a;
   --faint: #a1a1aa;
   --border: #e6e6e9;
@@ -44,10 +45,11 @@
 }
 
 .dark {
-  --app: #08080a;
-  --background: #121216;
+  --app: #0a0a0c;
+  --surface: #101014;        /* the rounded body area — between the frame and the cards */
+  --background: #17171c;     /* cards / panels — lifted above the surface */
   --foreground: #f4f4f5;
-  --muted: #1a1a1f;
+  --muted: #202027;
   --muted-foreground: #a1a1aa;
   --faint: #71717a;
   --border: #26262b;
@@ -78,6 +80,7 @@
    `border-border`, `rounded-lg`, etc. all resolve from the tokens above. */
 @theme inline {
   --color-app: var(--app);
+  --color-surface: var(--surface);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
