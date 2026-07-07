@@ -160,6 +160,10 @@ public sealed class StubEngine
     public IReadOnlyList<CanonicalRequest> FindUnmatchedRequests(TenantId tenant) =>
         [.. _journal.Query(tenant, new ServeEventQuery { UnmatchedOnly = true }).Select(e => e.Request)];
 
+    /// <summary>The journaled serve events for a tenant (WireMock's <c>requests</c> log), newest last.</summary>
+    public IReadOnlyList<ServeEvent> GetServeEvents(TenantId tenant, ServeEventQuery query) =>
+        _journal.Query(tenant, query);
+
     /// <summary>
     /// The stubs closest to an unmatched request, ranked by ascending match distance — the near-miss
     /// diagnostic. The distance is the same one matching computes, so no extra machinery is needed.

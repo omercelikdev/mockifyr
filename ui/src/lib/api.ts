@@ -83,6 +83,40 @@ export async function saveStub(tenant: string, mappingJson: string, id?: string)
   }
 }
 
+// A request-journal entry as the dashboard needs it — a flat projection of a serve event.
+export interface JournalEntry {
+  id: string
+  method: string
+  url: string
+  status: number | null
+  wasMatched: boolean
+}
+
+/** Loads the tenant's request journal (GET /__admin/requests), with a sample fallback when no host. */
+export async function fetchJournal(tenant: string, unmatchedOnly: boolean): Promise<{ entries: JournalEntry[]; mock: boolean }> {
+  try {
+    const res = await adminFetch(`/requests${unmatchedOnly ? '?unmatched=true' : ''}`, tenant)
+    if (!res.ok) throw new Error(String(res.status))
+    const body = (await res.json()) as { requests?: JournalEntry[] }
+    return { entries: body.requests ?? [], mock: false }
+  } catch {
+    const all = sampleJournal(tenant)
+    return { entries: unmatchedOnly ? all.filter((e) => !e.wasMatched) : all, mock: true }
+  }
+}
+
+function sampleJournal(tenant: string): JournalEntry[] {
+  const rows: JournalEntry[] = [
+    { id: 'r1', method: 'POST', url: '/api/v2/payments', status: 200, wasMatched: true },
+    { id: 'r2', method: 'GET', url: '/api/v2/accounts/8891', status: 200, wasMatched: true },
+    { id: 'r3', method: 'GET', url: '/api/v2/accounts/8891/statements', status: 404, wasMatched: false },
+    { id: 'r4', method: 'POST', url: '/api/v2/payments/9/capture', status: 200, wasMatched: true },
+    { id: 'r5', method: 'DELETE', url: '/api/v2/mandates/44', status: 404, wasMatched: false },
+    { id: 'r6', method: 'GET', url: '/api/v2/rates?from=EUR&to=TRY', status: 200, wasMatched: true },
+  ]
+  return tenant === 'globex' ? rows.slice(0, 3) : rows
+}
+
 /** Deletes a stub by id. Returns `mock: true` when no host answered. */
 export async function deleteStub(tenant: string, id: string): Promise<{ mock: boolean }> {
   try {

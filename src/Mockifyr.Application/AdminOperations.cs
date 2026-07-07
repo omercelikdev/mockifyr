@@ -31,6 +31,10 @@ public sealed record CountRequestsQuery(string PatternJson, TenantId Tenant) : I
 /// <summary>Lists the journaled requests that matched no stub.</summary>
 public sealed record FindUnmatchedRequestsQuery(TenantId Tenant) : IQuery<Result<IReadOnlyList<CanonicalRequest>>>;
 
+/// <summary>Lists the journaled serve events for a tenant (the request log).</summary>
+public sealed record GetServeEventsQuery(TenantId Tenant, bool UnmatchedOnly = false, int? Limit = null)
+    : IQuery<Result<IReadOnlyList<ServeEvent>>>;
+
 /// <summary>A scenario's current state and the states it can be in (G12c admin).</summary>
 public sealed record ScenarioView(string Name, string State, IReadOnlyList<string> PossibleStates);
 

@@ -407,4 +407,10 @@ Delivered in phased, build-green PRs.
   to the default tenant, so single-tenant callers are unchanged. Makes the UI tenant switcher real
   end-to-end. Self-tested isolation (`G7bAdminTenantTests`) — a stub created under one tenant is visible
   only to it; no oracle (WireMock is single-tenant). Recordings/`ext` stay global.
-- [ ] UI-P2 Request journal (near-miss) · P3 Scenarios · P4 Recordings · P5 Settings/Status + polish
+- [x] **UI-P2 + G6b** Request journal — a new `StubEngine.GetServeEvents` + `GetServeEventsQuery` +
+  admin **`GET /__admin/requests`** (tenant-scoped, `?unmatched=true` filter) expose the request log;
+  the UI Journal page (TanStack Table) shows method / URL / status (colour-coded) / matched-vs-unmatched,
+  with an All/Unmatched toggle, filter, pagination and 5s auto-refresh. Self-tested end-to-end
+  (`G6bJournalTests`: matched + unmatched events, unmatched filter, tenant isolation). `dotnet`/`pnpm`
+  builds green. (Timestamps aren't shown — the pure engine doesn't stamp time by design.)
+- [ ] UI-P3 Scenarios · P4 Recordings · P5 Settings/Status + polish
