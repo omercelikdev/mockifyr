@@ -37,6 +37,9 @@ const resources = {
       templating: 'Apply response templating', delay: 'Fixed delay (ms)', fault: 'Fault', none: 'None', proxy: 'Proxy base URL',
       requiredState: 'Required state', newState: 'New state', cancel: 'Cancel', save: 'Save stub',
       saved: 'Stub saved', savedSample: 'Saved (sample mode — no host)', invalidJson: 'Invalid JSON', deleted: 'Stub deleted' },
+    journal: { subtitle: 'Every request served to this tenant — matched or not. Unmatched requests are the near-miss candidates.',
+      allRequests: 'All requests', unmatchedOnly: 'Unmatched', status: 'Status', result: 'Result', matched: 'Matched',
+      unmatched: 'Unmatched', filter: 'Filter by URL…', empty: 'No requests recorded yet.' },
   } },
   tr: { translation: {
     brand: { name: 'Mockifyr', sub: 'Mock Platformu' },
@@ -61,6 +64,9 @@ const resources = {
       templating: 'Yanıt templating uygula', delay: 'Sabit gecikme (ms)', fault: 'Hata (fault)', none: 'Yok', proxy: 'Proxy base URL',
       requiredState: 'Gerekli durum', newState: 'Yeni durum', cancel: 'İptal', save: "Stub'ı kaydet",
       saved: 'Stub kaydedildi', savedSample: 'Kaydedildi (örnek mod — host yok)', invalidJson: 'Geçersiz JSON', deleted: 'Stub silindi' },
+    journal: { subtitle: 'Bu kiracıya sunulan her istek — eşleşen ya da eşleşmeyen. Eşleşmeyenler near-miss adayları.',
+      allRequests: 'Tüm istekler', unmatchedOnly: 'Eşleşmeyen', status: 'Durum', result: 'Sonuç', matched: 'Eşleşti',
+      unmatched: 'Eşleşmedi', filter: "URL'ye göre filtrele…", empty: 'Henüz kayıtlı istek yok.' },
   } },
   fr: { translation: {
     brand: { name: 'Mockifyr', sub: 'Plateforme Mock' },

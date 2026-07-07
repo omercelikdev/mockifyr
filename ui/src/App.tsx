@@ -4,6 +4,7 @@ import { AppShell } from '@/components/layout/app-shell'
 import { useUi } from '@/components/providers'
 import { DashboardPage } from '@/pages/dashboard'
 import { StubsPage } from '@/pages/stubs'
+import { JournalPage } from '@/pages/journal'
 import { PlaceholderPage } from '@/pages/placeholder'
 
 const router = createBrowserRouter([
@@ -13,7 +14,7 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <DashboardPage /> },
       { path: 'stubs', element: <StubsPage /> },
-      { path: 'journal', element: <PlaceholderPage titleKey="nav.journal" /> },
+      { path: 'journal', element: <JournalPage /> },
       { path: 'scenarios', element: <PlaceholderPage titleKey="nav.scenarios" /> },
       { path: 'recordings', element: <PlaceholderPage titleKey="nav.recordings" /> },
       { path: 'extensions', element: <PlaceholderPage titleKey="nav.extensions" /> },

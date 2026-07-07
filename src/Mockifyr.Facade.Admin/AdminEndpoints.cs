@@ -75,6 +75,24 @@ public static class AdminEndpoints
             return Results.Json(new { count = result.Value });
         });
 
+        admin.MapGet("/requests", async (HttpRequest request, ISender sender) =>
+        {
+            var unmatchedOnly = request.Query.TryGetValue("unmatched", out var u) && u == "true";
+            var result = await sender.Send(new GetServeEventsQuery(TenantOf(request), unmatchedOnly));
+            return Results.Json(new
+            {
+                requests = result.Value.Select(e => new
+                {
+                    id = e.Id,
+                    method = e.Request.Method,
+                    url = e.Request.Url,
+                    status = e.Response?.Status,
+                    wasMatched = e.MatchedStub is not null,
+                    stubId = e.MatchedStub?.Id,
+                }),
+            });
+        });
+
         admin.MapGet("/scenarios", async (HttpRequest request, ISender sender) =>
         {
             var result = await sender.Send(new GetScenariosQuery(TenantOf(request)));

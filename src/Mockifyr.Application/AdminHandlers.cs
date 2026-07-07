@@ -129,6 +129,16 @@ public sealed class FindUnmatchedRequestsHandler(StubEngine engine)
         ValueTask.FromResult(Result.Success(engine.FindUnmatchedRequests(query.Tenant)));
 }
 
+/// <summary>Lists the journaled serve events for a tenant (the request log).</summary>
+public sealed class GetServeEventsHandler(StubEngine engine)
+    : IQueryHandler<GetServeEventsQuery, Result<IReadOnlyList<ServeEvent>>>
+{
+    public ValueTask<Result<IReadOnlyList<ServeEvent>>> Handle(
+        GetServeEventsQuery query, CancellationToken cancellationToken) =>
+        ValueTask.FromResult(Result.Success(
+            engine.GetServeEvents(query.Tenant, new ServeEventQuery { UnmatchedOnly = query.UnmatchedOnly, Limit = query.Limit })));
+}
+
 /// <summary>Projects the tenant's scenarios (from the bound stubs) with their current state.</summary>
 public sealed class GetScenariosHandler(IStubStore store, IScenarioStateStore states)
     : IQueryHandler<GetScenariosQuery, Result<IReadOnlyList<ScenarioView>>>
