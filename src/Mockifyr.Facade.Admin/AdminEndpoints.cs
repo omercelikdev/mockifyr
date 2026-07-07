@@ -29,6 +29,22 @@ public static class AdminEndpoints
     {
         var admin = endpoints.MapGroup("/__admin");
 
+        // Host status for the dashboard's Settings/Status screen: the active persistence provider and
+        // live tenant/stub counts, gathered from DI. Host-config knobs (TLS, ports) are set by CLI flags
+        // at startup and aren't admin-mutable, so they are documented in the UI rather than reported here.
+        admin.MapGet("/health", (IStubStore store, IStubPersistence persistence) =>
+        {
+            var tenants = store.GetTenants();
+            return Results.Json(new
+            {
+                name = "Mockifyr",
+                version = "1.0",
+                persistence = persistence.GetType().Name,
+                tenants = tenants.Count,
+                totalStubs = tenants.Sum(t => store.GetStubs(t).Count),
+            });
+        });
+
         admin.MapGet("/mappings", async (HttpRequest request, ISender sender) =>
         {
             var result = await sender.Send(new GetStubsQuery(TenantOf(request)));

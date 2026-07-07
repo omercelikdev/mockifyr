@@ -83,6 +83,36 @@ export async function saveStub(tenant: string, mappingJson: string, id?: string)
   }
 }
 
+// Host status for the Settings/Status screen.
+export interface Health {
+  name: string
+  version: string
+  persistence: string
+  tenants: number
+  totalStubs: number
+}
+
+const PERSISTENCE_LABEL: Record<string, string> = {
+  NullStubPersistence: 'In-memory (ephemeral)',
+  FileSystemStubPersistence: 'File-based (JSON)',
+  LiteDbStubPersistence: 'LiteDB (embedded)',
+  PostgresStubPersistence: 'PostgreSQL',
+  RedisStubPersistence: 'Redis',
+}
+
+/** Friendly label for a persistence provider type name. */
+export const persistenceLabel = (name: string) => PERSISTENCE_LABEL[name] ?? name
+
+export async function fetchHealth(tenant: string): Promise<{ health: Health; mock: boolean }> {
+  try {
+    const res = await adminFetch('/health', tenant)
+    if (!res.ok) throw new Error(String(res.status))
+    return { health: (await res.json()) as Health, mock: false }
+  } catch {
+    return { health: { name: 'Mockifyr', version: '1.0', persistence: 'NullStubPersistence', tenants: 3, totalStubs: 248 }, mock: true }
+  }
+}
+
 // Record-through-proxy session (G8/G9). Not tenant-scoped — the recording session is global.
 export type RecordingStatus = 'Recording' | 'Stopped'
 export interface CapturedStub { method: string; url: string; raw: string }

@@ -422,4 +422,13 @@ Delivered in phased, build-green PRs.
   Stopped status with 4s poll; Snapshot / Stop capture the generated stubs) plus a captured-stubs list.
   Wired to `/__admin/recordings/{start,status,snapshot,stop}` (session is global, not tenant-scoped);
   sonner toasts + sample fallback. UI-only. `pnpm build` green; verified in-browser.
-- [ ] UI-P5 Settings/Status (persistence / TLS-mTLS / multi-domain read-only status) + polish
+- [x] **UI-P5 + G7c** Settings/Status + Extensions — closes the UI. A new admin **`GET /__admin/health`**
+  reports host name/version, the **active persistence provider**, and live tenant/stub counts (from DI);
+  the Settings page shows Status (real health) + Persistence (active provider highlighted) + Transport
+  (read-only capability list — host-config, not admin-mutable) + Appearance (theme + language). An
+  Extensions page documents the built-in capabilities (templating helpers, matchers, protocols) and
+  extension seams. Self-tested (`G7cHealthTests`: reports provider + live counts). `dotnet`/`pnpm` green.
+
+**UI complete** — every nav destination (Dashboard · Stubs · Journal · Scenarios · Recordings ·
+Extensions · Settings) is a real, tenant-aware, i18n'd (6 locales incl. RTL), dark-mode page. Mockifyr
+is now end-to-end: engine + platform + dashboard.
