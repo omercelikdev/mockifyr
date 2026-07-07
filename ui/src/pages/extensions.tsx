@@ -1,5 +1,7 @@
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Braces, Filter, Network, Puzzle } from 'lucide-react'
+import { SearchBox } from '@/components/ui/search-box'
 
 // The Extensions screen documents the engine's built-in capabilities and extension seams. These are
 // compiled/registered at the host (not admin-mutable), so this is a reference, not an editor.
@@ -24,6 +26,18 @@ const GROUPS = [
 
 export function ExtensionsPage() {
   const { t } = useTranslation()
+  const [search, setSearch] = useState('')
+
+  // Static reference content, so a plain text search (committed on Enter) over capability names is the
+  // only meaningful filter — a multi-select facet would just mirror the visual grouping.
+  const groups = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return GROUPS
+    return GROUPS
+      .map((g) => ({ ...g, items: g.items.filter((i) => i.toLowerCase().includes(q)) }))
+      .filter((g) => g.items.length > 0)
+  }, [search])
+
   return (
     <div className="mx-auto max-w-[1360px]">
       <header className="mb-6">
@@ -31,8 +45,15 @@ export function ExtensionsPage() {
         <p className="mt-1 max-w-[62ch] text-sm text-muted-foreground">{t('extensions.subtitle')}</p>
       </header>
 
+      <div className="mb-4 flex max-w-md">
+        <SearchBox value={search} onCommit={setSearch} placeholder={t('common.search')} />
+      </div>
+
+      {groups.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border bg-muted/40 px-6 py-16 text-center text-sm text-muted-foreground">{t('common.noResults')}</div>
+      ) : (
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {GROUPS.map(({ icon: Icon, key, items }) => (
+        {groups.map(({ icon: Icon, key, items }) => (
           <section key={key} className="rounded-2xl border border-border bg-background p-5 shadow-surface">
             <div className="mb-3 flex items-center gap-2.5">
               <span className="flex size-8 items-center justify-center rounded-lg bg-muted text-muted-foreground"><Icon className="size-4" /></span>
@@ -44,6 +65,7 @@ export function ExtensionsPage() {
           </section>
         ))}
       </div>
+      )}
     </div>
   )
 }

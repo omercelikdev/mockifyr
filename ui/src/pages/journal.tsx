@@ -2,15 +2,20 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import {
-  type ColumnDef, type FilterFn, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel,
+  type ColumnDef, flexRender, getCoreRowModel, getPaginationRowModel,
   getSortedRowModel, type SortingState, useReactTable,
 } from '@tanstack/react-table'
-import { ArrowUpDown, CheckCircle2, ChevronLeft, ChevronRight, Search, XCircle } from 'lucide-react'
+import { ArrowUpDown, CheckCircle2, ChevronLeft, ChevronRight, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
 import { fetchJournal, type JournalEntry } from '@/lib/api'
 import { MethodChip } from '@/components/ui/badges'
 import { Button } from '@/components/ui/button'
+import { FacetFilter } from '@/components/ui/facet-filter'
+import { SearchBox } from '@/components/ui/search-box'
+import {
+  applyFilters, clearFacet, countSelected, type FacetDef, facetOptions, type Selections, toggleSelection,
+} from '@/lib/faceted'
 
 function statusTone(status: number | null): string {
   if (status == null) return 'text-muted-foreground bg-muted border-border'
@@ -19,13 +24,24 @@ function statusTone(status: number | null): string {
   return 'text-success bg-success-bg border-success-border'
 }
 
-// TanStack Table requires referentially-stable `data`, `columns` and option callbacks across renders;
-// a fresh array/function each render feeds an update→render→update cycle that pegs the main thread on a
-// visible tab (the scheduler runs it at full speed) while staying invisible on a throttled background
-// tab. Keep these module-level/stable and pass a stable empty array for the loading state.
+/** Group a status into its class for faceting (2xx/3xx/4xx/5xx), or null when there is no response. */
+function statusClass(status: number | null): string | null {
+  if (status == null) return null
+  if (status >= 500) return '5xx'
+  if (status >= 400) return '4xx'
+  if (status >= 300) return '3xx'
+  if (status >= 200) return '2xx'
+  return null
+}
+
+// TanStack Table requires referentially-stable `data`/`columns` across renders; a fresh array each
+// render feeds an update→render→update cycle that freezes a visible tab. Keep every table input stable.
 const EMPTY_ENTRIES: JournalEntry[] = []
-const filterByUrl: FilterFn<JournalEntry> = (row, _id, value) =>
-  row.original.url.toLowerCase().includes(String(value).toLowerCase())
+const EMPTY_SET = new Set<string>()
+const FACETS: FacetDef<JournalEntry>[] = [
+  { id: 'method', get: (r) => r.method },
+  { id: 'status', get: (r) => statusClass(r.status) },
+]
 
 export function JournalPage() {
   const { t } = useTranslation()
@@ -39,7 +55,8 @@ export function JournalPage() {
     refetchInterval: (query) => (query.state.data?.mock ? false : 5000),
   })
 
-  const [globalFilter, setGlobalFilter] = useState('')
+  const [selected, setSelected] = useState<Selections>({})
+  const [search, setSearch] = useState('')
   const [sorting, setSorting] = useState<SortingState>([])
 
   const columns = useMemo<ColumnDef<JournalEntry>[]>(() => [
@@ -60,23 +77,26 @@ export function JournalPage() {
     },
   ], [t])
 
-  // Stable data reference: only changes when the query result actually changes, never per-render.
-  const rows = useMemo<JournalEntry[]>(() => data?.entries ?? EMPTY_ENTRIES, [data])
+  // Stable references: entries changes only when the query result changes; facet options and the
+  // filtered set are memoized so the table never sees a fresh array on an unrelated render.
+  const entries = data?.entries ?? EMPTY_ENTRIES
+  const methodOptions = useMemo(() => facetOptions(entries, (r) => r.method), [entries])
+  const statusOptions = useMemo(() => facetOptions(entries, (r) => statusClass(r.status)), [entries])
+  const rows = useMemo(() => applyFilters(entries, FACETS, selected, search, (r) => r.url), [entries, selected, search])
 
   const table = useReactTable({
     data: rows,
     columns,
-    state: { sorting, globalFilter },
+    state: { sorting },
     onSortingChange: setSorting,
-    onGlobalFilterChange: setGlobalFilter,
-    globalFilterFn: filterByUrl,
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     autoResetPageIndex: false,
     initialState: { pagination: { pageSize: 12 } },
   })
+
+  const activeCount = countSelected(selected)
 
   return (
     <div className="mx-auto max-w-[1360px]">
@@ -92,10 +112,14 @@ export function JournalPage() {
 
       <div className="overflow-hidden rounded-2xl border border-border bg-background shadow-surface">
         <div className="flex flex-wrap items-center gap-2 border-b border-border p-3">
-          <label className="flex h-9 min-w-[220px] items-center gap-2 rounded-lg border border-border bg-muted/50 px-3">
-            <Search className="size-4 text-muted-foreground" />
-            <input value={globalFilter} onChange={(e) => setGlobalFilter(e.target.value)} placeholder={t('journal.filter')} className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
-          </label>
+          <SearchBox value={search} onCommit={setSearch} placeholder={t('journal.filter')} />
+          <FacetFilter label={t('stubs.method')} options={methodOptions} selected={selected.method ?? EMPTY_SET}
+            onToggle={(v) => setSelected((s) => toggleSelection(s, 'method', v))} onClear={() => setSelected((s) => clearFacet(s, 'method'))} clearLabel={t('common.clear')} />
+          <FacetFilter label={t('journal.status')} options={statusOptions} selected={selected.status ?? EMPTY_SET}
+            onToggle={(v) => setSelected((s) => toggleSelection(s, 'status', v))} onClear={() => setSelected((s) => clearFacet(s, 'status'))} clearLabel={t('common.clear')} />
+          {activeCount > 0 && (
+            <Button variant="ghost" size="sm" onClick={() => setSelected({})}>{t('common.clear')}</Button>
+          )}
         </div>
 
         <div className="scroll-area overflow-x-auto">
@@ -138,7 +162,7 @@ export function JournalPage() {
           {data?.mock && (
             <span className="inline-flex items-center gap-1.5 rounded-full border border-warning-border bg-warning-bg px-2.5 py-0.5 text-[11.5px] font-medium text-warning">{t('stubs.sample')}</span>
           )}
-          <span>{t('stubs.showing')} <b className="tabular-nums">{table.getRowModel().rows.length}</b> {t('stubs.of')} <b className="tabular-nums">{data?.total ?? 0}</b></span>
+          <span>{t('stubs.showing')} <b className="tabular-nums">{table.getRowModel().rows.length}</b> {t('stubs.of')} <b className="tabular-nums">{rows.length}</b></span>
           {data && data.total > data.entries.length && (
             <span className="text-warning">· {t('journal.capped', { cap: data.entries.length })}</span>
           )}

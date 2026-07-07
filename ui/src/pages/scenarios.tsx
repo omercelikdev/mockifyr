@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { RotateCcw, Waypoints } from 'lucide-react'
@@ -6,6 +7,14 @@ import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
 import { fetchScenarios, resetScenarios, setScenarioState, type Scenario } from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { FacetFilter } from '@/components/ui/facet-filter'
+import { SearchBox } from '@/components/ui/search-box'
+import {
+  applyFilters, clearFacet, type FacetDef, facetOptions, type Selections, toggleSelection,
+} from '@/lib/faceted'
+
+const EMPTY_SET = new Set<string>()
+const FACETS: FacetDef<Scenario>[] = [{ id: 'state', get: (s) => s.state }]
 
 export function ScenariosPage() {
   const { t } = useTranslation()
@@ -24,6 +33,10 @@ export function ScenariosPage() {
   })
 
   const scenarios = data?.scenarios ?? []
+  const [selected, setSelected] = useState<Selections>({})
+  const [search, setSearch] = useState('')
+  const stateOptions = useMemo(() => facetOptions(scenarios, (s) => s.state), [scenarios])
+  const filtered = useMemo(() => applyFilters(scenarios, FACETS, selected, search, (s) => s.name), [scenarios, selected, search])
 
   return (
     <div className="mx-auto max-w-[1360px]">
@@ -43,6 +56,14 @@ export function ScenariosPage() {
         </div>
       )}
 
+      {!isLoading && scenarios.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <SearchBox value={search} onCommit={setSearch} placeholder={t('common.search')} />
+          <FacetFilter label={t('scenarios.currentState')} options={stateOptions} selected={selected.state ?? EMPTY_SET}
+            onToggle={(v) => setSelected((s) => toggleSelection(s, 'state', v))} onClear={() => setSelected((s) => clearFacet(s, 'state'))} clearLabel={t('common.clear')} />
+        </div>
+      )}
+
       {isLoading ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-40 animate-pulse rounded-2xl bg-muted" />)}
@@ -52,9 +73,14 @@ export function ScenariosPage() {
           <Waypoints className="size-8 text-faint" />
           <p className="text-sm text-muted-foreground">{t('scenarios.empty')}</p>
         </div>
+      ) : filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-muted/40 px-6 py-20 text-center">
+          <Waypoints className="size-8 text-faint" />
+          <p className="text-sm text-muted-foreground">{t('common.noResults')}</p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {scenarios.map((s) => (
+          {filtered.map((s) => (
             <ScenarioCard key={s.name} scenario={s} onSet={(state) => setState.mutate({ name: s.name, state })} />
           ))}
         </div>

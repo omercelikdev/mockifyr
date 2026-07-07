@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Camera, Circle, Play, Square } from 'lucide-react'
@@ -11,6 +11,14 @@ import {
 import { MethodChip } from '@/components/ui/badges'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/field'
+import { FacetFilter } from '@/components/ui/facet-filter'
+import { SearchBox } from '@/components/ui/search-box'
+import {
+  applyFilters, clearFacet, type FacetDef, facetOptions, type Selections, toggleSelection,
+} from '@/lib/faceted'
+
+const EMPTY_SET = new Set<string>()
+const FACETS: FacetDef<CapturedStub>[] = [{ id: 'method', get: (s) => s.method }]
 
 export function RecordingsPage() {
   const { t } = useTranslation()
@@ -18,6 +26,10 @@ export function RecordingsPage() {
   const queryClient = useQueryClient()
   const [target, setTarget] = useState('https://api.example.com')
   const [captured, setCaptured] = useState<CapturedStub[]>([])
+  const [selected, setSelected] = useState<Selections>({})
+  const [search, setSearch] = useState('')
+  const methodOptions = useMemo(() => facetOptions(captured, (s) => s.method), [captured])
+  const filteredCaptured = useMemo(() => applyFilters(captured, FACETS, selected, search, (s) => s.url), [captured, selected, search])
 
   const { data } = useQuery({ queryKey: ['recording-status', tenant], queryFn: () => fetchRecordingStatus(tenant), refetchInterval: (q) => (q.state.data?.mock ? false : 4000) })
   const recording = data?.status === 'Recording'
@@ -75,15 +87,24 @@ export function RecordingsPage() {
 
       {/* Captured stubs */}
       <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background shadow-surface">
-        <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
           <h2 className="text-sm font-semibold">{t('recordings.captured')}</h2>
           <span className="text-xs text-muted-foreground tabular-nums">· {captured.length}</span>
+          {captured.length > 0 && (
+            <div className="ms-auto flex flex-wrap items-center gap-2">
+              <SearchBox value={search} onCommit={setSearch} placeholder={t('stubs.filter')} />
+              <FacetFilter label={t('stubs.method')} options={methodOptions} selected={selected.method ?? EMPTY_SET}
+                onToggle={(v) => setSelected((s) => toggleSelection(s, 'method', v))} onClear={() => setSelected((s) => clearFacet(s, 'method'))} clearLabel={t('common.clear')} />
+            </div>
+          )}
         </div>
         {captured.length === 0 ? (
           <div className="px-4 py-14 text-center text-sm text-muted-foreground">{t('recordings.captureEmpty')}</div>
+        ) : filteredCaptured.length === 0 ? (
+          <div className="px-4 py-14 text-center text-sm text-muted-foreground">{t('common.noResults')}</div>
         ) : (
           <ul className="divide-y divide-border">
-            {captured.map((s, i) => (
+            {filteredCaptured.map((s, i) => (
               <li key={i} className="flex items-center gap-3 px-4 py-3">
                 <MethodChip method={s.method} />
                 <span className="min-w-0 flex-1 truncate font-mono text-[12.5px]">{s.url}</span>
