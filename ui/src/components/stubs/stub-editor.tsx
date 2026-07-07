@@ -62,10 +62,14 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
     onOpenChange(false)
   }
 
+  const importing = !editing && initialTab === 'json'
+  const title = editing ? t('editor.editTitle') : importing ? t('editor.importTitle') : t('editor.newTitle')
+  const description = importing ? t('editor.importDesc') : t('stubs.subtitle')
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent>
-        <SheetHeader title={editing ? t('editor.editTitle') : t('editor.newTitle')} description={t('stubs.subtitle')} />
+        <SheetHeader title={title} description={description} />
 
         <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col">
           <div className="px-6 pt-4">
