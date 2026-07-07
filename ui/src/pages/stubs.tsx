@@ -155,8 +155,8 @@ export function StubsPage() {
           <p className="mt-1 max-w-[62ch] text-sm text-muted-foreground">{t('stubs.subtitle')}</p>
         </div>
         <div className="ms-auto flex gap-2">
-          <Button variant="outline" onClick={openImport}><Import />{t('stubs.import')}</Button>
-          <Button variant="primary" onClick={openNew}><Plus />{t('stubs.newStub')}</Button>
+          <Button variant="outline" className="min-w-[116px]" onClick={openImport}><Import />{t('stubs.import')}</Button>
+          <Button variant="primary" className="min-w-[116px]" onClick={openNew}><Plus />{t('stubs.newStub')}</Button>
         </div>
       </header>
 
