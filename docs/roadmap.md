@@ -413,4 +413,9 @@ Delivered in phased, build-green PRs.
   with an All/Unmatched toggle, filter, pagination and 5s auto-refresh. Self-tested end-to-end
   (`G6bJournalTests`: matched + unmatched events, unmatched filter, tenant isolation). `dotnet`/`pnpm`
   builds green. (Timestamps aren't shown — the pure engine doesn't stamp time by design.)
-- [ ] UI-P3 Scenarios · P4 Recordings · P5 Settings/Status + polish
+- [x] **UI-P3** Scenarios — a card grid of the tenant's stateful stub groups; each card shows the state
+  machine as chips (current state highlighted, click another to move the scenario via
+  `PUT /__admin/scenarios/{name}/state`) plus a **Reset all** action (`POST /__admin/scenarios/reset`).
+  Tenant-scoped (TanStack Query + mutations, sonner toasts); sample fallback when no host. UI-only —
+  the admin endpoints already existed. `pnpm build` green; verified in-browser.
+- [ ] UI-P4 Recordings · P5 Settings/Status + polish

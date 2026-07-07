@@ -83,6 +83,56 @@ export async function saveStub(tenant: string, mappingJson: string, id?: string)
   }
 }
 
+// A scenario (stateful stub group) and its state machine.
+export interface Scenario {
+  name: string
+  state: string
+  possibleStates: string[]
+}
+
+/** Loads the tenant's scenarios (GET /__admin/scenarios), with a sample fallback when no host. */
+export async function fetchScenarios(tenant: string): Promise<{ scenarios: Scenario[]; mock: boolean }> {
+  try {
+    const res = await adminFetch('/scenarios', tenant)
+    if (!res.ok) throw new Error(String(res.status))
+    const body = (await res.json()) as { scenarios?: Scenario[] }
+    return { scenarios: body.scenarios ?? [], mock: false }
+  } catch {
+    return { scenarios: sampleScenarios(tenant), mock: true }
+  }
+}
+
+/** Moves a scenario to a state (PUT /__admin/scenarios/{name}/state). */
+export async function setScenarioState(tenant: string, name: string, state: string): Promise<{ mock: boolean }> {
+  try {
+    const res = await adminFetch(`/scenarios/${encodeURIComponent(name)}/state`, tenant, { method: 'PUT', body: JSON.stringify({ state }) })
+    if (!res.ok) throw new Error(String(res.status))
+    return { mock: false }
+  } catch {
+    return { mock: true }
+  }
+}
+
+/** Resets every scenario to its start state (POST /__admin/scenarios/reset). */
+export async function resetScenarios(tenant: string): Promise<{ mock: boolean }> {
+  try {
+    const res = await adminFetch('/scenarios/reset', tenant, { method: 'POST' })
+    if (!res.ok) throw new Error(String(res.status))
+    return { mock: false }
+  } catch {
+    return { mock: true }
+  }
+}
+
+function sampleScenarios(tenant: string): Scenario[] {
+  const base: Scenario[] = [
+    { name: 'Checkout', state: 'Started', possibleStates: ['Started', 'PaymentAuthorized', 'Captured'] },
+    { name: 'AccountOnboarding', state: 'KycPending', possibleStates: ['Started', 'KycPending', 'Active'] },
+    { name: 'MandateSetup', state: 'Active', possibleStates: ['Started', 'Active', 'Cancelled'] },
+  ]
+  return tenant === 'globex' ? base.slice(0, 1) : base
+}
+
 // A request-journal entry as the dashboard needs it — a flat projection of a serve event.
 export interface JournalEntry {
   id: string
