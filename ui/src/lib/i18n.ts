@@ -57,6 +57,8 @@ const resources = {
       appearance: 'Appearance' },
     extensions: { subtitle: 'Built-in capabilities and extension seams — compiled or registered at the host.',
       templating: 'Templating helpers', matchers: 'Request matchers', protocols: 'Transports & protocols', seams: 'Extension seams' },
+    login: { title: 'Sign in', subtitle: 'This host requires admin credentials.', username: 'Username',
+      password: 'Password', signIn: 'Sign in', signingIn: 'Signing in…', invalid: 'Invalid credentials.' },
   } },
   tr: { translation: {
     brand: { name: 'Mockifyr', sub: 'Mock Platformu' },
@@ -101,6 +103,8 @@ const resources = {
       appearance: 'Görünüm' },
     extensions: { subtitle: 'Yerleşik yetenekler ve extension seam’leri — host’ta derlenir ya da kaydedilir.',
       templating: 'Templating helper’ları', matchers: 'İstek eşleştiriciler', protocols: 'Transportlar & protokoller', seams: 'Extension seam’leri' },
+    login: { title: 'Giriş yap', subtitle: 'Bu host yönetici kimlik bilgisi ister.', username: 'Kullanıcı adı',
+      password: 'Parola', signIn: 'Giriş yap', signingIn: 'Giriş yapılıyor…', invalid: 'Geçersiz kimlik bilgileri.' },
   } },
   fr: { translation: {
     brand: { name: 'Mockifyr', sub: 'Plateforme Mock' },
@@ -144,6 +148,8 @@ const resources = {
       appearance: 'Apparence' },
     extensions: { subtitle: 'Capacités intégrées et points d’extension — compilés ou enregistrés sur l’hôte.',
       templating: 'Helpers de templating', matchers: 'Matchers de requête', protocols: 'Transports & protocoles', seams: 'Points d’extension' },
+    login: { title: 'Se connecter', subtitle: 'Cet hôte requiert des identifiants administrateur.', username: 'Nom d’utilisateur',
+      password: 'Mot de passe', signIn: 'Se connecter', signingIn: 'Connexion…', invalid: 'Identifiants invalides.' },
   } },
   ar: { translation: {
     brand: { name: 'Mockifyr', sub: 'منصة المحاكاة' },
@@ -187,6 +193,8 @@ const resources = {
       appearance: 'المظهر' },
     extensions: { subtitle: 'القدرات المدمجة ونقاط الامتداد — تُجمَّع أو تُسجَّل في المضيف.',
       templating: 'مساعدو القوالب', matchers: 'مطابقات الطلب', protocols: 'النقل والبروتوكولات', seams: 'نقاط الامتداد' },
+    login: { title: 'تسجيل الدخول', subtitle: 'يتطلب هذا المضيف بيانات اعتماد المسؤول.', username: 'اسم المستخدم',
+      password: 'كلمة المرور', signIn: 'تسجيل الدخول', signingIn: 'جارٍ تسجيل الدخول…', invalid: 'بيانات اعتماد غير صالحة.' },
   } },
   zh: { translation: {
     brand: { name: 'Mockifyr', sub: 'Mock 平台' },
@@ -230,6 +238,8 @@ const resources = {
       appearance: '外观' },
     extensions: { subtitle: '内置能力与扩展接缝 — 在主机编译或注册。',
       templating: '模板助手', matchers: '请求匹配器', protocols: '传输与协议', seams: '扩展接缝' },
+    login: { title: '登录', subtitle: '此主机需要管理员凭据。', username: '用户名',
+      password: '密码', signIn: '登录', signingIn: '正在登录…', invalid: '凭据无效。' },
   } },
   ja: { translation: {
     brand: { name: 'Mockifyr', sub: 'モックプラットフォーム' },
@@ -273,6 +283,8 @@ const resources = {
       appearance: '外観' },
     extensions: { subtitle: '組み込み機能と拡張シーム — ホストでコンパイルまたは登録されます。',
       templating: 'テンプレートヘルパー', matchers: 'リクエストマッチャー', protocols: 'トランスポートとプロトコル', seams: '拡張シーム' },
+    login: { title: 'サインイン', subtitle: 'このホストは管理者資格情報が必要です。', username: 'ユーザー名',
+      password: 'パスワード', signIn: 'サインイン', signingIn: 'サインイン中…', invalid: '資格情報が無効です。' },
   } },
 }
 

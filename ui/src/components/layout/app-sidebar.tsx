@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
-import { fetchJournal, fetchScenarios, fetchStubs } from '@/lib/api'
+import { clearAdminAuth, fetchJournal, fetchScenarios, fetchStubs, hasAdminAuth } from '@/lib/api'
 import { LOCALES } from '@/lib/i18n'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { TenantSwitcher } from './tenant-switcher'
@@ -213,7 +213,18 @@ function ProfileMenu({ collapsed }: { collapsed: boolean }) {
         <DropdownMenuItem><UserCircle className="size-4 text-muted-foreground" />{t('common.profile')}</DropdownMenuItem>
         <DropdownMenuItem><Bug className="size-4 text-muted-foreground" />{t('common.reportIssue')}</DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem><LogOut className="size-4 text-muted-foreground" />{t('common.signOut')}</DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={(e) => {
+            e.preventDefault()
+            // Only re-open the login gate when the user actually had admin credentials (i.e. the host
+            // requires auth). On an open host, sign-out is a harmless no-op.
+            const wasAuthed = hasAdminAuth()
+            clearAdminAuth()
+            if (wasAuthed) window.dispatchEvent(new Event('mockifyr-auth-required'))
+          }}
+        >
+          <LogOut className="size-4 text-muted-foreground" />{t('common.signOut')}
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

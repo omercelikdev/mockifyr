@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
@@ -165,6 +167,34 @@ public static class MockifyrHost
         if (grpcEnabled)
         {
             app.UseMockifyrGrpc();
+        }
+
+        // Optional admin auth: when --admin-user + --admin-pass are set, require HTTP Basic on the admin
+        // surface (/__admin/*). The mock-serving surface and the dashboard static files stay open — the
+        // dashboard loads and shows its own login screen, then sends the credentials on each admin call.
+        var adminUser = builder.Configuration["admin-user"];
+        var adminPass = builder.Configuration["admin-pass"];
+        if (!string.IsNullOrEmpty(adminUser) && !string.IsNullOrEmpty(adminPass))
+        {
+            var expected = "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes($"{adminUser}:{adminPass}"));
+            app.Use(async (context, next) =>
+            {
+                if (context.Request.Path.StartsWithSegments("/__admin"))
+                {
+                    var provided = context.Request.Headers.Authorization.ToString();
+                    if (!CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(provided), Encoding.UTF8.GetBytes(expected)))
+                    {
+                        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                        // Deliberately NO WWW-Authenticate: Basic header. That header makes the browser pop
+                        // its native Basic-auth dialog on the dashboard's fetch() calls, which blocks the
+                        // page. The dashboard has its own login screen and sends the credentials itself;
+                        // CLI clients (curl -u, WireMock) send Basic proactively and don't need the challenge.
+                        return;
+                    }
+                }
+
+                await next();
+            });
         }
 
         app.MapAdminEndpoints();

@@ -68,6 +68,7 @@ Everything is a CLI flag. The common ones:
 | `--https-port <n>` | enable HTTPS / HTTP2 |
 | `--root-dir <dir>` | load and persist stubs as JSON files |
 | `--dashboard <dir>` | serve the built dashboard under `/__mockifyr` |
+| `--admin-user <u>` · `--admin-pass <p>` | require HTTP Basic auth on the admin API (`/__admin/*`); the dashboard shows a login screen |
 | `--postgres <connstr>` · `--redis <connstr>` · `--litedb <path>` | durable persistence backend |
 | `--change-feed` | keep multiple instances coherent |
 
