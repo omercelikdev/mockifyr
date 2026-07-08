@@ -18,12 +18,46 @@ export interface Stub {
   raw?: Record<string, unknown>
 }
 
-/** Low-level admin fetch: scopes every call to the active tenant via the X-Mockifyr-Tenant header. */
+// Admin Basic-auth credentials (base64 of user:pass), stored locally when the host requires auth. The
+// host only enforces this when started with --admin-user/--admin-pass; otherwise there is no login.
+const AUTH_KEY = 'ui.adminAuth'
+export const hasAdminAuth = () => !!localStorage.getItem(AUTH_KEY)
+export const setAdminAuth = (user: string, pass: string) => localStorage.setItem(AUTH_KEY, btoa(`${user}:${pass}`))
+export const clearAdminAuth = () => localStorage.removeItem(AUTH_KEY)
+
+/**
+ * Probes the admin surface with the given credentials and, when accepted, stores them. Used by the
+ * login screen so it can show an inline error instead of silently re-triggering the gate. A network
+ * error (no host reachable) is treated as "not an auth failure" — the credentials are stored and the
+ * regular fetch path will surface any real 401 later.
+ */
+export async function verifyAdminAuth(user: string, pass: string): Promise<boolean> {
+  const token = btoa(`${user}:${pass}`)
+  try {
+    const res = await fetch('/__admin/mappings', { headers: { Authorization: `Basic ${token}`, [TENANT_HEADER]: 'default' } })
+    if (res.status === 401) return false
+  } catch {
+    // Unreachable host is not an authentication failure; fall through and store optimistically.
+  }
+  localStorage.setItem(AUTH_KEY, token)
+  return true
+}
+
+/** Low-level admin fetch: scopes every call to the active tenant, and attaches admin auth when present. */
 async function adminFetch(path: string, tenant: string, init?: RequestInit): Promise<Response> {
-  return fetch(`/__admin${path}`, {
+  const auth = localStorage.getItem(AUTH_KEY)
+  const res = await fetch(`/__admin${path}`, {
     ...init,
-    headers: { 'Content-Type': 'application/json', [TENANT_HEADER]: tenant, ...init?.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      [TENANT_HEADER]: tenant,
+      ...(auth ? { Authorization: `Basic ${auth}` } : {}),
+      ...init?.headers,
+    },
   })
+  // A 401 means the host requires admin auth; let the app surface the login screen.
+  if (res.status === 401) window.dispatchEvent(new Event('mockifyr-auth-required'))
+  return res
 }
 
 /**
