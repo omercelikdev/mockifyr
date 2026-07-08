@@ -26,4 +26,11 @@ Verified WireMock proxy behaviors against the oracle (`wiremock/wiremock:3.10.0`
   back as an `X-Echoed-Added` response header — both sides' proxied responses carry it identically.
 - **Deferred:** `removeProxyRequestHeaders` and proxy URL prefix rewriting; response-header rewriting;
   and proxy combined with record & playback (G9).
+- **`removeProxyRequestHeaders` — NOT a response-level field in the oracle (differential finding).**
+  A stub with `response.removeProxyRequestHeaders: ["X-Drop-Me"]` was driven with that request header,
+  against an upstream that echoes what it receives: **WireMock 3.10 still forwarded the header** (the
+  upstream echoed it back on the oracle side). So header stripping is not a per-stub response directive
+  in this WireMock version — implementing it on our side would **diverge** from the oracle, which is why
+  it stays unimplemented. (WireMock does this via a global proxy setting / transformer, not the stub
+  response.) Kept as a documented negative result rather than a silent divergence.
 - **Regression case:** `G8ProxyTests.Proxy_ReturnsUpstreamResponse` (now incl. the additional-headers case).
