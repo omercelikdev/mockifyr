@@ -792,7 +792,11 @@ public static class WireMockMappingReader
             }
         }
 
-        return new ProxyDirective(url.GetString()!) { AdditionalHeaders = additionalHeaders };
+        var prefix = response.TryGetProperty("proxyUrlPrefixToRemove", out var p) && p.ValueKind == JsonValueKind.String
+            ? p.GetString()
+            : null;
+
+        return new ProxyDirective(url.GetString()!) { AdditionalHeaders = additionalHeaders, UrlPrefixToRemove = prefix };
     }
 
     /// <summary>Reads the <c>fixedDelayMilliseconds</c> response delay (delayDistribution → G4 follow-up).</summary>

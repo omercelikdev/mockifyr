@@ -115,6 +115,9 @@ public sealed record ProxyDirective(string BaseUrl)
 {
     /// <summary>Extra headers added to the forwarded request (WireMock's <c>additionalProxyRequestHeaders</c>).</summary>
     public IReadOnlyList<KeyValuePair<string, string>> AdditionalHeaders { get; init; } = [];
+
+    /// <summary>A leading URL-path prefix stripped before forwarding (WireMock's <c>proxyUrlPrefixToRemove</c>).</summary>
+    public string? UrlPrefixToRemove { get; init; }
 }
 
 /// <summary>

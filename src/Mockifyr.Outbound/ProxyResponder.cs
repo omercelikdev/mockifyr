@@ -19,7 +19,11 @@ public sealed class ProxyResponder(HttpClient? client = null)
     public async Task<CanonicalResponse> ProxyAsync(
         ProxyDirective proxy, CanonicalRequest request, CancellationToken cancellationToken = default)
     {
-        using var message = new HttpRequestMessage(new HttpMethod(request.Method), proxy.BaseUrl.TrimEnd('/') + request.Url);
+        // WireMock's proxyUrlPrefixToRemove strips a leading path prefix before forwarding.
+        var forwardPath = proxy.UrlPrefixToRemove is { Length: > 0 } prefix && request.Url.StartsWith(prefix, StringComparison.Ordinal)
+            ? request.Url[prefix.Length..]
+            : request.Url;
+        using var message = new HttpRequestMessage(new HttpMethod(request.Method), proxy.BaseUrl.TrimEnd('/') + forwardPath);
 
         if (request.Body is { Length: > 0 } body)
         {
