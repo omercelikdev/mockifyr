@@ -65,8 +65,12 @@ export function TenantSwitcher({ collapsed }: { collapsed: boolean }) {
               <button
                 type="button"
                 aria-label={t('common.remove')}
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeTenant(tn.id) }}
+                // Remove on pointer-down, not click: Radix selects the menu item on pointer-up and
+                // immediately unmounts the menu, so an onClick here never fires (the button is gone)
+                // and only the item's onSelect runs — switching to the tenant instead of removing it.
+                // Firing + swallowing the event on pointer-down removes it and blocks that selection.
+                onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); removeTenant(tn.id) }}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation() }}
                 className="rounded p-0.5 text-faint transition-colors hover:bg-danger-bg hover:text-danger"
               >
                 <X className="size-3.5" />
