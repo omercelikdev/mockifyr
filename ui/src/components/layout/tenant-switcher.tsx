@@ -67,7 +67,7 @@ export function TenantSwitcher({ collapsed }: { collapsed: boolean }) {
                 aria-label={t('common.remove')}
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeTenant(tn.id) }}
-                className="rounded p-0.5 text-faint opacity-0 transition-colors hover:bg-muted hover:text-danger group-data-[highlighted]:opacity-100"
+                className="rounded p-0.5 text-faint transition-colors hover:bg-danger-bg hover:text-danger"
               >
                 <X className="size-3.5" />
               </button>

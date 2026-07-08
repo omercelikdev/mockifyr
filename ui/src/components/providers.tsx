@@ -79,28 +79,26 @@ export function UiProvider({ children }: { children: React.ReactNode }) {
     setTenantState(id)
   }, [])
 
+  // Compute the next list from the current state (closure), then set state once — no nested setState
+  // inside an updater (that is impure and drops updates under StrictMode).
   const addTenant = useCallback((name: string) => {
     const id = slugify(name)
     if (!id) return
-    setTenants((current) => {
-      if (current.some((t) => t.id === id)) { setTenant(id); return current }
-      const next = [...current, { id, name: name.trim() }]
+    if (!tenants.some((t) => t.id === id)) {
+      const next = [...tenants, { id, name: name.trim() }]
       localStorage.setItem('ui.tenants', JSON.stringify(next))
-      setTenant(id)
-      return next
-    })
-  }, [setTenant])
+      setTenants(next)
+    }
+    setTenant(id)
+  }, [tenants, setTenant])
 
   const removeTenant = useCallback((id: string) => {
-    setTenants((current) => {
-      if (current.length <= 1) return current // keep at least one
-      const next = current.filter((t) => t.id !== id)
-      localStorage.setItem('ui.tenants', JSON.stringify(next))
-      setTenantState((active) => (active === id ? next[0].id : active))
-      if (localStorage.getItem('ui.tenant') === id) localStorage.setItem('ui.tenant', next[0].id)
-      return next
-    })
-  }, [])
+    if (tenants.length <= 1) return // keep at least one
+    const next = tenants.filter((t) => t.id !== id)
+    localStorage.setItem('ui.tenants', JSON.stringify(next))
+    setTenants(next)
+    if (tenant === id) setTenant(next[0].id)
+  }, [tenants, tenant, setTenant])
 
   const value = useMemo<UiState>(
     () => ({ collapsed, toggleCollapsed, theme, setTheme: setThemeState, locale, setLocale: setLocaleState, tenant, setTenant, tenants, addTenant, removeTenant }),
