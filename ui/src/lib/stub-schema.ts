@@ -15,6 +15,10 @@ const kvMatcher = z.object({
   value: z.string(),
 })
 
+// A millisecond field: empty (unset) or a non-negative whole number. Kept as a string because the form
+// leaves it blank when unset; validated so a stray letter or negative value is caught, not silently NaN.
+const msField = z.string().refine((v) => v.trim() === '' || /^\d+$/.test(v.trim()), 'Enter milliseconds as a whole number')
+
 export const stubSchema = z.object({
   method: z.string().min(1),
   urlMatchType: z.enum(URL_MATCH),
@@ -22,23 +26,29 @@ export const stubSchema = z.object({
   headers: z.array(kvMatcher),
   queryParams: z.array(kvMatcher),
   bodyPatterns: z.array(z.object({ operator: z.enum(BODY_OPS), value: z.string() })),
-  priority: z.coerce.number().int().min(1).max(255),
+  priority: z.coerce.number({ message: 'Priority must be a number' }).int().min(1, 'Priority must be 1–255').max(255, 'Priority must be 1–255'),
   scenarioName: z.string(),
   requiredScenarioState: z.string(),
   newScenarioState: z.string(),
-  responseStatus: z.coerce.number().int().min(100).max(599),
+  responseStatus: z.coerce.number({ message: 'Status must be a number' }).int().min(100, 'Status must be 100–599').max(599, 'Status must be 100–599'),
   responseHeaders: z.array(z.object({ name: z.string(), value: z.string() })),
   responseBody: z.string(),
   useTemplating: z.boolean(),
-  fixedDelayMs: z.string(),
+  fixedDelayMs: msField,
   fault: z.enum(FAULTS),
   proxyBaseUrl: z.string(),
   webhookMethod: z.string(),
   webhookUrl: z.string(),
   webhookBody: z.string(),
   webhookHeaders: z.array(z.object({ name: z.string(), value: z.string() })),
-  webhookDelayMs: z.string(),
+  webhookDelayMs: msField,
 })
+  // Scenario consistency: a required/new state only means something inside a named scenario. Guide the
+  // user to name the scenario rather than silently dropping the state on export.
+  .refine((f) => !(f.requiredScenarioState.trim() || f.newScenarioState.trim()) || f.scenarioName.trim().length > 0, {
+    path: ['scenarioName'],
+    message: 'Scenario name is required when a state is set',
+  })
 
 export type StubForm = z.infer<typeof stubSchema>
 

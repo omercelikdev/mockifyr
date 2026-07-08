@@ -39,7 +39,7 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
   // zodResolver's inferred generic clashes with the coerce()'d number fields (and pnpm's duplicate RHF
   // types), so cast the resolver — the schema still validates at runtime.
   const form = useForm<StubForm>({ resolver: zodResolver(stubSchema) as unknown as Resolver<StubForm>, defaultValues: emptyStub })
-  const { register, control, reset, getValues, watch, handleSubmit } = form
+  const { register, control, reset, getValues, watch, handleSubmit, formState: { errors } } = form
 
   useEffect(() => {
     if (open) {
@@ -125,8 +125,9 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
                 <div><Label>{t('editor.urlMatch')}</Label>
                   <div className="grid grid-cols-[130px_1fr] gap-2">
                     <NativeSelect {...register('urlMatchType')}>{URL_MATCH.map((u) => <option key={u} value={u}>{u}</option>)}</NativeSelect>
-                    <Input {...register('urlValue')} placeholder="/api/v2/…" className="font-mono" />
+                    <Input {...register('urlValue')} placeholder="/api/v2/…" className={cn('font-mono', errors.urlValue && 'border-danger')} />
                   </div>
+                  <FieldError msg={errors.urlValue?.message} />
                 </div>
               </div>
               <Rows label={t('editor.headerMatchers')} fields={headers.fields} onAdd={() => headers.append({ name: '', operator: 'equalTo', value: '' })} onRemove={headers.remove}
@@ -145,8 +146,8 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
             {/* Response */}
             <Section title={t('editor.response')}>
               <div className="grid grid-cols-2 gap-3">
-                <div><Label>{t('editor.statusCode')}</Label><Input type="number" {...register('responseStatus')} /></div>
-                <div><Label>{t('editor.priority')}</Label><Input type="number" {...register('priority')} /></div>
+                <div><Label>{t('editor.statusCode')}</Label><Input type="number" {...register('responseStatus')} className={cn(errors.responseStatus && 'border-danger')} /><FieldError msg={errors.responseStatus?.message} /></div>
+                <div><Label>{t('editor.priority')}</Label><Input type="number" {...register('priority')} className={cn(errors.priority && 'border-danger')} /><FieldError msg={errors.priority?.message} /></div>
               </div>
               <Rows label={t('editor.responseHeaders')} fields={responseHeaders.fields} onAdd={() => responseHeaders.append({ name: '', value: '' })} onRemove={responseHeaders.remove}
                 render={(i) => (<>
@@ -163,12 +164,12 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
             {/* Behavior */}
             <Section title={t('editor.behavior')}>
               <div className="grid grid-cols-2 gap-3">
-                <div><Label>{t('editor.delay')}</Label><Input type="number" {...register('fixedDelayMs')} placeholder="0" /></div>
+                <div><Label>{t('editor.delay')}</Label><Input type="number" {...register('fixedDelayMs')} placeholder="0" className={cn(errors.fixedDelayMs && 'border-danger')} /><FieldError msg={errors.fixedDelayMs?.message} /></div>
                 <div><Label>{t('editor.fault')}</Label><NativeSelect {...register('fault')}>{FAULTS.map((f) => <option key={f} value={f}>{f || t('editor.none')}</option>)}</NativeSelect></div>
               </div>
               <div><Label>{t('editor.proxy')}</Label><Input {...register('proxyBaseUrl')} placeholder="https://upstream.example.com" className="font-mono" /></div>
               <div className="grid grid-cols-3 gap-3">
-                <div><Label>{t('stubs.scenario')}</Label><Input {...register('scenarioName')} placeholder="Checkout" /></div>
+                <div><Label>{t('stubs.scenario')}</Label><Input {...register('scenarioName')} placeholder="Checkout" className={cn(errors.scenarioName && 'border-danger')} /><FieldError msg={errors.scenarioName?.message} /></div>
                 <div><Label>{t('editor.requiredState')}</Label><Input {...register('requiredScenarioState')} placeholder="Started" /></div>
                 <div><Label>{t('editor.newState')}</Label><Input {...register('newScenarioState')} placeholder="Paid" /></div>
               </div>
@@ -180,7 +181,7 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
               <div className="grid grid-cols-[110px_1fr_120px] gap-3">
                 <div><Label>{t('stubs.method')}</Label><NativeSelect {...register('webhookMethod')}>{['POST', 'PUT', 'GET', 'DELETE', 'PATCH'].map((m) => <option key={m}>{m}</option>)}</NativeSelect></div>
                 <div><Label>{t('editor.webhookUrl')}</Label><Input {...register('webhookUrl')} placeholder="https://callback.example.com/hook" className="font-mono" /></div>
-                <div><Label>{t('editor.delay')}</Label><Input type="number" {...register('webhookDelayMs')} placeholder="0" /></div>
+                <div><Label>{t('editor.delay')}</Label><Input type="number" {...register('webhookDelayMs')} placeholder="0" className={cn(errors.webhookDelayMs && 'border-danger')} /><FieldError msg={errors.webhookDelayMs?.message} /></div>
               </div>
               <Rows label={t('editor.webhookHeaders')} fields={webhookHeaders.fields} onAdd={() => webhookHeaders.append({ name: '', value: '' })} onRemove={webhookHeaders.remove}
                 render={(i) => (<>
@@ -212,6 +213,10 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
       </SheetContent>
     </Sheet>
   )
+}
+
+function FieldError({ msg }: { msg?: string }) {
+  return msg ? <p className="mt-1 text-xs text-danger">{msg}</p> : null
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
