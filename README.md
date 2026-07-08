@@ -1,5 +1,10 @@
 # Mockifyr
 
+[![CI](https://github.com/omercelikdev/mockifyr/actions/workflows/ci.yml/badge.svg)](https://github.com/omercelikdev/mockifyr/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/omercelikdev/mockifyr?sort=semver)](https://github.com/omercelikdev/mockifyr/releases)
+[![Image](https://img.shields.io/badge/ghcr.io-mockifyr-2496ED?logo=docker&logoColor=white)](https://github.com/omercelikdev/mockifyr/pkgs/container/mockifyr)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+
 **An independent, .NET-based API mock engine + platform.** A transport-agnostic request-matching and
 response engine with first-class multi-tenancy, pluggable persistence, and thin facades — in-process
 library · HTTP server · admin REST · gRPC · GraphQL · WebSocket. Clean-room codebase with its own IP
@@ -10,6 +15,8 @@ and no third-party mock-engine dependencies.
 ### Docker — one image (engine + admin API + dashboard)
 
 ```bash
+docker pull ghcr.io/omercelikdev/mockifyr:latest      # or a pinned tag, e.g. :0.1.1
+
 docker run -p 8080:8080 -v "$PWD/mappings:/work" \
   ghcr.io/omercelikdev/mockifyr:latest --root-dir /work
 ```
