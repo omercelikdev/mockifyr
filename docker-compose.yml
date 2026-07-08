@@ -1,0 +1,34 @@
+# Mockifyr — single-image mock server.
+#
+#   docker compose up
+#
+# Default is ephemeral in-memory persistence with file-backed mappings under ./mappings.
+# For durable Postgres persistence, uncomment the `postgres` service and swap the mockifyr
+# `command:` for the Postgres one below.
+
+services:
+  mockifyr:
+    image: ghcr.io/omercelikdev/mockifyr:latest
+    # build: .            # uncomment to build from source instead of pulling the published image
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./mappings:/work
+    # Appended to the image entrypoint (which already sets --port 8080 --dashboard /app/dashboard):
+    command: ["--root-dir", "/work"]
+    # Durable Postgres instead of file-based — uncomment this command and the postgres service:
+    # command: ["--postgres", "Host=postgres;Username=mockifyr;Password=mockifyr;Database=mockifyr", "--change-feed"]
+    # depends_on:
+    #   - postgres
+
+  # postgres:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     POSTGRES_USER: mockifyr
+  #     POSTGRES_PASSWORD: mockifyr
+  #     POSTGRES_DB: mockifyr
+  #   volumes:
+  #     - pgdata:/var/lib/postgresql/data
+
+# volumes:
+#   pgdata:

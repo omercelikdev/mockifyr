@@ -1,99 +1,58 @@
 # Mockifyr
 
-**An independent, .NET-based API mock engine + platform.** A transport-agnostic matching and
-response engine with first-class multi-tenancy, pluggable persistence, and thin facades
-(library / HTTP server / admin REST / gRPC / GraphQL / WebSocket). Mockifyr is a clean-room,
-independent codebase with its own IP — it does **not** use WireMock or WireMock.Net as
-dependencies. It is designed to interoperate with the WireMock JSON stub format and is proven
-correct by differential testing against WireMock as a reference oracle (see [Trademarks](#trademarks)).
+**An independent, .NET-based API mock engine + platform.** A transport-agnostic request-matching and
+response engine with first-class multi-tenancy, pluggable persistence, and thin facades — in-process
+library · HTTP server · admin REST · gRPC · GraphQL · WebSocket. Clean-room codebase with its own IP
+and no third-party mock-engine dependencies.
 
-> **Status:** engine + platform complete. All roadmap groups **G1–G16** are implemented and
-> validated; the remaining work is the **UI / dashboard**.
-> Direction: [ARCHITECTURE.md](ARCHITECTURE.md) · roadmap:
-> [docs/roadmap.md](docs/roadmap.md) · decisions: [docs/decisions/](docs/decisions/) ·
-> learned WireMock behavior: [docs/parity/](docs/parity/).
->
-> This is an **AI-driven repository** — see [CLAUDE.md](CLAUDE.md) for how work is done here.
+## Quick start
 
----
+### Docker — one image (engine + admin API + dashboard)
 
-## What it does
-
-The core engine answers a single question: *"Given the loaded stubs, which one matches this
-request and what should it return?"* — without knowing anything about HTTP, ports, or
-transport. Thin facades sit on top:
-
-- **Library** — in-process (use inside tests)
-- **HTTP server** — standalone / container
-- **Admin REST API** — runtime stub management
-
-First vertical: **request matching + response templating + webhook/callback correlation** —
-each verified against real WireMock (the oracle) via **differential / golden-master testing**.
-
-## Design principles
-
-- **Transport-agnostic core** — matching/templating never leaks into a transport.
-- **First-class multi-tenancy** — one process/port, N tenants; logical isolation.
-- **Pure, deterministic engine** — no I/O; delay/fault/proxy are directives, outbound is a
-  listener.
-- **Green differential diff is the only "done"** — the oracle is always running WireMock; no
-  self-validation.
-- **CQRS (Mediant)** only on the management path; the hot path stays direct and
-  allocation-lean.
-
-## Repository layout
-
-```
-src/        engine, capabilities, application (CQRS), facades, host
-harness/    differential test harness + fuzzing generator
-tests/      unit + differential suites
-docs/       roadmap, architecture decisions (ADR), parity knowledge
+```bash
+docker run -p 8080:8080 -v "$PWD/mappings:/work" \
+  ghcr.io/omercelikdev/mockifyr:latest --root-dir /work
 ```
 
-Full topology and dependency rules: [ARCHITECTURE.md](ARCHITECTURE.md#3-solution-topology).
+- Mock surface — `http://localhost:8080`
+- Admin API — `http://localhost:8080/__admin`
+- Dashboard — `http://localhost:8080/__mockifyr`
 
-## Roadmap (summary)
+Or `docker compose up` for a batteries-included setup — see [docker-compose.yml](docker-compose.yml).
 
-- **Phase A — narrow vertical:** G0 foundation+harness → G1 matching → G2 templating →
-  G3 webhooks.
-- **Phase B — toward parity:** faults, scenarios, verify/near-miss, admin API, proxy,
-  record/playback, extensibility, HTTPS, deploy, gRPC/GraphQL, persistence providers.
-- **Post-phase:** UI / dashboard (the only remaining work).
+### Local (.NET 10 SDK)
 
-Full list: [docs/roadmap.md](docs/roadmap.md).
+```bash
+dotnet run --project src/Mockifyr.Server -- --port 8080 --root-dir ./mappings
+```
 
-## Persistence
+## Configuration
 
-The hot path is always **in-memory** — matching never touches a database. Durability is an
-opt-in seam (`IStubPersistence`); pick one backend and mutations write through to it while the
-in-memory store serves reads:
+Everything is a CLI flag. The common ones:
 
-| Flag | Backend |
-|------|---------|
-| *(none)* | in-memory only (ephemeral, the default) |
-| `--root-dir <dir>` | file-based JSON mappings |
-| `--litedb <path>` | LiteDB (embedded single-file) |
-| `--postgres <connstr>` | PostgreSQL |
-| `--redis <connstr>` | Redis |
+| Flag | Effect |
+|------|--------|
+| `--port <n>` | mock-serving HTTP port (default 8080) |
+| `--https-port <n>` | enable HTTPS / HTTP2 |
+| `--root-dir <dir>` | load and persist stubs as JSON files |
+| `--dashboard <dir>` | serve the built dashboard under `/__mockifyr` |
+| `--postgres <connstr>` · `--redis <connstr>` · `--litedb <path>` | durable persistence backend |
+| `--change-feed` | keep multiple instances coherent |
 
-`--change-feed` (Redis / Postgres) keeps multiple instances coherent without a restart.
+The hot path is always in-memory; a durable backend is opt-in and writes through.
 
-## Technology
+## Documentation
 
-.NET 10 (LTS) · C# · CQRS via [Mediant](https://github.com/omercelikdev/mediant) ·
-differential oracle: Java WireMock (Testcontainers).
+- Architecture & design — [ARCHITECTURE.md](ARCHITECTURE.md)
+- Roadmap — [docs/roadmap.md](docs/roadmap.md) · decisions — [docs/decisions/](docs/decisions/)
+- This is an AI-driven repository; how work is done here — [CLAUDE.md](CLAUDE.md)
+
+## Contributing
+
+Contributions are welcome. Read [CLAUDE.md](CLAUDE.md) for the development workflow and conventions,
+then open a PR against `main`. Builds must stay green — `dotnet build` and `dotnet test`, plus the
+dashboard's `pnpm build`.
 
 ## License
 
 Licensed under the **Apache License, Version 2.0** — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
-
-## Trademarks
-
-WireMock is a trademark of WireMock Inc. **Mockifyr is an independent project and is not
-affiliated with, endorsed by, or sponsored by WireMock Inc.** Mockifyr is a clean-room
-implementation and does not use WireMock or WireMock.Net as dependencies. References to
-"WireMock" in this repository are nominative and descriptive only — for **interoperability**
-(Mockifyr imports the WireMock JSON stub format) and **differential testing** (Mockifyr's
-correctness is verified against real WireMock as a reference oracle; the oracle code lives in
-the test/harness projects and is not part of the distributed product). All other product names
-and brands are the property of their respective owners.
