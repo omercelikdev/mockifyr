@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Mockifyr.Facade.Grpc;
@@ -177,9 +178,21 @@ public static class MockifyrHost
         if (!string.IsNullOrWhiteSpace(dashboardDir) && Directory.Exists(dashboardDir))
         {
             var provider = new PhysicalFileProvider(Path.GetFullPath(dashboardDir));
-            app.UseStaticFiles(new StaticFileOptions { RequestPath = "/__mockifyr", FileProvider = provider });
-            app.MapGet("/__mockifyr/{**path}", async context =>
+            var contentTypes = new FileExtensionContentTypeProvider();
+            // Serve a real asset when the path maps to a file (with its proper content type), otherwise
+            // fall back to index.html for the SPA's client routes. Doing both in one endpoint avoids the
+            // static-file-middleware-vs-catch-all ordering trap that made asset requests (…/assets/*.js)
+            // return index.html as text/html — which breaks the module scripts and blanks the page.
+            app.MapGet("/__mockifyr/{**path}", async (HttpContext context, string? path) =>
             {
+                var file = string.IsNullOrEmpty(path) ? null : provider.GetFileInfo(path);
+                if (file is { Exists: true, IsDirectory: false })
+                {
+                    context.Response.ContentType = contentTypes.TryGetContentType(path!, out var ct) ? ct : "application/octet-stream";
+                    await context.Response.SendFileAsync(file);
+                    return;
+                }
+
                 context.Response.ContentType = "text/html";
                 await context.Response.SendFileAsync(provider.GetFileInfo("index.html"));
             });

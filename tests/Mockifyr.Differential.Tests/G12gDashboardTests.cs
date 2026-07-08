@@ -22,6 +22,8 @@ public sealed class G12gDashboardTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         File.WriteAllText(Path.Combine(_dir, "index.html"), "<!doctype html><title>Mockifyr</title><div id=root></div>");
+        Directory.CreateDirectory(Path.Combine(_dir, "assets"));
+        File.WriteAllText(Path.Combine(_dir, "assets", "app.js"), "export const marker = 1;");
         _host = MockifyrHost.Build(["--port", "0", "--https-port", "0", "--dashboard", _dir]);
         await _host.StartAsync();
 
@@ -46,6 +48,13 @@ public sealed class G12gDashboardTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, index.StatusCode);
         Assert.Contains("text/html", index.Content.Headers.ContentType?.MediaType);
         Assert.Contains("Mockifyr", await index.Content.ReadAsStringAsync());
+
+        // A built asset is served as its real file with the correct content type — NOT the SPA index.
+        // (A module script served as text/html fails to load and blanks the dashboard.)
+        var asset = await _client.GetAsync("/__mockifyr/assets/app.js");
+        Assert.Equal(HttpStatusCode.OK, asset.StatusCode);
+        Assert.DoesNotContain("text/html", asset.Content.Headers.ContentType?.MediaType ?? string.Empty);
+        Assert.Contains("export const marker", await asset.Content.ReadAsStringAsync());
 
         // A client-side route falls back to index.html (SPA).
         var route = await _client.GetAsync("/__mockifyr/stubs");
