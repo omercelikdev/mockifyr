@@ -43,6 +43,21 @@ The Postgres variant writes stubs through to a database, so they survive a resta
 dotnet run --project src/Mockifyr.Server -- --port 8080 --root-dir ./mappings
 ```
 
+### Engine only (no dashboard)
+
+The dashboard is opt-in via `--dashboard`; omit it to serve just the mock surface + admin API.
+
+```bash
+# Local
+dotnet run --project src/Mockifyr.Server -- --port 8080 --root-dir ./mappings
+
+# From the image (override the entrypoint to drop the built-in --dashboard)
+docker run -p 8080:8080 --entrypoint dotnet \
+  ghcr.io/omercelikdev/mockifyr:latest Mockifyr.Server.dll --port 8080 --root-dir /work
+```
+
+Or embed the engine directly in-process with the `Mockifyr.Facade.Library` package — no HTTP at all.
+
 ## Configuration
 
 Everything is a CLI flag. The common ones:
