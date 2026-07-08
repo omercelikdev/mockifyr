@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Mediant.Abstractions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -53,7 +54,8 @@ public static class AdminEndpoints
         admin.MapGet("/mappings", async (HttpRequest request, ISender sender) =>
         {
             var result = await sender.Send(new GetStubsQuery(TenantOf(request)));
-            return Results.Json(new { mappings = result.Value.Select(stub => new { id = stub.Id }) });
+            var mappings = result.Value.Select(FullMapping).ToList();
+            return Results.Json(new { mappings });
         });
 
         admin.MapPost("/mappings", async (HttpRequest request, ISender sender) =>
@@ -204,5 +206,15 @@ public static class AdminEndpoints
     {
         using var reader = new StreamReader(request.Body);
         return await reader.ReadToEndAsync();
+    }
+
+    // The full WireMock mapping for GET /mappings: the stub's own source JSON with its id/uuid stamped
+    // in, so the dashboard can display and faithfully round-trip an edit (not just see an id).
+    private static JsonNode FullMapping(StubMapping stub)
+    {
+        var node = (stub.Source is not null ? JsonNode.Parse(stub.Source) : null) as JsonObject ?? new JsonObject();
+        node["id"] = stub.Id.ToString();
+        node["uuid"] = stub.Id.ToString();
+        return node;
     }
 }

@@ -276,6 +276,13 @@ public sealed record StubMapping
     /// <see cref="IServeEventListener"/> at the facade edge. See docs/decisions/0001.
     /// </summary>
     public IReadOnlyList<WebhookDefinition> Webhooks { get; init; } = [];
+
+    /// <summary>
+    /// The raw WireMock JSON this stub was parsed from, kept verbatim so the admin API can return the
+    /// full mapping (not just an id) for faithful display + edit round-trips. Inert data — the engine
+    /// never reads it for matching. Null for stubs constructed directly (not via the JSON adapter).
+    /// </summary>
+    public string? Source { get; init; }
 }
 
 /// <summary>
