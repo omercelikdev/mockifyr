@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace Mockifyr.Differential.Tests;
@@ -64,6 +65,25 @@ public sealed class G7cHealthTests : IAsyncLifetime
 
         var listed = await client.GetFromJsonAsync<TenantsResponse>("/__admin/tenants");
         Assert.Equal(["acme", "globex"], listed!.Tenants);
+    }
+
+    [Fact]
+    public async Task Mappings_ReturnTheFullSourceNotJustTheId()
+    {
+        using var client = _app.CreateClient();
+
+        const string stub = """{"request":{"method":"GET","urlPath":"/orders/42"},"response":{"status":201,"body":"created"}}""";
+        using var content = new StringContent(stub, Encoding.UTF8, "application/json");
+        (await client.PostAsync("/__admin/mappings", content)).EnsureSuccessStatusCode();
+
+        // GET /__admin/mappings must return the whole mapping (request + response), not just an id, so
+        // the dashboard can display it and round-trip an edit without losing the fields.
+        using var doc = JsonDocument.Parse(await client.GetStringAsync("/__admin/mappings"));
+        var mapping = doc.RootElement.GetProperty("mappings")[0];
+
+        Assert.True(mapping.TryGetProperty("id", out _));
+        Assert.Equal("/orders/42", mapping.GetProperty("request").GetProperty("urlPath").GetString());
+        Assert.Equal(201, mapping.GetProperty("response").GetProperty("status").GetInt32());
     }
 
     private sealed record Health(string Name, string Version, string Persistence, int Tenants, int TotalStubs);

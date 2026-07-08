@@ -39,10 +39,11 @@ public static class WireMockMappingReader
             root.TryGetProperty("mappings", out var mappings) &&
             mappings.ValueKind == JsonValueKind.Array)
         {
-            return [.. mappings.EnumerateArray().Select(m => (ReadOne(m, tenant, matchers), m.GetRawText()))];
+            return [.. mappings.EnumerateArray().Select(m => { var src = m.GetRawText(); return (ReadOne(m, tenant, matchers) with { Source = src }, src); })];
         }
 
-        return [(ReadOne(root, tenant, matchers), root.GetRawText())];
+        var source = root.GetRawText();
+        return [(ReadOne(root, tenant, matchers) with { Source = source }, source)];
     }
 
     /// <summary>
