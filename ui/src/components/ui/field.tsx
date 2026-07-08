@@ -5,7 +5,7 @@ export function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInp
   return (
     <input
       className={cn(
-        'h-9 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-ring focus:ring-1 focus:ring-ring',
+        'h-9 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-border-strong',
         className,
       )}
       {...props}
@@ -17,7 +17,7 @@ export function Textarea({ className, ...props }: React.TextareaHTMLAttributes<H
   return (
     <textarea
       className={cn(
-        'w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-ring focus:ring-1 focus:ring-ring',
+        'w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-border-strong',
         className,
       )}
       {...props}
@@ -36,7 +36,7 @@ export function NativeSelect({ className, ...props }: React.SelectHTMLAttributes
     <div className="relative">
       <select
         className={cn(
-          'h-9 w-full appearance-none rounded-lg border border-input bg-background pe-8 ps-3 text-sm outline-none transition-colors focus:border-ring focus:ring-1 focus:ring-ring',
+          'h-9 w-full appearance-none rounded-lg border border-input bg-background pe-8 ps-3 text-sm outline-none transition-colors focus:border-border-strong',
           className,
         )}
         {...props}

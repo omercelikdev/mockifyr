@@ -40,7 +40,7 @@ export function CommandPalette() {
     <Command.Dialog open={open} onOpenChange={setOpen} label={t('common.search')}
       className="fixed inset-0 z-[100] grid place-items-start justify-center pt-[16vh]">
       <div className="fixed inset-0 bg-black/40" onClick={() => setOpen(false)} />
-      <div className="relative w-full max-w-[560px] overflow-hidden rounded-2xl border border-border bg-background shadow-[0_16px_50px_rgb(24_24_27/0.25)]">
+      <div className="relative w-[640px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-border bg-background shadow-[0_16px_50px_rgb(24_24_27/0.25)]">
         <div className="flex items-center gap-2.5 border-b border-border px-4">
           <Search className="size-4 text-muted-foreground" />
           <Command.Input autoFocus placeholder={t('common.commandHint')} className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
