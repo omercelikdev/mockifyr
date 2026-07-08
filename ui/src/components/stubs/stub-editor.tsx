@@ -6,7 +6,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useUi } from '@/components/providers'
 import { saveStub, type Stub } from '@/lib/api'
-import { BODY_OPS, emptyStub, FAULTS, MATCH_OPS, stubSchema, toJson, URL_MATCH, type StubForm } from '@/lib/stub-schema'
+import { BODY_OPS, emptyStub, FAULTS, fromWireMock, MATCH_OPS, stubSchema, toJson, URL_MATCH, type StubForm } from '@/lib/stub-schema'
 import { Sheet, SheetContent, SheetHeader } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input, Label, NativeSelect, Textarea } from '@/components/ui/field'
@@ -15,6 +15,9 @@ import { Button } from '@/components/ui/button'
 
 function seedFrom(stub: Stub | null): StubForm {
   if (!stub) return emptyStub
+  // Prefer a full reverse-map of the mapping the host returned (no field is lost on edit); fall back to
+  // the projected fields when only those are available (e.g. sample mode).
+  if (stub.raw) return fromWireMock(stub.raw)
   return { ...emptyStub, method: stub.method === 'ANY' ? 'GET' : stub.method, urlValue: stub.url, priority: stub.priority, scenarioName: stub.scenario ?? '' }
 }
 
@@ -37,7 +40,14 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
   const { register, control, reset, getValues, watch, handleSubmit } = form
 
   useEffect(() => {
-    if (open) { const seed = seedFrom(editing); reset(seed); setRawJson(toJson(seed)); setTab(initialTab) }
+    if (open) {
+      const seed = seedFrom(editing)
+      reset(seed)
+      // When editing, the JSON tab shows the exact mapping the host returned (so nothing is lost even
+      // if the form doesn't surface a field); for a new stub it mirrors the form.
+      setRawJson(editing?.raw ? JSON.stringify(editing.raw, null, 2) : toJson(seed))
+      setTab(initialTab)
+    }
   }, [open, editing, reset, initialTab])
 
   // Keep the JSON preview live while editing the form (form is the source of truth on the Form tab).

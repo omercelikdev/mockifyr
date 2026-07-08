@@ -14,6 +14,8 @@ export interface Stub {
   persistence: string
   lastMatched: string | null
   status: StubStatus
+  /** The full WireMock mapping (when a host returned it), so the editor can round-trip an edit. */
+  raw?: Record<string, unknown>
 }
 
 /** Low-level admin fetch: scopes every call to the active tenant via the X-Mockifyr-Tenant header. */
@@ -55,7 +57,7 @@ function projectMapping(m: WireMockMapping): Stub {
   const url = req.url ?? req.urlPath ?? req.urlPattern ?? req.urlPathPattern ?? '/'
   return {
     id: m.id ?? m.uuid ?? crypto.randomUUID(),
-    method: (req.method ?? 'ANY').toUpperCase(),
+    method: (typeof req.method === 'string' ? req.method : 'ANY').toUpperCase(),
     url,
     protocol: url.includes('/grpc') ? 'grpc' : url.includes('graphql') ? 'graphql' : 'http',
     priority: m.priority ?? 5,
@@ -63,6 +65,7 @@ function projectMapping(m: WireMockMapping): Stub {
     persistence: m.metadata?.['mockifyr:persistence'] ?? 'In-memory',
     lastMatched: null,
     status: m.response?.proxyBaseUrl ? 'proxy' : 'live',
+    raw: m as unknown as Record<string, unknown>,
   }
 }
 

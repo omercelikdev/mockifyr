@@ -111,6 +111,66 @@ export function toJson(f: StubForm): string {
   return JSON.stringify(toWireMock(f), null, 2)
 }
 
+const obj = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {})
+const str = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v : fallback)
+
+/** Reverse of {@link toWireMock}: seed the editor form from an existing WireMock mapping (edit round-trip). */
+export function fromWireMock(mapping: Record<string, unknown>): StubForm {
+  const req = obj(mapping.request)
+  const res = obj(mapping.response)
+
+  let urlMatchType: StubForm['urlMatchType'] = 'urlPath'
+  let urlValue = '/'
+  for (const t of URL_MATCH) {
+    if (typeof req[t] === 'string') { urlMatchType = t; urlValue = req[t] as string; break }
+  }
+
+  const parseMatchers = (source: unknown): StubForm['headers'] =>
+    Object.entries(obj(source)).map(([name, m]) => {
+      const entry = obj(m)
+      const operator = MATCH_OPS.find((o) => o in entry) ?? 'equalTo'
+      return { name, operator, value: str(entry[operator]) }
+    })
+
+  const bodyPatterns: StubForm['bodyPatterns'] = Array.isArray(req.bodyPatterns)
+    ? (req.bodyPatterns as unknown[]).map((p) => {
+        const entry = obj(p)
+        const operator = BODY_OPS.find((o) => o in entry) ?? 'equalToJson'
+        const v = entry[operator]
+        return { operator, value: typeof v === 'string' ? v : JSON.stringify(v ?? '', null, 2) }
+      })
+    : []
+
+  const wh = obj((Array.isArray(mapping.postServeActions) ? mapping.postServeActions : []).map(obj).find((a) => a.name === 'webhook'))
+  const whParams = obj(wh.parameters)
+  const whDelay = obj(whParams.delay)
+
+  return {
+    method: str(req.method, 'GET'),
+    urlMatchType,
+    urlValue,
+    headers: parseMatchers(req.headers),
+    queryParams: parseMatchers(req.queryParameters),
+    bodyPatterns,
+    priority: typeof mapping.priority === 'number' ? mapping.priority : 5,
+    scenarioName: str(mapping.scenarioName),
+    requiredScenarioState: str(mapping.requiredScenarioState),
+    newScenarioState: str(mapping.newScenarioState),
+    responseStatus: typeof res.status === 'number' ? res.status : 200,
+    responseHeaders: Object.entries(obj(res.headers)).map(([name, value]) => ({ name, value: str(value) })),
+    responseBody: typeof res.body === 'string' ? res.body : res.jsonBody !== undefined ? JSON.stringify(res.jsonBody, null, 2) : '',
+    useTemplating: Array.isArray(res.transformers) && (res.transformers as unknown[]).includes('response-template'),
+    fixedDelayMs: typeof res.fixedDelayMilliseconds === 'number' ? String(res.fixedDelayMilliseconds) : '',
+    fault: (FAULTS as readonly string[]).includes(str(res.fault)) ? (str(res.fault) as StubForm['fault']) : '',
+    proxyBaseUrl: str(res.proxyBaseUrl),
+    webhookMethod: str(whParams.method, 'POST'),
+    webhookUrl: str(whParams.url),
+    webhookBody: str(whParams.body),
+    webhookHeaders: Object.entries(obj(whParams.headers)).map(([name, value]) => ({ name, value: str(value) })),
+    webhookDelayMs: typeof whDelay.milliseconds === 'number' ? String(whDelay.milliseconds) : '',
+  }
+}
+
 function matcherMap(rows: StubForm['headers']): Record<string, unknown> | null {
   const entries = rows.filter((r) => r.name.trim())
   if (!entries.length) return null
