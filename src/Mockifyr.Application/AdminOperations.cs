@@ -10,6 +10,9 @@ namespace Mockifyr.Application;
 /// <summary>Creates a single stub from WireMock JSON; returns its id.</summary>
 public sealed record CreateStubCommand(string WireMockJson, TenantId Tenant) : ICommand<Result<Guid>>;
 
+/// <summary>Replaces the stub at <paramref name="Id"/> with the given WireMock JSON (WireMock's <c>PUT /__admin/mappings/{id}</c>).</summary>
+public sealed record UpdateStubCommand(Guid Id, string WireMockJson, TenantId Tenant) : ICommand<Result>;
+
 /// <summary>Deletes a stub by id.</summary>
 public sealed record DeleteStubCommand(Guid Id, TenantId Tenant) : ICommand<Result>;
 

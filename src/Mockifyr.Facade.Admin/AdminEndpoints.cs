@@ -72,6 +72,14 @@ public static class AdminEndpoints
             return result.IsSuccess ? Results.Json(new { id = result.Value.Id }) : Results.NotFound();
         });
 
+        admin.MapPut("/mappings/{id:guid}", async (Guid id, HttpRequest request, ISender sender) =>
+        {
+            var result = await sender.Send(new UpdateStubCommand(id, await ReadBody(request), TenantOf(request)));
+            return result.IsSuccess
+                ? Results.Json(new { id, uuid = id })
+                : Results.StatusCode(StatusCodes.Status422UnprocessableEntity);
+        });
+
         admin.MapDelete("/mappings/{id:guid}", async (Guid id, HttpRequest request, ISender sender) =>
         {
             await sender.Send(new DeleteStubCommand(id, TenantOf(request)));

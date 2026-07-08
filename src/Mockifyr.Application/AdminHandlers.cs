@@ -21,8 +21,10 @@ public sealed class CreateStubHandler(IStubStore store, IMatcherRegistry matcher
         {
             stubs = WireMockMappingReader.ReadWithSource(command.WireMockJson, command.Tenant, matchers);
         }
-        catch (JsonException)
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException)
         {
+            // JsonException = malformed JSON; InvalidOperationException = a well-formed but wrong-typed
+            // field (e.g. a string where a numeric status is expected). Both are client input errors.
             return ValueTask.FromResult<Result<Guid>>(Error.Validation("Stub.Invalid", "The stub JSON is malformed."));
         }
 
@@ -34,6 +36,38 @@ public sealed class CreateStubHandler(IStubStore store, IMatcherRegistry matcher
         store.Put(stubs[0].Stub);
         persistence.Save(stubs[0].Stub, stubs[0].Source);
         return ValueTask.FromResult<Result<Guid>>(stubs[0].Stub.Id);
+    }
+}
+
+/// <summary>
+/// Replaces an existing stub (WireMock's <c>PUT /__admin/mappings/{id}</c>). The route id is
+/// authoritative: the parsed stub's id is forced to it so <see cref="IStubStore.Put"/> upserts in place
+/// rather than appending a duplicate. Returns a validation error for malformed/empty JSON, matching create.
+/// </summary>
+public sealed class UpdateStubHandler(IStubStore store, IMatcherRegistry matchers, IStubPersistence persistence)
+    : ICommandHandler<UpdateStubCommand, Result>
+{
+    public ValueTask<Result> Handle(UpdateStubCommand command, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<(StubMapping Stub, string Source)> stubs;
+        try
+        {
+            stubs = WireMockMappingReader.ReadWithSource(command.WireMockJson, command.Tenant, matchers);
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException)
+        {
+            return ValueTask.FromResult(Result.Failure(Error.Validation("Stub.Invalid", "The stub JSON is malformed.")));
+        }
+
+        if (stubs.Count == 0)
+        {
+            return ValueTask.FromResult(Result.Failure(Error.Validation("Stub.Invalid", "No stub could be read from the JSON.")));
+        }
+
+        var updated = stubs[0].Stub with { Id = command.Id };
+        store.Put(updated);
+        persistence.Save(updated, stubs[0].Source);
+        return ValueTask.FromResult(Result.Success());
     }
 }
 
