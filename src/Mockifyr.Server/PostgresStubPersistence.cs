@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Hosting;
-using Mockifyr.Adapters.WireMockJson;
+using Mockifyr.Adapters.MappingJson;
 using Mockifyr.Core;
 using Npgsql;
 
@@ -194,7 +194,7 @@ public sealed class PostgresMappingsLoader : IMappingsLoader, IMultiTenantMappin
         using var reader = command.ExecuteReader();
         while (reader.Read())
         {
-            stubs.AddRange(WireMockMappingReader.Read(reader.GetString(0), tenant, _matchers));
+            stubs.AddRange(MappingJsonReader.Read(reader.GetString(0), tenant, _matchers));
         }
 
         return stubs;
@@ -212,7 +212,7 @@ public sealed class PostgresMappingsLoader : IMappingsLoader, IMultiTenantMappin
         while (reader.Read())
         {
             var tenant = new TenantId(reader.GetString(0));
-            stubs.AddRange(WireMockMappingReader.Read(reader.GetString(1), tenant, _matchers));
+            stubs.AddRange(MappingJsonReader.Read(reader.GetString(1), tenant, _matchers));
         }
 
         return stubs;

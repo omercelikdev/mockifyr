@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
-using Mockifyr.Adapters.WireMockJson;
+using Mockifyr.Adapters.MappingJson;
 using Mockifyr.Core;
 using Mockifyr.Server;
 using Testcontainers.PostgreSql;
@@ -44,8 +44,8 @@ public sealed class G16gMultiTenantReloadTests : IAsyncLifetime
         var peer = new PostgresStubPersistence(connectionString);
         var acme = new TenantId("acme");
         var globex = new TenantId("globex");
-        var acmeStub = WireMockMappingReader.Read(Stub("/t", "acme-body"), acme)[0];
-        var globexStub = WireMockMappingReader.Read(Stub("/t", "globex-body"), globex)[0];
+        var acmeStub = MappingJsonReader.Read(Stub("/t", "acme-body"), acme)[0];
+        var globexStub = MappingJsonReader.Read(Stub("/t", "globex-body"), globex)[0];
 
         // Neither tenant is served yet.
         Assert.Equal(HttpStatusCode.NotFound, (await GetAsync(client, "/t", "acme")).StatusCode);

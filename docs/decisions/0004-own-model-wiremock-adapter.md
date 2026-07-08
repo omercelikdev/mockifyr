@@ -9,7 +9,7 @@ differential harness must load the same stub into both us and the oracle.
 
 ## Decision
 We keep our **own clean internal domain model**; WireMock JSON is translated by an **import
-adapter** (`Mockifyr.Adapters.WireMockJson`). In the differential harness the **single source
+adapter** (`Mockifyr.Adapters.MappingJson`). In the differential harness the **single source
 of truth is WireMock JSON**: loaded raw into Java WireMock, translated into Mockifyr through
 the import adapter. This puts the adapter itself under test and lets the oracle receive the
 untouched canonical format.

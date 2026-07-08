@@ -1,4 +1,4 @@
-using Mockifyr.Adapters.WireMockJson;
+using Mockifyr.Adapters.MappingJson;
 using Mockifyr.Core;
 using Mockifyr.ServeEvents.Webhook;
 using Mockifyr.Stores.InMemory;
@@ -36,7 +36,7 @@ public sealed class MockifyrServer
     public void ImportWireMockJson(string json, TenantId? tenant = null)
     {
         var scope = tenant ?? TenantId.Default;
-        foreach (var stub in WireMockMappingReader.Read(json, scope))
+        foreach (var stub in MappingJsonReader.Read(json, scope))
         {
             _stubStore.Put(stub);
         }

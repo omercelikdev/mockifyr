@@ -98,7 +98,7 @@ src/
   Mockifyr.Matching/             IMatcher implementations
   Mockifyr.Templating/           Handlebars.Net renderer + ITemplateHelper set
   Mockifyr.Stores.InMemory/      tenant-scoped in-memory stores
-  Mockifyr.Adapters.WireMockJson/ WireMock JSON <-> domain model import adapter
+  Mockifyr.Adapters.MappingJson/ mapping JSON <-> domain model import adapter
   Mockifyr.ServeEvents.Webhook/  IServeEventListener impl (outbound I/O)
   Mockifyr.Application/          CQRS handlers (Mediant) — MANAGEMENT PATH ONLY
   Mockifyr.Facade.Library/       in-process API

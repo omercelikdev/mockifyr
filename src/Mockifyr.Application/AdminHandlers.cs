@@ -2,7 +2,7 @@ using System.Linq;
 using System.Text.Json;
 using Mediant.Abstractions;
 using Mediant.Results;
-using Mockifyr.Adapters.WireMockJson;
+using Mockifyr.Adapters.MappingJson;
 using Mockifyr.Core;
 
 namespace Mockifyr.Application;
@@ -19,7 +19,7 @@ public sealed class CreateStubHandler(IStubStore store, IMatcherRegistry matcher
         IReadOnlyList<(StubMapping Stub, string Source)> stubs;
         try
         {
-            stubs = WireMockMappingReader.ReadWithSource(command.WireMockJson, command.Tenant, matchers);
+            stubs = MappingJsonReader.ReadWithSource(command.WireMockJson, command.Tenant, matchers);
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException)
         {
@@ -52,7 +52,7 @@ public sealed class UpdateStubHandler(IStubStore store, IMatcherRegistry matcher
         IReadOnlyList<(StubMapping Stub, string Source)> stubs;
         try
         {
-            stubs = WireMockMappingReader.ReadWithSource(command.WireMockJson, command.Tenant, matchers);
+            stubs = MappingJsonReader.ReadWithSource(command.WireMockJson, command.Tenant, matchers);
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException)
         {
@@ -92,7 +92,7 @@ public sealed class ImportMappingsHandler(IStubStore store, IMatcherRegistry mat
         IReadOnlyList<(StubMapping Stub, string Source)> stubs;
         try
         {
-            stubs = WireMockMappingReader.ReadWithSource(command.WireMockJson, command.Tenant, matchers);
+            stubs = MappingJsonReader.ReadWithSource(command.WireMockJson, command.Tenant, matchers);
         }
         catch (JsonException)
         {
@@ -149,7 +149,7 @@ public sealed class CountRequestsHandler(StubEngine engine) : IQueryHandler<Coun
 {
     public ValueTask<Result<int>> Handle(CountRequestsQuery query, CancellationToken cancellationToken)
     {
-        var pattern = WireMockMappingReader.ReadRequestPattern(query.PatternJson);
+        var pattern = MappingJsonReader.ReadRequestPattern(query.PatternJson);
         return ValueTask.FromResult<Result<int>>(engine.CountRequestsMatching(query.Tenant, pattern));
     }
 }

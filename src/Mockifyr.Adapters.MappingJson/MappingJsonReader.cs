@@ -3,7 +3,7 @@ using System.Text.Json;
 using Mockifyr.Core;
 using Mockifyr.Matching;
 
-namespace Mockifyr.Adapters.WireMockJson;
+namespace Mockifyr.Adapters.MappingJson;
 
 /// <summary>
 /// Reads WireMock stub mapping JSON (the canonical format the differential harness loads into
@@ -15,7 +15,7 @@ namespace Mockifyr.Adapters.WireMockJson;
 /// <c>response.status</c>/<c>body</c>/<c>headers</c>/<c>priority</c>. The surface grows with the
 /// matching (G1) and response (G2) roadmap items.
 /// </remarks>
-public static class WireMockMappingReader
+public static class MappingJsonReader
 {
     /// <summary>
     /// Reads one or more mappings (a single object or a <c>{"mappings":[...]}</c> wrapper). A matcher

@@ -1,4 +1,4 @@
-using Mockifyr.Adapters.WireMockJson;
+using Mockifyr.Adapters.MappingJson;
 using Mockifyr.Core;
 
 namespace Mockifyr.Server;
@@ -23,7 +23,7 @@ public sealed class DirectoryMappingsLoader(string mappingsDirectory, IMatcherRe
         var stubs = new List<StubMapping>();
         foreach (var file in Directory.EnumerateFiles(mappingsDirectory, "*.json").OrderBy(path => path, StringComparer.Ordinal))
         {
-            stubs.AddRange(WireMockMappingReader.Read(File.ReadAllText(file), tenant, matchers));
+            stubs.AddRange(MappingJsonReader.Read(File.ReadAllText(file), tenant, matchers));
         }
 
         return stubs;

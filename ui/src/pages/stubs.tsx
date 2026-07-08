@@ -63,8 +63,8 @@ export function StubsPage() {
   const openNew = useCallback(() => { setEditing(null); setEditorTab('form'); setEditorOpen(true) }, [])
   const openImport = useCallback(() => { setEditing(null); setEditorTab('json'); setEditorOpen(true) }, [])
 
-  // Export the tenant's stubs as a WireMock {"mappings":[…]} bundle — the same shape Import accepts,
-  // so it round-trips and is portable to/from WireMock. Uses the full raw mappings the host returned.
+  // Export the tenant's stubs as a {"mappings":[…]} bundle — the same shape Import accepts,
+  // so it round-trips and is portable across tools using the standard mapping format. Uses the full raw mappings the host returned.
   const exportAll = useCallback(() => {
     const mappings = (data?.stubs ?? []).map((s) => s.raw).filter(Boolean)
     const blob = new Blob([JSON.stringify({ mappings }, null, 2)], { type: 'application/json' })

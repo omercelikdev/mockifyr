@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-// The stub editor's form model — a friendly projection of a WireMock mapping. It intentionally covers
+// The stub editor's form model — a friendly projection of a mapping. It intentionally covers
 // the common surface (URL/method/header/query/body matchers, response + templating, delay, fault,
 // scenario, priority, proxy); the raw-JSON tab is the escape hatch for anything beyond it.
 
@@ -77,8 +77,8 @@ export const emptyStub: StubForm = {
   webhookDelayMs: '',
 }
 
-/** Build the WireMock mapping object from the form (unset fields are omitted). */
-export function toWireMock(f: StubForm): Record<string, unknown> {
+/** Build the mapping object from the form (unset fields are omitted). */
+export function toMapping(f: StubForm): Record<string, unknown> {
   const request: Record<string, unknown> = { method: f.method, [f.urlMatchType]: f.urlValue }
   const headerMap = matcherMap(f.headers)
   if (headerMap) request.headers = headerMap
@@ -98,7 +98,7 @@ export function toWireMock(f: StubForm): Record<string, unknown> {
   if (f.fixedDelayMs.trim()) response.fixedDelayMilliseconds = Number(f.fixedDelayMs)
   if (f.fault) response.fault = f.fault
 
-  // Number-input form fields arrive as strings; WireMock's status/priority are JSON numbers, and the
+  // Number-input form fields arrive as strings; status/priority are JSON numbers, and the
   // engine's reader rejects a string-typed status. Coerce here so edits to these fields serialize correctly.
   const mapping: Record<string, unknown> = { request, response, priority: Number(f.priority) }
   if (f.scenarioName.trim()) {
@@ -106,7 +106,7 @@ export function toWireMock(f: StubForm): Record<string, unknown> {
     if (f.requiredScenarioState.trim()) mapping.requiredScenarioState = f.requiredScenarioState.trim()
     if (f.newScenarioState.trim()) mapping.newScenarioState = f.newScenarioState.trim()
   }
-  // Webhook / callback: fire an outbound request after a match (WireMock postServeActions). The JSON tab
+  // Webhook / callback: fire an outbound request after a match (postServeActions). The JSON tab
   // remains the escape hatch for advanced options (headers, delay, multiple webhooks).
   if (f.webhookUrl.trim()) {
     const parameters: Record<string, unknown> = { method: f.webhookMethod || 'POST', url: f.webhookUrl.trim() }
@@ -120,14 +120,14 @@ export function toWireMock(f: StubForm): Record<string, unknown> {
 }
 
 export function toJson(f: StubForm): string {
-  return JSON.stringify(toWireMock(f), null, 2)
+  return JSON.stringify(toMapping(f), null, 2)
 }
 
 const obj = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {})
 const str = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v : fallback)
 
-/** Reverse of {@link toWireMock}: seed the editor form from an existing WireMock mapping (edit round-trip). */
-export function fromWireMock(mapping: Record<string, unknown>): StubForm {
+/** Reverse of {@link toMapping}: seed the editor form from an existing mapping (edit round-trip). */
+export function fromMapping(mapping: Record<string, unknown>): StubForm {
   const req = obj(mapping.request)
   const res = obj(mapping.response)
 

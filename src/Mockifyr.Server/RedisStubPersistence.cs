@@ -1,6 +1,6 @@
 using System.Linq;
 using Microsoft.Extensions.Hosting;
-using Mockifyr.Adapters.WireMockJson;
+using Mockifyr.Adapters.MappingJson;
 using Mockifyr.Core;
 using StackExchange.Redis;
 
@@ -90,7 +90,7 @@ public sealed class RedisMappingsLoader(IConnectionMultiplexer redis, IMatcherRe
         var stubs = new List<StubMapping>();
         foreach (var entry in redis.GetDatabase().HashGetAll(RedisStubPersistence.HashKey(tenant)))
         {
-            stubs.AddRange(WireMockMappingReader.Read(entry.Value!, tenant, matchers));
+            stubs.AddRange(MappingJsonReader.Read(entry.Value!, tenant, matchers));
         }
 
         return stubs;
@@ -117,7 +117,7 @@ public sealed class RedisMappingsLoader(IConnectionMultiplexer redis, IMatcherRe
                 var tenant = new TenantId(((string)key!)[HashKeyPrefix.Length..]);
                 foreach (var entry in database.HashGetAll(key))
                 {
-                    stubs.AddRange(WireMockMappingReader.Read(entry.Value!, tenant, matchers));
+                    stubs.AddRange(MappingJsonReader.Read(entry.Value!, tenant, matchers));
                 }
             }
         }
