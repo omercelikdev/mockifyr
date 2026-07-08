@@ -45,6 +45,11 @@ public static class AdminEndpoints
             });
         });
 
+        // The tenants that currently exist server-side (a tenant materializes once it has stubs), so the
+        // dashboard's switcher can surface tenants created via the API alongside the operator's own list.
+        admin.MapGet("/tenants", (IStubStore store) =>
+            Results.Json(new { tenants = store.GetTenants().Select(t => t.Value).OrderBy(v => v) }));
+
         admin.MapGet("/mappings", async (HttpRequest request, ISender sender) =>
         {
             var result = await sender.Send(new GetStubsQuery(TenantOf(request)));

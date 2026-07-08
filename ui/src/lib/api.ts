@@ -83,6 +83,18 @@ export async function saveStub(tenant: string, mappingJson: string, id?: string)
   }
 }
 
+/** Tenants that exist server-side (materialized once they have stubs). Empty in sample mode. */
+export async function fetchTenants(): Promise<{ tenants: string[]; mock: boolean }> {
+  try {
+    const res = await adminFetch('/tenants', 'default')
+    if (!res.ok) throw new Error(String(res.status))
+    const body = (await res.json()) as { tenants?: string[] }
+    return { tenants: body.tenants ?? [], mock: false }
+  } catch {
+    return { tenants: [], mock: true }
+  }
+}
+
 // Host status for the Settings/Status screen.
 export interface Health {
   name: string

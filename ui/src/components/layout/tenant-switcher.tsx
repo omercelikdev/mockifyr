@@ -1,12 +1,16 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Building2, Check, ChevronsUpDown, Plus, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
+import { fetchTenants } from '@/lib/api'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+
+const prettify = (id: string) => id.split(/[-_]/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(' ')
 
 /**
  * Multi-tenancy control: switches the active tenant that scopes every admin request, and lets the
@@ -16,8 +20,17 @@ import {
 export function TenantSwitcher({ collapsed }: { collapsed: boolean }) {
   const { t } = useTranslation()
   const { tenant, setTenant, tenants, addTenant, removeTenant } = useUi()
-  const active = tenants.find((tn) => tn.id === tenant) ?? tenants[0]
   const [draft, setDraft] = useState('')
+
+  // Merge the operator's local working set with tenants discovered server-side (created via the API).
+  // Local entries are removable; server-only ones are shown (they exist because they hold stubs).
+  const server = useQuery({ queryKey: ['tenants'], queryFn: fetchTenants })
+  const localIds = new Set(tenants.map((tn) => tn.id))
+  const rows = [
+    ...tenants.map((tn) => ({ id: tn.id, name: tn.name, local: true })),
+    ...(server.data?.tenants ?? []).filter((id) => !localIds.has(id)).map((id) => ({ id, name: prettify(id), local: false })),
+  ]
+  const active = rows.find((r) => r.id === tenant) ?? rows[0]
 
   const add = () => { const name = draft.trim(); if (name) { addTenant(name); setDraft('') } }
 
@@ -42,13 +55,13 @@ export function TenantSwitcher({ collapsed }: { collapsed: boolean }) {
       <DropdownMenuContent side="top" align="start" className="w-[--radix-dropdown-menu-trigger-width] min-w-60">
         <DropdownMenuLabel>{t('common.switchTenant')}</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {tenants.map((tn) => (
+        {rows.map((tn) => (
           <DropdownMenuItem key={tn.id} onSelect={() => setTenant(tn.id)} className="group">
             <Building2 className="size-4 text-muted-foreground" />
             <span className="flex-1 truncate">{tn.name}</span>
             {tn.id === tenant ? (
               <Check className="size-4" />
-            ) : tenants.length > 1 ? (
+            ) : tn.local && tenants.length > 1 ? (
               <button
                 type="button"
                 aria-label={t('common.remove')}
