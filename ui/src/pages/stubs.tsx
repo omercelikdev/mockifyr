@@ -47,7 +47,13 @@ export function StubsPage() {
   const [editorOpen, setEditorOpen] = useState(false)
   const [editing, setEditing] = useState<Stub | null>(null)
   const [editorTab, setEditorTab] = useState<'form' | 'json'>('form')
-  const refresh = useCallback(() => { void queryClient.invalidateQueries({ queryKey: ['stubs', tenant] }) }, [queryClient, tenant])
+  // A stub mutation can also add or remove a scenario (via scenarioName), so refresh both the stubs
+  // and the scenarios queries — otherwise the sidebar's Scenarios count and the Scenarios page stay
+  // stale until a manual reload.
+  const refresh = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ['stubs', tenant] })
+    void queryClient.invalidateQueries({ queryKey: ['scenarios', tenant] })
+  }, [queryClient, tenant])
 
   // Deep-link: ?new=1 (e.g. from the command palette's "New stub") opens the editor once.
   useEffect(() => {
