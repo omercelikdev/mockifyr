@@ -18,7 +18,17 @@ docker run -p 8080:8080 -v "$PWD/mappings:/work" \
 - Admin API — `http://localhost:8080/__admin`
 - Dashboard — `http://localhost:8080/__mockifyr`
 
-Or `docker compose up` for a batteries-included setup — see [docker-compose.yml](docker-compose.yml).
+Runs on `linux/amd64` and `linux/arm64` (Apple Silicon included).
+
+Compose:
+
+```bash
+docker compose up                                   # ephemeral, file-backed mappings (./mappings)
+docker compose -f docker-compose.postgres.yml up    # durable PostgreSQL persistence
+```
+
+The Postgres variant writes stubs through to a database, so they survive a restart — see
+[docker-compose.postgres.yml](docker-compose.postgres.yml).
 
 ### Local (.NET 10 SDK)
 
