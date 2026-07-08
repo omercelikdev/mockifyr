@@ -55,9 +55,11 @@ export function StubsPage() {
     void queryClient.invalidateQueries({ queryKey: ['scenarios', tenant] })
   }, [queryClient, tenant])
 
-  // Deep-link: ?new=1 (e.g. from the command palette's "New stub") opens the editor once.
+  // Deep-link: ?new=1 opens a blank editor, ?import=1 opens it on the JSON tab (from the command
+  // palette or the dashboard's quick actions). Consumed once, then the query is cleared.
   useEffect(() => {
-    if (searchParams.get('new') === '1') { setEditing(null); setEditorOpen(true); setSearchParams({}, { replace: true }) }
+    if (searchParams.get('new') === '1') { setEditing(null); setEditorTab('form'); setEditorOpen(true); setSearchParams({}, { replace: true }) }
+    else if (searchParams.get('import') === '1') { setEditing(null); setEditorTab('json'); setEditorOpen(true); setSearchParams({}, { replace: true }) }
   }, [searchParams, setSearchParams])
 
   const openNew = useCallback(() => { setEditing(null); setEditorTab('form'); setEditorOpen(true) }, [])
