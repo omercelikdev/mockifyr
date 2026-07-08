@@ -1,11 +1,13 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useQuery } from '@tanstack/react-query'
 import {
   Activity, Bug, ChevronsRight, ChevronsUpDown, Disc, Globe, LayoutDashboard, LayoutGrid,
   ListTree, LogOut, Moon, Search, Settings, UserCircle, Waypoints,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
+import { fetchJournal, fetchScenarios, fetchStubs } from '@/lib/api'
 import { LOCALES } from '@/lib/i18n'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { TenantSwitcher } from './tenant-switcher'
@@ -20,9 +22,9 @@ interface NavItem { to: string; key: string; icon: React.ComponentType<{ classNa
 const GROUPS: { label: string; items: NavItem[] }[] = [
   { label: 'nav.overview', items: [{ to: '/', key: 'nav.dashboard', icon: LayoutDashboard }] },
   { label: 'nav.mocking', items: [
-    { to: '/stubs', key: 'nav.stubs', icon: ListTree, badge: '248' },
-    { to: '/journal', key: 'nav.journal', icon: Activity, badge: '1.2k' },
-    { to: '/scenarios', key: 'nav.scenarios', icon: Waypoints, badge: '12' },
+    { to: '/stubs', key: 'nav.stubs', icon: ListTree },
+    { to: '/journal', key: 'nav.journal', icon: Activity },
+    { to: '/scenarios', key: 'nav.scenarios', icon: Waypoints },
     { to: '/recordings', key: 'nav.recordings', icon: Disc },
   ] },
   { label: 'nav.platform', items: [
@@ -33,9 +35,26 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
 
 const openCommand = () => window.dispatchEvent(new Event('open-command'))
 
+// Compact count for a nav badge (1000 → "1k", 1234 → "1.2k"); nothing shown for 0/undefined.
+function badgeCount(n?: number): string | undefined {
+  if (!n) return undefined
+  if (n < 1000) return String(n)
+  return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k`
+}
+
 export function AppSidebar() {
   const { t } = useTranslation()
-  const { collapsed, toggleCollapsed } = useUi()
+  const { collapsed, toggleCollapsed, tenant } = useUi()
+
+  // Live per-tenant counts. Same query keys as the pages, so TanStack Query serves them from cache.
+  const stubs = useQuery({ queryKey: ['stubs', tenant], queryFn: () => fetchStubs(tenant) })
+  const journal = useQuery({ queryKey: ['journal', tenant, false], queryFn: () => fetchJournal(tenant, false) })
+  const scenarios = useQuery({ queryKey: ['scenarios', tenant], queryFn: () => fetchScenarios(tenant) })
+  const badges: Record<string, string | undefined> = {
+    '/stubs': badgeCount(stubs.data?.stubs.length),
+    '/journal': badgeCount(journal.data?.total),
+    '/scenarios': badgeCount(scenarios.data?.scenarios.length),
+  }
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -92,7 +111,7 @@ export function AppSidebar() {
                 <div className="px-2.5 pb-1 pt-2.5 text-[10.5px] font-semibold uppercase tracking-wider text-faint">{t(group.label)}</div>
               )}
               {group.items.map((item) => (
-                <NavRow key={item.to} item={item} collapsed={collapsed} label={t(item.key)} />
+                <NavRow key={item.to} item={item} collapsed={collapsed} label={t(item.key)} badge={badges[item.to]} />
               ))}
             </div>
           ))}
@@ -108,7 +127,7 @@ export function AppSidebar() {
   )
 }
 
-function NavRow({ item, collapsed, label }: { item: NavItem; collapsed: boolean; label: string }) {
+function NavRow({ item, collapsed, label, badge }: { item: NavItem; collapsed: boolean; label: string; badge?: string }) {
   const Icon = item.icon
   // Compute active from the location and pass a STRING className. A function className is stringified
   // by Radix's Slot when the link is wrapped by TooltipTrigger asChild (collapsed mode), which silently
@@ -130,9 +149,9 @@ function NavRow({ item, collapsed, label }: { item: NavItem; collapsed: boolean;
       {isActive && !collapsed && <span className="absolute inset-y-1.5 start-0 w-[3px] rounded-full bg-primary" />}
       <Icon className="size-[18px] shrink-0" />
       {!collapsed && <span className="truncate">{label}</span>}
-      {!collapsed && item.badge && (
+      {!collapsed && badge && (
         <span className={cn('ms-auto rounded-md px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground', isActive ? 'bg-background' : 'bg-muted')}>
-          {item.badge}
+          {badge}
         </span>
       )}
     </NavLink>
