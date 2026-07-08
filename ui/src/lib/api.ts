@@ -214,7 +214,13 @@ export async function resetScenarios(tenant: string): Promise<{ mock: boolean }>
   }
 }
 
+// The demo tenants that ship with representative sample data. A tenant the operator adds is not one of
+// these, so in sample mode (no host) it reads as empty — the same way a brand-new tenant is empty on a
+// real host. This avoids the illusion that adding a tenant "copied" every stub into it.
+const DEMO_TENANTS = new Set(['default', 'globex', 'acme-pay'])
+
 function sampleScenarios(tenant: string): Scenario[] {
+  if (!DEMO_TENANTS.has(tenant)) return []
   const base: Scenario[] = [
     { name: 'Checkout', state: 'Started', possibleStates: ['Started', 'PaymentAuthorized', 'Captured'] },
     { name: 'AccountOnboarding', state: 'KycPending', possibleStates: ['Started', 'KycPending', 'Active'] },
@@ -254,6 +260,7 @@ export async function fetchJournal(tenant: string, unmatchedOnly: boolean): Prom
 }
 
 function sampleJournal(tenant: string): JournalEntry[] {
+  if (!DEMO_TENANTS.has(tenant)) return []
   const rows: JournalEntry[] = [
     { id: 'r1', method: 'POST', url: '/api/v2/payments', status: 200, wasMatched: true },
     { id: 'r2', method: 'GET', url: '/api/v2/accounts/8891', status: 200, wasMatched: true },
@@ -279,6 +286,7 @@ export async function deleteStub(tenant: string, id: string): Promise<{ mock: bo
 // Representative sample data (used only when no host answers). Varies a little by tenant so switching
 // tenants visibly re-scopes the grid.
 function sampleStubs(tenant: string): Stub[] {
+  if (!DEMO_TENANTS.has(tenant)) return []
   const base: Stub[] = [
     { id: '1', method: 'GET', url: '/api/v2/accounts/{id}', protocol: 'http', priority: 5, scenario: null, persistence: 'Postgres', lastMatched: '12s', status: 'live' },
     { id: '2', method: 'POST', url: '/api/v2/payments', protocol: 'http', priority: 10, scenario: 'Checkout', persistence: 'Postgres', lastMatched: '3s', status: 'live' },
