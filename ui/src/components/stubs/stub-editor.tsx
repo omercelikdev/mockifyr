@@ -49,6 +49,7 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
   const headers = useFieldArray({ control, name: 'headers' })
   const bodyPatterns = useFieldArray({ control, name: 'bodyPatterns' })
   const responseHeaders = useFieldArray({ control, name: 'responseHeaders' })
+  const webhookHeaders = useFieldArray({ control, name: 'webhookHeaders' })
 
   async function persist() {
     let json = rawJson
@@ -139,10 +140,16 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
             {/* Webhook / callback */}
             <Section title={t('editor.webhook')}>
               <p className="-mt-1 text-xs text-muted-foreground">{t('editor.webhookHint')}</p>
-              <div className="grid grid-cols-[110px_1fr] gap-3">
+              <div className="grid grid-cols-[110px_1fr_120px] gap-3">
                 <div><Label>{t('stubs.method')}</Label><NativeSelect {...register('webhookMethod')}>{['POST', 'PUT', 'GET', 'DELETE', 'PATCH'].map((m) => <option key={m}>{m}</option>)}</NativeSelect></div>
                 <div><Label>{t('editor.webhookUrl')}</Label><Input {...register('webhookUrl')} placeholder="https://callback.example.com/hook" className="font-mono" /></div>
+                <div><Label>{t('editor.delay')}</Label><Input type="number" {...register('webhookDelayMs')} placeholder="0" /></div>
               </div>
+              <Rows label={t('editor.webhookHeaders')} fields={webhookHeaders.fields} onAdd={() => webhookHeaders.append({ name: '', value: '' })} onRemove={webhookHeaders.remove}
+                render={(i) => (<>
+                  <Input {...register(`webhookHeaders.${i}.name`)} placeholder="Header" />
+                  <Input {...register(`webhookHeaders.${i}.value`)} placeholder={t('editor.value')} />
+                </>)} twoCol />
               <div><Label>{t('editor.webhookBody')}</Label><Textarea rows={3} {...register('webhookBody')} className="font-mono text-[12.5px]" placeholder='{"event": "matched"}' /></div>
             </Section>
           </TabsContent>

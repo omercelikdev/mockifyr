@@ -59,5 +59,15 @@ token the harness rewrites per side. Driven by `WebhookScenarios` + `G3WebhookTe
   **query string** is part of the diff.
 - **Deferred:** **sub-event recording** (WireMock records the webhook request/response as correlated
   sub-events on the serve event) — these are only observable through the admin/verify surface, which
-  arrives with **G6/G7**, so there is nothing to diff yet; and webhook `delay`.
+  arrives with **G6/G7**, so there is nothing to diff yet.
 - **Regression case:** `G3WebhookTests.Webhook_Delivery` (the `webhook[templated]` scenario).
+
+## Webhook `delay` (structural)
+
+- **Group / item:** webhook `delay` — **self-tested** (delay timing is racy against a live oracle, so
+  no differential claim). The reader parses `parameters.delay = {"type":"fixed","milliseconds":N}` onto
+  `WebhookDefinition.DelayMilliseconds`; `WebhookServeEventListener` waits that long before firing (the
+  wait honours the cancellation token, so shutting down mid-delay cancels the delivery).
+- **Regression case:** `G3WebhookDelayTests.Webhook_WaitsTheConfiguredDelayBeforeFiring` — an injected
+  handler records when the outbound call actually lands and asserts it is `>= ~delay`.
+- **Still deferred:** **sub-event recording** — the only remaining webhook gap.

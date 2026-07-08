@@ -295,6 +295,9 @@ public sealed record WebhookDefinition
 
     /// <summary>Outbound body, when present.</summary>
     public byte[]? Body { get; init; }
+
+    /// <summary>Fixed delay (ms) applied before firing the webhook (WireMock's <c>delay</c>). 0 = none.</summary>
+    public int DelayMilliseconds { get; init; }
 }
 
 /// <summary>
