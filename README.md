@@ -32,10 +32,13 @@ Compose:
 ```bash
 docker compose up                                   # ephemeral, file-backed mappings (./mappings)
 docker compose -f docker-compose.postgres.yml up    # durable PostgreSQL persistence
+docker compose -f docker-compose.redis.yml up       # durable Redis persistence
 ```
 
-The Postgres variant writes stubs through to a database, so they survive a restart — see
-[docker-compose.postgres.yml](docker-compose.postgres.yml).
+The Postgres/Redis variants write stubs through to a datastore, so they survive a restart (and
+`--change-feed` keeps multiple instances coherent) — see
+[docker-compose.postgres.yml](docker-compose.postgres.yml) and
+[docker-compose.redis.yml](docker-compose.redis.yml).
 
 ### Local (.NET 10 SDK)
 
