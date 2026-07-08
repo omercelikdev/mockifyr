@@ -178,7 +178,15 @@ public static class WireMockMappingReader
                 body = decoded;
             }
 
-            webhooks.Add(new WebhookDefinition { Method = method, Url = url, Headers = headers, Body = body });
+            // WireMock's webhook delay: { "delay": { "type": "fixed", "milliseconds": N } }.
+            var delayMs = 0;
+            if (parameters.TryGetProperty("delay", out var delay) && delay.ValueKind == JsonValueKind.Object &&
+                delay.TryGetProperty("milliseconds", out var ms) && ms.ValueKind == JsonValueKind.Number)
+            {
+                delayMs = ms.GetInt32();
+            }
+
+            webhooks.Add(new WebhookDefinition { Method = method, Url = url, Headers = headers, Body = body, DelayMilliseconds = delayMs });
         }
 
         return webhooks;

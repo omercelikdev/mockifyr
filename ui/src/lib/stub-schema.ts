@@ -36,6 +36,8 @@ export const stubSchema = z.object({
   webhookMethod: z.string(),
   webhookUrl: z.string(),
   webhookBody: z.string(),
+  webhookHeaders: z.array(z.object({ name: z.string(), value: z.string() })),
+  webhookDelayMs: z.string(),
 })
 
 export type StubForm = z.infer<typeof stubSchema>
@@ -61,6 +63,8 @@ export const emptyStub: StubForm = {
   webhookMethod: 'POST',
   webhookUrl: '',
   webhookBody: '',
+  webhookHeaders: [],
+  webhookDelayMs: '',
 }
 
 /** Build the WireMock mapping object from the form (unset fields are omitted). */
@@ -94,7 +98,10 @@ export function toWireMock(f: StubForm): Record<string, unknown> {
   // remains the escape hatch for advanced options (headers, delay, multiple webhooks).
   if (f.webhookUrl.trim()) {
     const parameters: Record<string, unknown> = { method: f.webhookMethod || 'POST', url: f.webhookUrl.trim() }
+    const webhookHeaders = Object.fromEntries(f.webhookHeaders.filter((h) => h.name.trim()).map((h) => [h.name, h.value]))
+    if (Object.keys(webhookHeaders).length) parameters.headers = webhookHeaders
     if (f.webhookBody.trim()) parameters.body = f.webhookBody
+    if (f.webhookDelayMs.trim()) parameters.delay = { type: 'fixed', milliseconds: Number(f.webhookDelayMs) }
     mapping.postServeActions = [{ name: 'webhook', parameters }]
   }
   return mapping

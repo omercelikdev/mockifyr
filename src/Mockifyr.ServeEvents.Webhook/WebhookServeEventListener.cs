@@ -43,6 +43,12 @@ public sealed class WebhookServeEventListener : IServeEventListener
 
     private async Task SendAsync(WebhookDefinition webhook, CanonicalRequest originalRequest, CancellationToken cancellationToken)
     {
+        if (webhook.DelayMilliseconds > 0)
+        {
+            try { await Task.Delay(webhook.DelayMilliseconds, cancellationToken).ConfigureAwait(false); }
+            catch (TaskCanceledException) { return; }
+        }
+
         var url = Render(webhook.Url, originalRequest);
         using var request = new HttpRequestMessage(new HttpMethod(webhook.Method), url);
 
