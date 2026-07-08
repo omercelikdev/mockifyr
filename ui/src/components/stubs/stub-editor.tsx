@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm, useFieldArray, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
-import { Plus, Trash2 } from 'lucide-react'
+import { Copy, Plus, Sparkles, Trash2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
-import { saveStub, type Stub } from '@/lib/api'
+import { importMappings, saveStub, type Stub } from '@/lib/api'
 import { BODY_OPS, emptyStub, FAULTS, fromWireMock, MATCH_OPS, stubSchema, toJson, URL_MATCH, type StubForm } from '@/lib/stub-schema'
 import { Sheet, SheetContent, SheetHeader } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -33,6 +34,7 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
   const [tab, setTab] = useState('form')
   const [rawJson, setRawJson] = useState('')
   const [saving, setSaving] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   // zodResolver's inferred generic clashes with the coerce()'d number fields (and pnpm's duplicate RHF
   // types), so cast the resolver — the schema still validates at runtime.
@@ -64,13 +66,38 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
   async function persist() {
     let json = rawJson
     if (tab === 'form') json = toJson(getValues())
-    try { JSON.parse(json) } catch { toast.error(t('editor.invalidJson')); return }
+    let parsed: unknown
+    try { parsed = JSON.parse(json) } catch { toast.error(t('editor.invalidJson')); return }
+    // A {"mappings":[…]} bundle (a WireMock export) goes through the bulk-import endpoint; a single
+    // mapping is a create/update. Editing an existing stub is always the latter.
+    const isBundle = !editing && typeof parsed === 'object' && parsed !== null && Array.isArray((parsed as { mappings?: unknown }).mappings)
     setSaving(true)
-    const { mock } = await saveStub(tenant, json, editing?.id)
+    const { mock } = isBundle ? await importMappings(tenant, json) : await saveStub(tenant, json, editing?.id)
     setSaving(false)
     toast[mock ? 'message' : 'success'](mock ? t('editor.savedSample') : t('editor.saved'))
     onSaved()
     onOpenChange(false)
+  }
+
+  function onPickFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (file) void file.text().then(setRawJson)
+    event.target.value = '' // allow re-picking the same file
+  }
+
+  // Live JSON validity for the JSON tab: surfaces an inline error, red border, and blocks Save.
+  const jsonError = (() => {
+    if (tab !== 'json') return null
+    try { JSON.parse(rawJson); return null } catch { return t('editor.invalidJson') }
+  })()
+
+  function beautify() {
+    try { setRawJson(JSON.stringify(JSON.parse(rawJson), null, 2)) } catch { toast.error(t('editor.invalidJson')) }
+  }
+
+  function copyJson() {
+    void navigator.clipboard?.writeText(rawJson)
+    toast.success(t('editor.copied'))
   }
 
   const importing = !editing && initialTab === 'json'
@@ -164,14 +191,23 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
             </Section>
           </TabsContent>
 
-          <TabsContent value="json" className="min-h-0 flex-1 px-6 py-5">
-            <Textarea value={rawJson} onChange={(e) => setRawJson(e.target.value)} className="h-full min-h-[420px] font-mono text-[12.5px]" spellCheck={false} />
+          <TabsContent value="json" className="flex min-h-0 flex-1 flex-col gap-2 px-6 py-5">
+            <div className="flex items-center justify-between">
+              <span className={cn('text-xs', jsonError ? 'text-danger' : 'text-faint')}>{jsonError ?? 'JSON'}</span>
+              <div className="flex gap-1">
+                <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={onPickFile} />
+                <Button type="button" variant="ghost" size="sm" onClick={() => fileRef.current?.click()}><Upload />{t('editor.upload')}</Button>
+                <Button type="button" variant="ghost" size="sm" onClick={beautify}><Sparkles />{t('editor.beautify')}</Button>
+                <Button type="button" variant="ghost" size="sm" onClick={copyJson}><Copy />{t('editor.copy')}</Button>
+              </div>
+            </div>
+            <Textarea value={rawJson} onChange={(e) => setRawJson(e.target.value)} className={cn('h-full min-h-[420px] font-mono text-[12.5px]', jsonError && 'border-danger focus:border-danger')} spellCheck={false} />
           </TabsContent>
         </Tabs>
 
         <div className="flex items-center justify-end gap-2 border-t border-border px-6 py-4">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>{t('editor.cancel')}</Button>
-          <Button variant="primary" onClick={handleSubmit(persist, () => setTab('form'))} disabled={saving}>{t('editor.save')}</Button>
+          <Button variant="primary" onClick={handleSubmit(persist, () => setTab('form'))} disabled={saving || !!jsonError}>{t('editor.save')}</Button>
         </div>
       </SheetContent>
     </Sheet>
