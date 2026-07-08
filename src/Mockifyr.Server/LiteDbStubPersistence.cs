@@ -1,5 +1,5 @@
 using LiteDB;
-using Mockifyr.Adapters.WireMockJson;
+using Mockifyr.Adapters.MappingJson;
 using Mockifyr.Core;
 
 namespace Mockifyr.Server;
@@ -61,7 +61,7 @@ public sealed class LiteDbMappingsLoader(LiteDatabase database, IMatcherRegistry
         var stubs = new List<StubMapping>();
         foreach (var stored in _stubs.Find(row => row.Tenant == tenant.Value))
         {
-            stubs.AddRange(WireMockMappingReader.Read(stored.Json, tenant, matchers));
+            stubs.AddRange(MappingJsonReader.Read(stored.Json, tenant, matchers));
         }
 
         return stubs;

@@ -25,7 +25,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mockifyr.Facade.Admin", "sr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mockifyr.Matching", "src\Mockifyr.Matching\Mockifyr.Matching.csproj", "{D2AC8253-3CA9-4BCF-AE4C-9584926CCBD3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mockifyr.Adapters.WireMockJson", "src\Mockifyr.Adapters.WireMockJson\Mockifyr.Adapters.WireMockJson.csproj", "{67289751-375B-4FD3-9DE2-94293A8E58BB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mockifyr.Adapters.MappingJson", "src\Mockifyr.Adapters.MappingJson\Mockifyr.Adapters.MappingJson.csproj", "{67289751-375B-4FD3-9DE2-94293A8E58BB}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "harness", "harness", "{706E44A9-21F7-2226-6BCD-972688B74E7B}"
 EndProject

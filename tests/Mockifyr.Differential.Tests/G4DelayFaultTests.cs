@@ -1,5 +1,5 @@
 using System.Linq;
-using Mockifyr.Adapters.WireMockJson;
+using Mockifyr.Adapters.MappingJson;
 using Mockifyr.Core;
 using Mockifyr.Differential.Generator;
 using Mockifyr.Differential.Harness;
@@ -20,7 +20,7 @@ public sealed class G4DirectiveParsingTests
             {"request":{"method":"GET","url":"/d"},"response":{"status":200,"body":"x","fixedDelayMilliseconds":250}}
             """;
 
-        var stub = WireMockMappingReader.Read(json, TenantId.Default).Single();
+        var stub = MappingJsonReader.Read(json, TenantId.Default).Single();
 
         Assert.Equal(250, stub.Response.Delay?.Milliseconds);
     }
@@ -35,7 +35,7 @@ public sealed class G4DirectiveParsingTests
         var json = "{\"request\":{\"method\":\"GET\",\"url\":\"/f\"},\"response\":{\"fault\":\"" +
                    wireMockName + "\"}}";
 
-        var stub = WireMockMappingReader.Read(json, TenantId.Default).Single();
+        var stub = MappingJsonReader.Read(json, TenantId.Default).Single();
 
         Assert.Equal(expected, stub.Response.Fault?.Kind);
     }

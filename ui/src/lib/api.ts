@@ -1,6 +1,6 @@
 import { TENANT_HEADER } from '@/lib/tenants'
 
-// A stub row as the dashboard needs it — a flat projection of a WireMock-format mapping.
+// A stub row as the dashboard needs it — a flat projection of a mapping.
 export type Protocol = 'http' | 'grpc' | 'graphql' | 'websocket'
 export type StubStatus = 'live' | 'proxy' | 'draft'
 
@@ -14,7 +14,7 @@ export interface Stub {
   persistence: string
   lastMatched: string | null
   status: StubStatus
-  /** The full WireMock mapping (when a host returned it), so the editor can round-trip an edit. */
+  /** The full mapping (when a host returned it), so the editor can round-trip an edit. */
   raw?: Record<string, unknown>
 }
 
@@ -69,14 +69,14 @@ export async function fetchStubs(tenant: string): Promise<{ stubs: Stub[]; mock:
   try {
     const res = await adminFetch('/mappings', tenant)
     if (!res.ok) throw new Error(String(res.status))
-    const body = (await res.json()) as { mappings?: WireMockMapping[] }
+    const body = (await res.json()) as { mappings?: RawMapping[] }
     return { stubs: (body.mappings ?? []).map(projectMapping), mock: false }
   } catch {
     return { stubs: sampleStubs(tenant), mock: true }
   }
 }
 
-interface WireMockMapping {
+interface RawMapping {
   id?: string
   uuid?: string
   priority?: number
@@ -86,7 +86,7 @@ interface WireMockMapping {
   metadata?: { 'mockifyr:persistence'?: string }
 }
 
-function projectMapping(m: WireMockMapping): Stub {
+function projectMapping(m: RawMapping): Stub {
   const req = m.request ?? {}
   const url = req.url ?? req.urlPath ?? req.urlPattern ?? req.urlPathPattern ?? '/'
   return {
@@ -104,7 +104,7 @@ function projectMapping(m: WireMockMapping): Stub {
 }
 
 /**
- * Persists a stub (WireMock mapping JSON). Create = POST, update = PUT /__admin/mappings/{id}.
+ * Persists a stub (mapping JSON). Create = POST, update = PUT /__admin/mappings/{id}.
  * Returns `mock: true` when no host answered, so the caller can toast "sample mode" instead of failing.
  */
 export async function saveStub(tenant: string, mappingJson: string, id?: string): Promise<{ mock: boolean }> {
@@ -121,8 +121,8 @@ export async function saveStub(tenant: string, mappingJson: string, id?: string)
 }
 
 /**
- * Bulk-imports mappings from a WireMock export — a single mapping or a `{"mappings":[…]}` bundle —
- * via POST /__admin/mappings/import. This is the migration path: a WireMock `GET /__admin/mappings`
+ * Bulk-imports mappings from an export — a single mapping or a `{"mappings":[…]}` bundle —
+ * via POST /__admin/mappings/import. This is the migration path: a `GET /__admin/mappings`
  * dump drops straight in. Returns `mock: true` when no host answered.
  */
 export async function importMappings(tenant: string, json: string): Promise<{ mock: boolean }> {
@@ -206,7 +206,7 @@ async function captureVia(tenant: string, path: string): Promise<{ stubs: Captur
   try {
     const res = await adminFetch(path, tenant, { method: 'POST' })
     if (!res.ok) throw new Error(String(res.status))
-    const body = (await res.json()) as { mappings?: WireMockMapping[] }
+    const body = (await res.json()) as { mappings?: RawMapping[] }
     return { stubs: (body.mappings ?? []).map(projectCaptured), mock: false }
   } catch {
     return { stubs: [], mock: true }
@@ -216,7 +216,7 @@ async function captureVia(tenant: string, path: string): Promise<{ stubs: Captur
 export const snapshotRecording = (tenant: string) => captureVia(tenant, '/recordings/snapshot')
 export const stopRecording = (tenant: string) => captureVia(tenant, '/recordings/stop')
 
-function projectCaptured(m: WireMockMapping): CapturedStub {
+function projectCaptured(m: RawMapping): CapturedStub {
   const req = m.request ?? {}
   return {
     method: (req.method ?? 'ANY').toUpperCase(),

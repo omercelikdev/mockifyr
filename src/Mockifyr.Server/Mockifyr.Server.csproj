@@ -16,7 +16,7 @@
     <ProjectReference Include="..\Mockifyr.Matching\Mockifyr.Matching.csproj" />
     <ProjectReference Include="..\Mockifyr.Templating\Mockifyr.Templating.csproj" />
     <ProjectReference Include="..\Mockifyr.Stores.InMemory\Mockifyr.Stores.InMemory.csproj" />
-    <ProjectReference Include="..\Mockifyr.Adapters.WireMockJson\Mockifyr.Adapters.WireMockJson.csproj" />
+    <ProjectReference Include="..\Mockifyr.Adapters.MappingJson\Mockifyr.Adapters.MappingJson.csproj" />
     <ProjectReference Include="..\Mockifyr.ServeEvents.Webhook\Mockifyr.ServeEvents.Webhook.csproj" />
     <ProjectReference Include="..\Mockifyr.Outbound\Mockifyr.Outbound.csproj" />
   </ItemGroup>

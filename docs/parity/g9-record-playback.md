@@ -24,7 +24,7 @@ Verified WireMock recorder behaviors against the oracle (`wiremock/wiremock:3.10
   (`Content-Length`, `Transfer-Encoding`, `Connection`, `Date`, `Server`) are **not baked into the
   generated stub** (the serving side recomputes them) and are masked in the diff.
 - **Architecture.** `StubRecorder` (`Mockifyr.Facade.Library`) reuses `ProxyResponder` for the
-  outbound call and `WireMockRecordingWriter` (`Mockifyr.Adapters.WireMockJson`) to generate the stub
+  outbound call and `RecordingJsonWriter` (`Mockifyr.Adapters.MappingJson`) to generate the stub
   JSON from the captured exchange — the inverse of the import adapter, scoped to recorded stubs (no
   general model→JSON export needed).
 - **Deferred:** the `/__admin/recordings/*` and `/snapshot` **admin endpoints** (the recorder is

@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
-using Mockifyr.Adapters.WireMockJson;
+using Mockifyr.Adapters.MappingJson;
 using Mockifyr.Core;
 
 namespace Mockifyr.Facade.WebSocket;
@@ -68,7 +68,7 @@ public static class MessageMappingReader
                 triggerMessage.TryGetProperty("body", out var body) &&
                 body.ValueKind == JsonValueKind.Object)
             {
-                trigger = WireMockMappingReader.ReadRequestPattern("{\"bodyPatterns\":[" + body.GetRawText() + "]}").Body;
+                trigger = MappingJsonReader.ReadRequestPattern("{\"bodyPatterns\":[" + body.GetRawText() + "]}").Body;
             }
         }
 

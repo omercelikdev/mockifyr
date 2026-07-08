@@ -92,7 +92,7 @@ Testcontainers) are collected at the edges.
 - **`Mockifyr.Templating`** — Handlebars.Net renderer + the `ITemplateHelper` set.
 - **`Mockifyr.Stores.InMemory`** — tenant-scoped `IStubStore`/`IScenarioStateStore`/
   `IRequestJournal` in-memory impl (default, narrow vertical).
-- **`Mockifyr.Adapters.WireMockJson`** — WireMock JSON ↔ domain model import adapter. Used by
+- **`Mockifyr.Adapters.MappingJson`** — mapping JSON ↔ domain model import adapter. Used by
   the harness and the admin API; itself under differential test.
 - **`Mockifyr.ServeEvents.Webhook`** — `IServeEventListener` impl (outbound I/O + templating).
 
@@ -340,7 +340,7 @@ are canonically diffed. A difference means Mockifyr is wrong. AI self-validation
 ```
 WireMock JSON scenario (SINGLE source of truth)
    ├────────── raw ──────────► Java WireMock (Testcontainers) ──┐
-   └── Adapters.WireMockJson ─► Mockifyr (Facade.Http/Library) ─┤
+   └── Adapters.MappingJson ─► Mockifyr (Facade.Http/Library) ─┤
 Generator (seeded) ── same request ──► both sides ─────────────┤
    (empty/long/unicode/array-order/missing-extra field, boundary) ▼
                               Canonicalize + volatile-mask (header/JSON key order;
@@ -450,7 +450,7 @@ mockifyr/
 │   ├── Mockifyr.Matching/
 │   ├── Mockifyr.Templating/
 │   ├── Mockifyr.Stores.InMemory/
-│   ├── Mockifyr.Adapters.WireMockJson/
+│   ├── Mockifyr.Adapters.MappingJson/
 │   ├── Mockifyr.ServeEvents.Webhook/
 │   ├── Mockifyr.Application/            # CQRS handlers (Mediant) — management path only
 │   ├── Mockifyr.Facade.Library/

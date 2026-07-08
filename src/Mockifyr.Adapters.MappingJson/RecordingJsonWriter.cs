@@ -2,16 +2,16 @@ using System.Text;
 using System.Text.Json;
 using Mockifyr.Core;
 
-namespace Mockifyr.Adapters.WireMockJson;
+namespace Mockifyr.Adapters.MappingJson;
 
 /// <summary>
 /// Generates a WireMock stub-mapping JSON from a captured request/response exchange (G9 record).
 /// The recorder proxies a request to an upstream, then hands the pair here to produce a stub that
 /// replays that response: an exact-URL + method request pattern (plus an <c>equalTo</c> body pattern
 /// when the request had a body), and the captured status/body/headers as a static response. This is
-/// the inverse of <see cref="WireMockMappingReader"/>; a general model→JSON export is not needed.
+/// the inverse of <see cref="MappingJsonReader"/>; a general model→JSON export is not needed.
 /// </summary>
-public static class WireMockRecordingWriter
+public static class RecordingJsonWriter
 {
     // Recomputed by the serving side, so they are not baked into the generated stub.
     private static readonly HashSet<string> SkipResponseHeaders =

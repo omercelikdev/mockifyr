@@ -1,5 +1,5 @@
 using System.Linq;
-using Mockifyr.Adapters.WireMockJson;
+using Mockifyr.Adapters.MappingJson;
 using Mockifyr.Core;
 using Mockifyr.Differential.Generator;
 using Mockifyr.Differential.Harness;

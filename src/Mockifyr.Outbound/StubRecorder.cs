@@ -1,4 +1,4 @@
-using Mockifyr.Adapters.WireMockJson;
+using Mockifyr.Adapters.MappingJson;
 using Mockifyr.Core;
 
 namespace Mockifyr.Outbound;
@@ -9,7 +9,7 @@ public sealed record RecordedExchange(string StubJson, CanonicalResponse Capture
 /// <summary>
 /// WireMock's record mode (G9): proxy a request to the target upstream, capture the response, and
 /// generate a WireMock stub that replays it. Reuses <see cref="ProxyResponder"/> for the outbound
-/// call (I/O at the facade edge) and <see cref="WireMockRecordingWriter"/> for the stub JSON. Filters,
+/// call (I/O at the facade edge) and <see cref="RecordingJsonWriter"/> for the stub JSON. Filters,
 /// body-file extraction, and repeat-request → scenario generation are deferred.
 /// </summary>
 public sealed class StubRecorder(HttpClient? client = null)
@@ -22,6 +22,6 @@ public sealed class StubRecorder(HttpClient? client = null)
         var response = await _proxy.ProxyAsync(new ProxyDirective(targetBaseUrl), request, cancellationToken)
             .ConfigureAwait(false);
 
-        return new RecordedExchange(WireMockRecordingWriter.ToStubJson(request, response), response);
+        return new RecordedExchange(RecordingJsonWriter.ToStubJson(request, response), response);
     }
 }

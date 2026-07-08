@@ -105,8 +105,8 @@ tests, all green.
   rewriting deferred.
 
 - **G9** record & playback — done. `StubRecorder` (`Mockifyr.Facade.Library`) proxies to the target
-  (reusing `ProxyResponder`), captures the exchange, and `WireMockRecordingWriter`
-  (`Mockifyr.Adapters.WireMockJson`) generates a stub JSON (exact URL + method + body `equalTo` +
+  (reusing `ProxyResponder`), captures the exchange, and `RecordingJsonWriter`
+  (`Mockifyr.Adapters.MappingJson`) generates a stub JSON (exact URL + method + body `equalTo` +
   captured response). Validated by **cross-engine replay**: Mockifyr's generated stubs, loaded into
   the real oracle and a fresh Mockifyr, replay the captured response (status + body + stable headers;
   volatile/transport headers not baked in and masked). The `/__admin/recordings/*` HTTP endpoints,
