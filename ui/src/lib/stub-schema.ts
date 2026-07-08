@@ -33,6 +33,9 @@ export const stubSchema = z.object({
   fixedDelayMs: z.string(),
   fault: z.enum(FAULTS),
   proxyBaseUrl: z.string(),
+  webhookMethod: z.string(),
+  webhookUrl: z.string(),
+  webhookBody: z.string(),
 })
 
 export type StubForm = z.infer<typeof stubSchema>
@@ -55,6 +58,9 @@ export const emptyStub: StubForm = {
   fixedDelayMs: '',
   fault: '',
   proxyBaseUrl: '',
+  webhookMethod: 'POST',
+  webhookUrl: '',
+  webhookBody: '',
 }
 
 /** Build the WireMock mapping object from the form (unset fields are omitted). */
@@ -83,6 +89,13 @@ export function toWireMock(f: StubForm): Record<string, unknown> {
     mapping.scenarioName = f.scenarioName.trim()
     if (f.requiredScenarioState.trim()) mapping.requiredScenarioState = f.requiredScenarioState.trim()
     if (f.newScenarioState.trim()) mapping.newScenarioState = f.newScenarioState.trim()
+  }
+  // Webhook / callback: fire an outbound request after a match (WireMock postServeActions). The JSON tab
+  // remains the escape hatch for advanced options (headers, delay, multiple webhooks).
+  if (f.webhookUrl.trim()) {
+    const parameters: Record<string, unknown> = { method: f.webhookMethod || 'POST', url: f.webhookUrl.trim() }
+    if (f.webhookBody.trim()) parameters.body = f.webhookBody
+    mapping.postServeActions = [{ name: 'webhook', parameters }]
   }
   return mapping
 }

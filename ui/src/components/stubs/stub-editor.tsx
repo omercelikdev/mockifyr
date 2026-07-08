@@ -135,6 +135,16 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
                 <div><Label>{t('editor.newState')}</Label><Input {...register('newScenarioState')} placeholder="Paid" /></div>
               </div>
             </Section>
+
+            {/* Webhook / callback */}
+            <Section title={t('editor.webhook')}>
+              <p className="-mt-1 text-xs text-muted-foreground">{t('editor.webhookHint')}</p>
+              <div className="grid grid-cols-[110px_1fr] gap-3">
+                <div><Label>{t('stubs.method')}</Label><NativeSelect {...register('webhookMethod')}>{['POST', 'PUT', 'GET', 'DELETE', 'PATCH'].map((m) => <option key={m}>{m}</option>)}</NativeSelect></div>
+                <div><Label>{t('editor.webhookUrl')}</Label><Input {...register('webhookUrl')} placeholder="https://callback.example.com/hook" className="font-mono" /></div>
+              </div>
+              <div><Label>{t('editor.webhookBody')}</Label><Textarea rows={3} {...register('webhookBody')} className="font-mono text-[12.5px]" placeholder='{"event": "matched"}' /></div>
+            </Section>
           </TabsContent>
 
           <TabsContent value="json" className="min-h-0 flex-1 px-6 py-5">
