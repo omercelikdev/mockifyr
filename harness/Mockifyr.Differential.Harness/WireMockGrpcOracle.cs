@@ -40,8 +40,42 @@ public sealed class WireMockGrpcOracle : IAsyncDisposable
             .Build();
     }
 
-    /// <summary>Starts the oracle container.</summary>
-    public Task StartAsync() => _container.StartAsync();
+    /// <summary>
+    /// Starts the oracle container and waits until the HTTPS listener actually answers. The container
+    /// wait strategy only gates on the plaintext admin port, but gRPC calls go over HTTPS (8443); the
+    /// TLS/h2 listener can lag the admin surface, so the first gRPC call could race a not-yet-ready
+    /// listener and see a transient status (intermittent G13d flake). Polling the HTTPS admin endpoint
+    /// here closes that gap deterministically.
+    /// </summary>
+    public async Task StartAsync()
+    {
+        await _container.StartAsync();
+
+        using var handler = new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
+        };
+        using var http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(5) };
+        var httpsAdmin = new Uri($"{GrpcAddress}__admin/mappings");
+
+        for (var attempt = 0; attempt < 40; attempt++)
+        {
+            try
+            {
+                using var response = await http.GetAsync(httpsAdmin);
+                if (response.IsSuccessStatusCode)
+                {
+                    return;
+                }
+            }
+            catch (HttpRequestException)
+            {
+                // TLS listener not accepting yet — retry.
+            }
+
+            await Task.Delay(250);
+        }
+    }
 
     /// <summary>The base address for gRPC calls (HTTPS, ALPN-negotiated h2) against the oracle.</summary>
     public Uri GrpcAddress =>
