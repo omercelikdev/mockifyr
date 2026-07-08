@@ -6,7 +6,7 @@ namespace Mockifyr.Server;
 
 /// <summary>
 /// A persisted stub row in LiteDB: the id (document key), owning tenant, and the stub's id-stamped
-/// WireMock JSON. Storing the raw JSON keeps persistence faithful without a domain → JSON serializer.
+/// mapping JSON. Storing the raw JSON keeps persistence faithful without a domain → JSON serializer.
 /// </summary>
 internal sealed class StoredStub
 {

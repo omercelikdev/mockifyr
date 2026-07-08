@@ -6,7 +6,7 @@ namespace Mockifyr.Matching;
 /// <summary>
 /// A leaf comparison applied to the value(s) of a matched target (a header, query parameter,
 /// cookie, or the body). Reused by the target matchers so the standard matcher set is defined
-/// once. WireMock's underlying semantics are pinned by the differential suite; see
+/// once. The exact matching semantics are verified by the differential suite; see
 /// docs/parity/g1-matching.md.
 /// </summary>
 public interface IValueMatcher
@@ -48,8 +48,9 @@ public sealed class ContainsValueMatcher(string expected) : IValueMatcher
 }
 
 /// <summary>
-/// Matches when a value fully matches the regular expression. WireMock uses Java
+/// Matches when a value fully matches the regular expression, following Java
 /// <c>String.matches</c> semantics (the whole value must match), so the pattern is anchored.
+/// Verified by the differential suite.
 /// </summary>
 public sealed class MatchesValueMatcher(string pattern) : IValueMatcher
 {
@@ -74,7 +75,7 @@ public sealed class DoesNotMatchValueMatcher(string pattern) : IValueMatcher
             : MatchResult.NoMatch(1d);
 }
 
-/// <summary>Matches when no value contains the expected substring (WireMock's <c>doesNotContain</c>).</summary>
+/// <summary>Matches when no value contains the expected substring (the <c>doesNotContain</c> predicate).</summary>
 public sealed class DoesNotContainValueMatcher(string expected) : IValueMatcher
 {
     /// <inheritdoc />
@@ -84,7 +85,7 @@ public sealed class DoesNotContainValueMatcher(string expected) : IValueMatcher
             : MatchResult.NoMatch(1d);
 }
 
-/// <summary>Matches when every inner matcher matches the same target value(s) (WireMock <c>and</c>).</summary>
+/// <summary>Matches when every inner matcher matches the same target value(s) (the <c>and</c> predicate).</summary>
 public sealed class AndValueMatcher(IReadOnlyList<IValueMatcher> matchers) : IValueMatcher
 {
     /// <inheritdoc />
@@ -92,7 +93,7 @@ public sealed class AndValueMatcher(IReadOnlyList<IValueMatcher> matchers) : IVa
         matchers.All(m => m.Match(present, values).IsExactMatch) ? MatchResult.Exact : MatchResult.NoMatch(1d);
 }
 
-/// <summary>Matches when at least one inner matcher matches the target value(s) (WireMock <c>or</c>).</summary>
+/// <summary>Matches when at least one inner matcher matches the target value(s) (the <c>or</c> predicate).</summary>
 public sealed class OrValueMatcher(IReadOnlyList<IValueMatcher> matchers) : IValueMatcher
 {
     /// <inheritdoc />
@@ -100,7 +101,7 @@ public sealed class OrValueMatcher(IReadOnlyList<IValueMatcher> matchers) : IVal
         matchers.Any(m => m.Match(present, values).IsExactMatch) ? MatchResult.Exact : MatchResult.NoMatch(1d);
 }
 
-/// <summary>Matches when the inner matcher does not match the target value(s) (WireMock <c>not</c>).</summary>
+/// <summary>Matches when the inner matcher does not match the target value(s) (the <c>not</c> predicate).</summary>
 public sealed class NotValueMatcher(IValueMatcher inner) : IValueMatcher
 {
     /// <inheritdoc />
@@ -110,7 +111,7 @@ public sealed class NotValueMatcher(IValueMatcher inner) : IValueMatcher
 
 /// <summary>
 /// Matches a multi-valued target when its values correspond exactly to the given matchers, in any
-/// order (WireMock's <c>hasExactly</c>): the counts are equal, every matcher matches some value, and
+/// order (the <c>hasExactly</c> predicate): the counts are equal, every matcher matches some value, and
 /// every value is matched by some matcher.
 /// </summary>
 public sealed class HasExactlyValueMatcher(IReadOnlyList<IValueMatcher> matchers) : IValueMatcher
@@ -131,7 +132,7 @@ public sealed class HasExactlyValueMatcher(IReadOnlyList<IValueMatcher> matchers
 
 /// <summary>
 /// Matches a multi-valued target when every matcher matches at least one value, in any order and
-/// allowing extra values (WireMock's <c>includes</c>).
+/// allowing extra values (the <c>includes</c> predicate).
 /// </summary>
 public sealed class IncludesValueMatcher(IReadOnlyList<IValueMatcher> matchers) : IValueMatcher
 {

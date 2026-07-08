@@ -6,20 +6,20 @@ using HandlebarsDotNet;
 namespace Mockifyr.Templating;
 
 /// <summary>
-/// The <c>jwt</c> templating helper (G15): <c>{{jwt sub='u1' role='admin'}}</c> renders a signed JWT,
-/// mirroring WireMock's JWT extension. Claim defaults match the reference — <c>iss=wiremock</c>,
-/// <c>aud=wiremock.io</c>, <c>sub=user-123</c>, <c>iat=now</c>, <c>exp=now+maxAge</c> (default
-/// <c>36500 days</c>) — and any non-reserved parameter becomes a private claim. Signed with HS256.
+/// The <c>jwt</c> templating helper (G15): <c>{{jwt sub='u1' role='admin'}}</c> renders a signed JWT.
+/// Claim defaults are <c>iss=wiremock</c>, <c>aud=wiremock.io</c>, <c>sub=user-123</c>, <c>iat=now</c>,
+/// <c>exp=now+maxAge</c> (default <c>36500 days</c>) — and any non-reserved parameter becomes a private
+/// claim. Signed with HS256.
 ///
-/// <para>WireMock's default signing secret is random per instance and <c>iat</c> is the current time,
-/// so the token can't be byte-diffed; it is validated by <b>content parity</b> — the decoded header and
-/// claims match the reference — plus a structural check on the racy <c>iat</c>/<c>exp</c> and the
+/// <para>The default signing secret is random per instance and <c>iat</c> is the current time, so the
+/// token can't be byte-diffed; it is <b>self-tested</b> by content parity — the decoded header and
+/// claims are checked directly — plus a structural check on the racy <c>iat</c>/<c>exp</c> and the
 /// signature. RS256, configurable secrets, <c>nbf</c>, and array claims are deferred.</para>
 /// </summary>
 internal static class JwtHelpers
 {
-    // WireMock mints a random 36-char secret per start; Mockifyr uses a fixed default (configurable is
-    // a follow-up). Content parity does not depend on the secret, only the claims.
+    // Mockifyr uses a fixed default signing secret (a random per-start secret is a follow-up). Content
+    // parity does not depend on the secret, only the claims.
     private const string DefaultSecret = "mockifyr-default-hs256-secret";
 
     // The RSA key + key id for RS256, generated once per instance (like the reference extension). Both
@@ -27,8 +27,8 @@ internal static class JwtHelpers
     private static readonly RSA RsaKey = RSA.Create(2048);
     private static readonly string Kid = Base64Url(RandomNumberGenerator.GetBytes(23))[..30];
 
-    // Handled specially or consumed (not emitted as private claims). WireMock reserves iss/aud/sub/
-    // exp/nbf; Mockifyr also consumes maxAge. `alg` selects the algorithm AND (like the reference) leaks
+    // Handled specially or consumed (not emitted as private claims). Mockifyr reserves iss/aud/sub/
+    // exp/nbf and also consumes maxAge. `alg` selects the algorithm AND deliberately leaks
     // into the payload as a claim, so it is not reserved.
     private static readonly HashSet<string> Reserved =
         new(StringComparer.Ordinal) { "exp", "iss", "aud", "sub", "nbf", "maxAge" };

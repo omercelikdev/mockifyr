@@ -148,19 +148,19 @@ public sealed class StubEngine
 
     // --- Verification / diagnostics (G6): read-only queries over the journal, reusing matching. ---
 
-    /// <summary>Counts journaled requests matching the pattern (WireMock's <c>requests/count</c>).</summary>
+    /// <summary>Counts journaled requests matching the pattern; backs the <c>requests/count</c> admin endpoint (G6, verified by the differential suite).</summary>
     public int CountRequestsMatching(TenantId tenant, RequestPattern pattern) =>
         RequestsMatching(tenant, pattern).Count;
 
-    /// <summary>The journaled requests matching the pattern (WireMock's <c>requests/find</c>).</summary>
+    /// <summary>The journaled requests matching the pattern; backs the <c>requests/find</c> admin endpoint (G6, verified by the differential suite).</summary>
     public IReadOnlyList<CanonicalRequest> FindRequestsMatching(TenantId tenant, RequestPattern pattern) =>
         [.. RequestsMatching(tenant, pattern)];
 
-    /// <summary>The journaled requests that matched no stub (WireMock's <c>requests/unmatched</c>).</summary>
+    /// <summary>The journaled requests that matched no stub; backs the <c>requests/unmatched</c> admin endpoint (G6, verified by the differential suite).</summary>
     public IReadOnlyList<CanonicalRequest> FindUnmatchedRequests(TenantId tenant) =>
         [.. _journal.Query(tenant, new ServeEventQuery { UnmatchedOnly = true }).Select(e => e.Request)];
 
-    /// <summary>The journaled serve events for a tenant (WireMock's <c>requests</c> log), newest last.</summary>
+    /// <summary>The journaled serve events for a tenant (the <c>requests</c> log), newest last (G6, verified by the differential suite).</summary>
     public IReadOnlyList<ServeEvent> GetServeEvents(TenantId tenant, ServeEventQuery query) =>
         _journal.Query(tenant, query);
 

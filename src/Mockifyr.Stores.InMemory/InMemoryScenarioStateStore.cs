@@ -5,7 +5,8 @@ namespace Mockifyr.Stores.InMemory;
 
 /// <summary>
 /// Tenant-scoped in-memory scenario state store. Unknown scenarios default to
-/// <see cref="Started"/>, mirroring WireMock's initial <c>Scenario.STARTED</c>.
+/// the <see cref="Started"/> state (the canonical <c>Started</c> starting point);
+/// verified by the differential suite.
 /// </summary>
 public sealed class InMemoryScenarioStateStore : IScenarioStateStore
 {

@@ -5,7 +5,8 @@ namespace Mockifyr.Templating;
 
 /// <summary>
 /// Renders webhook fields (URL, header values, body) as Handlebars templates against the triggering
-/// request, which WireMock exposes as <c>originalRequest</c> (G3b). Reuses the same engine and helper
+/// request, which is exposed to templates as <c>originalRequest</c> (G3b, verified by the differential
+/// suite). Reuses the same engine and helper
 /// set as response templating — so <c>{{jsonPath originalRequest.body '$.id'}}</c>,
 /// <c>{{originalRequest.headers.X}}</c>, etc. all work. See docs/parity/g3-webhook.md.
 /// </summary>

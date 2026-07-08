@@ -175,7 +175,7 @@ public sealed class G1GeneratedMatcherTests : IAsyncLifetime
 
         foreach (var scenario in scenarios)
         {
-            await _runner.LoadAsync(scenario.WireMockJson);
+            await _runner.LoadAsync(scenario.MappingJson);
 
             foreach (var probe in scenario.Probes)
             {

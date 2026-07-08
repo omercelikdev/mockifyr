@@ -5,10 +5,11 @@ using Newtonsoft.Json.Linq;
 namespace Mockifyr.Templating;
 
 /// <summary>
-/// Serializes a Newtonsoft <see cref="JToken"/> the way WireMock (Jackson's
-/// <c>DefaultPrettyPrinter</c>) does: multi-line objects with a two-space indent and a
-/// <c>" : "</c> separator, and single-line <c>[ a, b ]</c> arrays. Shared by the <c>jsonPath</c>
-/// object rendering (G2c) and the <c>toJson</c> helper (G2f) — see docs/parity/g2-response.md.
+/// Serializes a Newtonsoft <see cref="JToken"/> using the Jackson <c>DefaultPrettyPrinter</c>
+/// layout: multi-line objects with a two-space indent and a <c>" : "</c> separator, and
+/// single-line <c>[ a, b ]</c> arrays. Shared by the <c>jsonPath</c> object rendering (G2c) and
+/// the <c>toJson</c> helper (G2f); verified by the differential suite — see
+/// docs/parity/g2-response.md.
 /// </summary>
 internal static class JacksonJson
 {

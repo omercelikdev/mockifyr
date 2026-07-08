@@ -4,8 +4,9 @@ using Mockifyr.Core;
 namespace Mockifyr.Server;
 
 /// <summary>
-/// Loads stub mappings from a directory of WireMock JSON files at startup (G12f) — WireMock's
-/// <c>&lt;root-dir&gt;/mappings/*.json</c> convention. Each file is a single stub or a
+/// Loads stub mappings from a directory of JSON files at startup (G12f, verified by the
+/// differential suite) using the <c>&lt;root-dir&gt;/mappings/*.json</c> layout Mockifyr
+/// serves from. Each file is a single stub or a
 /// <c>{"mappings":[…]}</c> bundle; files are read in filename order for deterministic ids/priority
 /// tie-breaks. This is the <see cref="IMappingsLoader"/> extension seam (public since G10), wired
 /// here for the standalone host. It does file I/O, so it lives at the host edge — never in Core.

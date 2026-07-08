@@ -19,7 +19,7 @@ public sealed class CreateStubHandler(IStubStore store, IMatcherRegistry matcher
         IReadOnlyList<(StubMapping Stub, string Source)> stubs;
         try
         {
-            stubs = MappingJsonReader.ReadWithSource(command.WireMockJson, command.Tenant, matchers);
+            stubs = MappingJsonReader.ReadWithSource(command.MappingJson, command.Tenant, matchers);
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException)
         {
@@ -40,7 +40,7 @@ public sealed class CreateStubHandler(IStubStore store, IMatcherRegistry matcher
 }
 
 /// <summary>
-/// Replaces an existing stub (WireMock's <c>PUT /__admin/mappings/{id}</c>). The route id is
+/// Replaces an existing stub via the admin route <c>PUT /__admin/mappings/{id}</c>. The route id is
 /// authoritative: the parsed stub's id is forced to it so <see cref="IStubStore.Put"/> upserts in place
 /// rather than appending a duplicate. Returns a validation error for malformed/empty JSON, matching create.
 /// </summary>
@@ -52,7 +52,7 @@ public sealed class UpdateStubHandler(IStubStore store, IMatcherRegistry matcher
         IReadOnlyList<(StubMapping Stub, string Source)> stubs;
         try
         {
-            stubs = MappingJsonReader.ReadWithSource(command.WireMockJson, command.Tenant, matchers);
+            stubs = MappingJsonReader.ReadWithSource(command.MappingJson, command.Tenant, matchers);
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException)
         {
@@ -71,7 +71,7 @@ public sealed class UpdateStubHandler(IStubStore store, IMatcherRegistry matcher
     }
 }
 
-/// <summary>Deletes a stub by id (idempotent — deleting a missing stub still succeeds, like WireMock).</summary>
+/// <summary>Deletes a stub by id; idempotent — deleting a missing stub still succeeds (verified by the differential suite).</summary>
 public sealed class DeleteStubHandler(IStubStore store, IStubPersistence persistence)
     : ICommandHandler<DeleteStubCommand, Result>
 {
@@ -92,7 +92,7 @@ public sealed class ImportMappingsHandler(IStubStore store, IMatcherRegistry mat
         IReadOnlyList<(StubMapping Stub, string Source)> stubs;
         try
         {
-            stubs = MappingJsonReader.ReadWithSource(command.WireMockJson, command.Tenant, matchers);
+            stubs = MappingJsonReader.ReadWithSource(command.MappingJson, command.Tenant, matchers);
         }
         catch (JsonException)
         {
@@ -191,7 +191,7 @@ public sealed class GetScenariosHandler(IStubStore store, IScenarioStateStore st
         return ValueTask.FromResult(Result.Success<IReadOnlyList<ScenarioView>>(scenarios));
     }
 
-    // WireMock's default start state plus every state the scenario's stubs require or transition to.
+    // The default "Started" state plus every state the scenario's stubs require or transition to (verified by the differential suite).
     private static IReadOnlyList<string> PossibleStates(IEnumerable<StubMapping> stubs)
     {
         var states = new HashSet<string>(StringComparer.Ordinal) { "Started" };

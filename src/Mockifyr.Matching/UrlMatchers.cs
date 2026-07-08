@@ -6,7 +6,7 @@ namespace Mockifyr.Matching;
 
 /// <summary>
 /// Matches the full request URL (path plus query string) for exact equality.
-/// The WireMock JSON equivalent is <c>request.url</c>.
+/// Maps from the imported JSON <c>request.url</c> field.
 /// </summary>
 public sealed class UrlEqualToMatcher(string expected) : IMatcher
 {
@@ -21,7 +21,7 @@ public sealed class UrlEqualToMatcher(string expected) : IMatcher
 
 /// <summary>
 /// Matches the request path (ignoring the query string) for exact equality.
-/// The WireMock JSON equivalent is <c>request.urlPath</c>.
+/// Maps from the imported JSON <c>request.urlPath</c> field.
 /// </summary>
 public sealed class UrlPathEqualToMatcher(string expected) : IMatcher
 {
@@ -35,9 +35,9 @@ public sealed class UrlPathEqualToMatcher(string expected) : IMatcher
 }
 
 /// <summary>
-/// Matches the full request URL (path plus query string) against a regular expression. WireMock's
-/// <c>request.urlPattern</c> (urlMatching) uses Java <c>matches</c> semantics, so the pattern is
-/// anchored to the whole URL.
+/// Matches the full request URL (path plus query string) against a regular expression. The imported
+/// JSON <c>request.urlPattern</c> (urlMatching) field uses Java <c>matches</c> semantics, so the
+/// pattern is anchored to the whole URL. Anchoring behavior is verified by the differential suite.
 /// </summary>
 public sealed class UrlPatternMatcher(string pattern) : IMatcher
 {
@@ -49,8 +49,9 @@ public sealed class UrlPatternMatcher(string pattern) : IMatcher
 }
 
 /// <summary>
-/// Matches the request path (ignoring the query string) against a regular expression. WireMock's
-/// <c>request.urlPathPattern</c> (urlPathMatching) is a whole-path match, so the pattern is anchored.
+/// Matches the request path (ignoring the query string) against a regular expression. The imported
+/// JSON <c>request.urlPathPattern</c> (urlPathMatching) field is a whole-path match, so the pattern is
+/// anchored. Anchoring behavior is verified by the differential suite.
 /// </summary>
 public sealed class UrlPathPatternMatcher(string pattern) : IMatcher
 {
@@ -62,7 +63,7 @@ public sealed class UrlPathPatternMatcher(string pattern) : IMatcher
 }
 
 /// <summary>
-/// Matches the request path against a URI template (WireMock's <c>request.urlPathTemplate</c>). Each
+/// Matches the request path against a URI template (imported JSON <c>request.urlPathTemplate</c>). Each
 /// <c>{var}</c> placeholder matches exactly one path segment; the query string is ignored. Named
 /// path-variable extraction (for templating) arrives with G2b; here only the match decision is used.
 /// </summary>

@@ -67,19 +67,20 @@ public sealed record CanonicalRequest
 
     /// <summary>
     /// The request scheme (<c>http</c>/<c>https</c>), when the transport supplied it. Null when
-    /// unknown. Drives WireMock's <c>request.scheme</c> matching (multi-domain, G15c).
+    /// unknown. Drives <c>request.scheme</c> matching (multi-domain, G15c; verified by the
+    /// differential suite).
     /// </summary>
     public string? Scheme { get; init; }
 
     /// <summary>
-    /// The request host — the hostname from the <c>Host</c> header — when known. Drives WireMock's
-    /// <c>request.host</c> matching (multi-domain, G15c).
+    /// The request host — the hostname from the <c>Host</c> header — when known. Drives
+    /// <c>request.host</c> matching (multi-domain, G15c; verified by the differential suite).
     /// </summary>
     public string? Host { get; init; }
 
     /// <summary>
-    /// The request port — the port from the <c>Host</c> header — when known. Drives WireMock's
-    /// <c>request.port</c> matching (multi-domain, G15c).
+    /// The request port — the port from the <c>Host</c> header — when known. Drives
+    /// <c>request.port</c> matching (multi-domain, G15c; verified by the differential suite).
     /// </summary>
     public int? Port { get; init; }
 }
@@ -113,10 +114,10 @@ public sealed record FaultDirective(FaultKind Kind);
 /// <summary>Directive asking the facade to proxy the request to a target.</summary>
 public sealed record ProxyDirective(string BaseUrl)
 {
-    /// <summary>Extra headers added to the forwarded request (WireMock's <c>additionalProxyRequestHeaders</c>).</summary>
+    /// <summary>Extra headers added to the forwarded request (the <c>additionalProxyRequestHeaders</c> field).</summary>
     public IReadOnlyList<KeyValuePair<string, string>> AdditionalHeaders { get; init; } = [];
 
-    /// <summary>A leading URL-path prefix stripped before forwarding (WireMock's <c>proxyUrlPrefixToRemove</c>).</summary>
+    /// <summary>A leading URL-path prefix stripped before forwarding (the <c>proxyUrlPrefixToRemove</c> field).</summary>
     public string? UrlPrefixToRemove { get; init; }
 }
 
@@ -179,7 +180,7 @@ public sealed record RequestPattern
     /// <summary>
     /// The raw <c>urlPathTemplate</c> string (e.g. <c>/users/{id}</c>) when the stub matched by URI
     /// template, else null. Carried so response templating can expose named path variables as
-    /// <c>{{request.path.&lt;name&gt;}}</c> (WireMock parity). The engine records it; extraction happens
+    /// <c>{{request.path.&lt;name&gt;}}</c> (verified by the differential suite). The engine records it; extraction happens
     /// at render time.
     /// </summary>
     public string? UrlPathTemplate { get; init; }
@@ -193,7 +194,7 @@ public sealed record RequestPattern
     /// <summary>Query parameter matchers.</summary>
     public required IReadOnlyList<IMatcher> Query { get; init; }
 
-    /// <summary>Form-parameter matchers (WireMock's <c>formParameters</c> over a form-encoded body).</summary>
+    /// <summary>Form-parameter matchers (the <c>formParameters</c> field over a form-encoded body).</summary>
     public IReadOnlyList<IMatcher> FormParameters { get; init; } = [];
 
     /// <summary>Cookie matchers.</summary>
@@ -205,13 +206,13 @@ public sealed record RequestPattern
     /// <summary>Custom request-level matchers contributed by extensions (G10, <c>customMatcher</c>).</summary>
     public IReadOnlyList<IMatcher> Custom { get; init; } = [];
 
-    /// <summary>Matcher for the request scheme (WireMock's <c>request.scheme</c>; multi-domain, G15c).</summary>
+    /// <summary>Matcher for the request scheme (the <c>request.scheme</c> field; multi-domain, G15c; verified by the differential suite).</summary>
     public IMatcher? Scheme { get; init; }
 
-    /// <summary>Matcher for the request host (WireMock's <c>request.host</c>; multi-domain, G15c).</summary>
+    /// <summary>Matcher for the request host (the <c>request.host</c> field; multi-domain, G15c; verified by the differential suite).</summary>
     public IMatcher? Host { get; init; }
 
-    /// <summary>Matcher for the request port (WireMock's <c>request.port</c>; multi-domain, G15c).</summary>
+    /// <summary>Matcher for the request port (the <c>request.port</c> field; multi-domain, G15c; verified by the differential suite).</summary>
     public IMatcher? Port { get; init; }
 }
 
@@ -264,7 +265,7 @@ public sealed record StubMapping
     /// <summary>The response-side definition.</summary>
     public required ResponseDefinition Response { get; init; }
 
-    /// <summary>Priority; lower wins. WireMock default is 5.</summary>
+    /// <summary>Priority; lower wins. The default is 5 (verified by the differential suite).</summary>
     public int Priority { get; init; } = 5;
 
     /// <summary>Optional scenario binding.</summary>
@@ -274,14 +275,14 @@ public sealed record StubMapping
     public StubMetadata? Metadata { get; init; }
 
     /// <summary>
-    /// Outbound webhooks fired after this stub serves a request (WireMock <c>postServeActions</c>).
+    /// Outbound webhooks fired after this stub serves a request (the <c>postServeActions</c> field).
     /// The engine only records the intent; the actual I/O is performed by an
     /// <see cref="IServeEventListener"/> at the facade edge. See docs/decisions/0001.
     /// </summary>
     public IReadOnlyList<WebhookDefinition> Webhooks { get; init; } = [];
 
     /// <summary>
-    /// The raw WireMock JSON this stub was parsed from, kept verbatim so the admin API can return the
+    /// The raw imported JSON this stub was parsed from, kept verbatim so the admin API can return the
     /// full mapping (not just an id) for faithful display + edit round-trips. Inert data — the engine
     /// never reads it for matching. Null for stubs constructed directly (not via the JSON adapter).
     /// </summary>
@@ -289,7 +290,7 @@ public sealed record StubMapping
 }
 
 /// <summary>
-/// A single outbound webhook (a WireMock <c>webhook</c> post-serve action): the method, target URL,
+/// A single outbound webhook (a <c>webhook</c> post-serve action): the method, target URL,
 /// headers, and body to send after a stub matches. Templating of these fields arrives with G3b.
 /// </summary>
 public sealed record WebhookDefinition
@@ -306,7 +307,7 @@ public sealed record WebhookDefinition
     /// <summary>Outbound body, when present.</summary>
     public byte[]? Body { get; init; }
 
-    /// <summary>Fixed delay (ms) applied before firing the webhook (WireMock's <c>delay</c>). 0 = none.</summary>
+    /// <summary>Fixed delay (ms) applied before firing the webhook (the <c>delay</c> field). 0 = none.</summary>
     public int DelayMilliseconds { get; init; }
 }
 

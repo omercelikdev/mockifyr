@@ -4,16 +4,17 @@ using Mockifyr.Core;
 namespace Mockifyr.ServeEvents.Webhook;
 
 /// <summary>
-/// The <see cref="IServeEventListener"/> that performs WireMock's <c>webhook</c> post-serve action:
+/// The <see cref="IServeEventListener"/> that performs the <c>webhook</c> post-serve action:
 /// after a stub with webhook definitions matches, it fires each outbound HTTP call. This is the
 /// engine's outbound-I/O edge — the pure core only records the <see cref="WebhookDefinition"/>; the
 /// actual network call lives here (see docs/decisions/0001). Delivery is best-effort and never
-/// throws back into serving. When a template renderer is supplied (G3b), the URL, header values, and
-/// body are rendered against the triggering request (WireMock's <c>originalRequest</c>).
+/// throws back into serving. When a template renderer is supplied (G3b, verified by the differential
+/// suite), the URL, header values, and body are rendered against the triggering request (exposed to
+/// templates as <c>originalRequest</c>).
 /// </summary>
 public sealed class WebhookServeEventListener : IServeEventListener
 {
-    // Content headers must be set on HttpContent, not HttpRequestMessage; this is the set WireMock's
+    // Content headers must be set on HttpContent, not HttpRequestMessage; this is the set that
     // webhook parameters commonly carry.
     private static readonly HashSet<string> ContentHeaders =
         new(StringComparer.OrdinalIgnoreCase) { "Content-Type", "Content-Length", "Content-Encoding", "Content-Language" };

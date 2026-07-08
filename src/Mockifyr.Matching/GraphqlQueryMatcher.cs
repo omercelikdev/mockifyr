@@ -10,7 +10,7 @@ using Mockifyr.Core;
 namespace Mockifyr.Matching;
 
 /// <summary>
-/// Matches a GraphQL request body the way WireMock's GraphQL extension does (G14). The
+/// Matches a GraphQL request body against a stubbed GraphQL query (G14, verified by the differential suite). The
 /// <see cref="MatchInput"/> body is the GraphQL POST JSON (<c>{"query", "variables", "operationName"}</c>);
 /// a match requires <b>all three</b> to agree (the extension aggregates them):
 /// <list type="bullet">

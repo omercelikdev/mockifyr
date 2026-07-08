@@ -6,8 +6,9 @@ namespace Mockifyr.Matching;
 /// <summary>
 /// Matches a JSON value semantically. Key order and whitespace are irrelevant; numbers compare
 /// by value (<c>1</c> == <c>1.0</c>); types are significant (<c>1</c> != <c>"1"</c>). The
-/// <c>ignoreArrayOrder</c> and <c>ignoreExtraElements</c> options mirror WireMock's
-/// <c>equalToJson</c>; their exact semantics are pinned by the differential suite. See
+/// <c>ignoreArrayOrder</c> option relaxes array comparison to multiset equality, and
+/// <c>ignoreExtraElements</c> allows the actual document to carry extra object properties or
+/// trailing array items; their exact semantics are verified by the differential suite. See
 /// docs/parity/g1-matching.md.
 /// </summary>
 public sealed class EqualToJsonValueMatcher : IValueMatcher
@@ -140,8 +141,8 @@ public sealed class EqualToJsonValueMatcher : IValueMatcher
             return ignoreExtra || consumed.All(c => c);
         }
 
-        // Ordered comparison. Under ignoreExtraElements, WireMock allows extra trailing array
-        // items (verified against the oracle), so the expected array must match a prefix.
+        // Ordered comparison. Under ignoreExtraElements, extra trailing array items are allowed
+        // (verified by the differential suite), so the expected array must match a prefix.
         if (ignoreExtra)
         {
             if (actualItems.Count < expectedItems.Count)

@@ -17,7 +17,7 @@ namespace Mockifyr.Server;
 
 /// <summary>
 /// The standalone-host composition (G12f + G11a). Turns command-line/config into a runnable Mockifyr
-/// host: binds the mock-serving port (<c>--port</c>, WireMock's default <c>8080</c>), optionally an
+/// host: binds the mock-serving port (<c>--port</c>, defaulting to <c>8080</c>), optionally an
 /// HTTPS port (<c>--https-port</c>) with a self-signed certificate, and, when a <c>--root-dir</c> is
 /// given, loads its <c>mappings/*.json</c> into the default tenant at startup via the
 /// <see cref="IMappingsLoader"/> seam. Kept separate from <c>Program</c> so the same wiring is
@@ -25,7 +25,7 @@ namespace Mockifyr.Server;
 /// </summary>
 public static class MockifyrHost
 {
-    /// <summary>WireMock's default mock-serving port.</summary>
+    /// <summary>The default mock-serving port (<c>8080</c>).</summary>
     public const int DefaultPort = 8080;
 
     /// <summary>
@@ -53,8 +53,8 @@ public static class MockifyrHost
             // directory the loader reads on startup. Registered last so it wins over the no-op default.
             builder.Services.AddSingleton<IStubPersistence>(new FileSystemStubPersistence(mappingsDir));
 
-            // gRPC serving (G13): compiled proto descriptors live in <root-dir>/grpc/*.dsc, the same
-            // location WireMock's gRPC extension reads. When present, the gRPC middleware is enabled.
+            // gRPC serving (G13, verified by the differential suite): compiled proto descriptors live in
+            // the conventional <root-dir>/grpc/*.dsc location. When present, the gRPC middleware is enabled.
             var grpcDir = Path.Combine(rootDir, "grpc");
             if (Directory.Exists(grpcDir))
             {
@@ -127,8 +127,8 @@ public static class MockifyrHost
         var port = builder.Configuration.GetValue("port", DefaultPort);
         var httpsPort = builder.Configuration.GetValue<int?>("https-port");
 
-        // When HTTPS is enabled both listeners are configured on Kestrel directly (self-signed cert,
-        // like WireMock's default); otherwise the HTTP port alone is bound via app.Urls.
+        // When HTTPS is enabled both listeners are configured on Kestrel directly (a self-signed cert
+        // by default); otherwise the HTTP port alone is bound via app.Urls.
         if (httpsPort is { } securePort)
         {
             var certificate = SelfSignedCertificate.Create();
@@ -137,9 +137,9 @@ public static class MockifyrHost
             var configureTls = TlsConfiguration.Build(builder.Configuration, certificate);
             builder.WebHost.ConfigureKestrel(options =>
             {
-                // HTTP/2 (G11b): both listeners speak HTTP/1.1 and HTTP/2 — ALPN-negotiated h2 on TLS,
-                // and prior-knowledge h2c on plaintext — matching WireMock, which serves HTTP/2 on both
-                // its ports by default. See docs/parity/g11-tls-http2.md.
+                // HTTP/2 (G11b, verified by the differential suite): both listeners speak HTTP/1.1 and
+                // HTTP/2 — ALPN-negotiated h2 on TLS, and prior-knowledge h2c on plaintext — on both
+                // ports by default. See docs/parity/g11-tls-http2.md.
                 options.ListenAnyIP(port, listen => listen.Protocols = HttpProtocols.Http1AndHttp2);
                 options.ListenAnyIP(securePort, listen =>
                 {
@@ -158,7 +158,7 @@ public static class MockifyrHost
 
         // WebSocket message serving (G15d): accepts WS upgrades at the front of the pipeline (before the
         // mock-serving fallback) and registers POST /__admin/message-mappings.
-        // WebSocket `filePath` message bodies (G15g) resolve from <root-dir>/__files (WireMock's convention).
+        // WebSocket `filePath` message bodies (G15g) resolve from the conventional <root-dir>/__files directory.
         var filesDirectory = string.IsNullOrWhiteSpace(rootDir) ? null : Path.Combine(rootDir, "__files");
         app.UseMockifyrWebSockets(filesDirectory);
 
@@ -188,7 +188,7 @@ public static class MockifyrHost
                         // Deliberately NO WWW-Authenticate: Basic header. That header makes the browser pop
                         // its native Basic-auth dialog on the dashboard's fetch() calls, which blocks the
                         // page. The dashboard has its own login screen and sends the credentials itself;
-                        // CLI clients (curl -u, WireMock) send Basic proactively and don't need the challenge.
+                        // CLI clients (curl -u and similar) send Basic proactively and don't need the challenge.
                         return;
                     }
                 }

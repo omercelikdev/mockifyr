@@ -6,8 +6,8 @@ using HandlebarsDotNet;
 namespace Mockifyr.Templating;
 
 /// <summary>
-/// WireMock's date/time Handlebars helpers (G2d): <c>parseDate</c> and <c>date</c>. All behaviors
-/// are pinned against the WireMock oracle over <em>fixed</em> input instants — see
+/// Mockifyr's date/time Handlebars helpers (G2d): <c>parseDate</c> and <c>date</c>. All behaviors
+/// are verified by the differential suite over <em>fixed</em> input instants — see
 /// docs/parity/g2-response.md. <c>parseDate</c> turns a string into an instant (ISO-8601 by default,
 /// or a Java <c>SimpleDateFormat</c> pattern via <c>format=</c>); <c>date</c> renders an instant,
 /// applying an <c>offset=</c> and a Java format pattern (plus the special <c>epoch</c>/<c>unix</c>
@@ -24,8 +24,8 @@ internal static class DateHelpers
         handlebars.RegisterHelper("truncateDate", (_, arguments) => TruncateDate(arguments));
     }
 
-    // {{truncateDate date '<unit>'}} floors an instant to the start of a calendar unit (matching
-    // WireMock's XMLUnit-style truncation vocabulary), returning the truncated instant for {{date}}.
+    // {{truncateDate date '<unit>'}} floors an instant to the start of a calendar unit (using an
+    // XMLUnit-style truncation vocabulary), returning the truncated instant for {{date}}.
     private static object TruncateDate(Arguments arguments)
     {
         if (arguments.Length == 0 || arguments[0] is not DateTimeOffset instant)
@@ -85,7 +85,7 @@ internal static class DateHelpers
             return parsed;
         }
 
-        // WireMock falls back to the current time on an unparseable date — racy, so never asserted.
+        // Falls back to the current time on an unparseable date — racy, so never asserted.
         return DateTimeOffset.UtcNow;
     }
 
@@ -93,7 +93,7 @@ internal static class DateHelpers
 
     private static object FormatDate(Arguments arguments)
     {
-        // A non-date argument (e.g. a bare string) makes WireMock fall back to now — racy, not asserted.
+        // A non-date argument (e.g. a bare string) falls back to now — racy, not asserted.
         var instant = arguments.Length > 0 && arguments[0] is DateTimeOffset value ? value : DateTimeOffset.UtcNow;
 
         var offset = Hash(arguments, "offset");
@@ -117,7 +117,7 @@ internal static class DateHelpers
             return instant;
         }
 
-        // WireMock's DateTimeUnit enum is plural (a singular unit throws on the oracle side).
+        // Unit names are plural (a singular unit is rejected — verified by the differential suite).
         return match.Groups[2].Value.ToLowerInvariant() switch
         {
             "seconds" => instant.AddSeconds(amount),

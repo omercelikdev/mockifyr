@@ -7,9 +7,9 @@ namespace Mockifyr.Server;
 /// <summary>
 /// Resolves the HTTPS listener's TLS configuration (G11c) from host config: a configured server
 /// keystore (PFX) instead of the ephemeral self-signed cert, and optional mutual TLS — requiring and
-/// validating a client certificate. Mirrors WireMock's <c>--https-keystore</c>/<c>--keystore-password</c>,
+/// validating a client certificate. Driven by the <c>--https-keystore</c>/<c>--keystore-password</c>,
 /// <c>--https-require-client-auth</c>, and <c>--https-truststore</c>/<c>--truststore-password</c> flags.
-/// Being standard mutual-TLS transport auth (no WireMock-specific semantics), it is self-tested rather
+/// Being standard mutual-TLS transport auth with no mock-specific semantics, it is self-tested rather
 /// than diffed — see docs/parity/g11-tls-http2.md.
 /// </summary>
 public static class TlsConfiguration

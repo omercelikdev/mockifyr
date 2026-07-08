@@ -9,9 +9,9 @@ namespace Mockifyr.Facade.Grpc;
 /// Converts protobuf wire bytes to/from JSON driven purely by a <see cref="MessageDescriptor"/> (G13).
 /// C#'s Google.Protobuf has no runtime <c>DynamicMessage</c>, so — given only a descriptor loaded from a
 /// <c>.dsc</c> — this walks the wire format with <see cref="CodedInputStream"/>/<see cref="CodedOutputStream"/>
-/// and maps each field by its descriptor. The JSON shape mirrors proto3 canonical JSON (the same
-/// protobuf-java-util form WireMock's gRPC extension produces), so the resulting JSON flows through the
-/// unchanged engine (<c>equalToJson</c> matching, <c>jsonBody</c> responses).
+/// and maps each field by its descriptor. The JSON shape mirrors proto3 canonical JSON (the
+/// protobuf-java-util form), so the resulting JSON flows through the unchanged engine
+/// (<c>equalToJson</c> matching, <c>jsonBody</c> responses); verified by the differential suite (G13).
 ///
 /// <para>Covered: the proto3 scalars, <c>string</c>/<c>bytes</c> (base64), nested messages, repeated
 /// fields (packed and unpacked), <c>enum</c> (by value name), <c>map</c> (as a JSON object),

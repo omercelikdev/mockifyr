@@ -2,7 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Mockifyr.Core\Mockifyr.Core.csproj" />
-    <!-- The import/create commands parse WireMock JSON via the adapter. -->
+    <!-- The import/create commands parse mapping JSON via the adapter. -->
     <ProjectReference Include="..\Mockifyr.Adapters.MappingJson\Mockifyr.Adapters.MappingJson.csproj" />
     <!-- CQRS mediator — management path only. See docs/decisions/0005. -->
     <PackageReference Include="Mediant" />

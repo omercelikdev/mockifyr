@@ -5,11 +5,12 @@ using HandlebarsDotNet;
 namespace Mockifyr.Templating;
 
 /// <summary>
-/// WireMock's random-value Handlebars helpers (G2e): <c>randomValue</c>, <c>pickRandom</c>,
+/// Random-value Handlebars helpers (G2e): <c>randomValue</c>, <c>pickRandom</c>,
 /// <c>randomInt</c>, and <c>randomDecimal</c>. Their output is non-deterministic, so parity is
-/// validated <em>structurally</em> against the oracle (charset + length, set membership, numeric
-/// range) rather than by a byte diff — see docs/parity/g2-response.md. The character alphabets and
-/// the half-open <c>[lower, upper)</c> integer range were pinned by sampling the oracle.
+/// validated <em>structurally</em> by the differential suite (charset + length, set membership,
+/// numeric range) rather than by a byte diff — see docs/parity/g2-response.md. The character
+/// alphabets and the half-open <c>[lower, upper)</c> integer range were pinned by sampling the
+/// differential oracle.
 /// </summary>
 internal static class RandomHelpers
 {
@@ -17,8 +18,9 @@ internal static class RandomHelpers
     private const string Digits = "0123456789";
     private const string HexDigits = "0123456789abcdef";
 
-    // WireMock's ALPHANUMERIC_AND_SYMBOLS symbol set: the printable ASCII punctuation in [33,125]
-    // (i.e. everything but the space, the upper-case letters, and `~`), learned by sampling the oracle.
+    // The ALPHANUMERIC_AND_SYMBOLS symbol set: the printable ASCII punctuation in [33,125]
+    // (i.e. everything but the space, the upper-case letters, and `~`), pinned by sampling the
+    // differential oracle and verified by the differential suite.
     private const string Symbols = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}";
 
     public static void Register(IHandlebars handlebars)

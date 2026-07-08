@@ -9,7 +9,7 @@ namespace Mockifyr.Server;
 /// <summary>
 /// Redis-backed stub persistence (G16d): the fourth provider behind the <see cref="IStubPersistence"/>
 /// seam — a key-value backend. Each tenant's stubs live in one Redis hash (<c>mockifyr:stubs:{tenant}</c>)
-/// keyed by stub id, the value being the id-stamped WireMock JSON (shared <see cref="PersistableJson"/>)
+/// keyed by stub id, the value being the id-stamped mapping JSON (shared <see cref="PersistableJson"/>)
 /// so ids round-trip identically to the other backends. The <see cref="IConnectionMultiplexer"/> is
 /// shared (DI singleton) and thread-safe. <see cref="RedisMappingsLoader"/> reloads on startup.
 /// </summary>

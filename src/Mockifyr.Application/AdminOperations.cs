@@ -7,19 +7,19 @@ namespace Mockifyr.Application;
 // The management-path CQRS contracts (Mediant). Every operation is tenant-scoped — there is no
 // tenant-less overload, mirroring the store contracts. The mock-serving hot path never comes here.
 
-/// <summary>Creates a single stub from WireMock JSON; returns its id.</summary>
-public sealed record CreateStubCommand(string WireMockJson, TenantId Tenant) : ICommand<Result<Guid>>;
+/// <summary>Creates a single stub from the imported stub-mapping JSON; returns its id.</summary>
+public sealed record CreateStubCommand(string MappingJson, TenantId Tenant) : ICommand<Result<Guid>>;
 
-/// <summary>Replaces the stub at <paramref name="Id"/> with the given WireMock JSON (WireMock's <c>PUT /__admin/mappings/{id}</c>).</summary>
-public sealed record UpdateStubCommand(Guid Id, string WireMockJson, TenantId Tenant) : ICommand<Result>;
+/// <summary>Replaces the stub at <paramref name="Id"/> with the given stub-mapping JSON (the <c>PUT /__admin/mappings/{id}</c> admin endpoint).</summary>
+public sealed record UpdateStubCommand(Guid Id, string MappingJson, TenantId Tenant) : ICommand<Result>;
 
 /// <summary>Deletes a stub by id.</summary>
 public sealed record DeleteStubCommand(Guid Id, TenantId Tenant) : ICommand<Result>;
 
 /// <summary>Imports one or more mappings (a single stub or a <c>{"mappings":[…]}</c> bundle); returns the count.</summary>
-public sealed record ImportMappingsCommand(string WireMockJson, TenantId Tenant) : ICommand<Result<int>>;
+public sealed record ImportMappingsCommand(string MappingJson, TenantId Tenant) : ICommand<Result<int>>;
 
-/// <summary>Removes all stubs for the tenant (WireMock's <c>/__admin/mappings/reset</c>).</summary>
+/// <summary>Removes all stubs for the tenant (the <c>/__admin/mappings/reset</c> admin endpoint).</summary>
 public sealed record ResetMappingsCommand(TenantId Tenant) : ICommand<Result>;
 
 /// <summary>Lists all stubs for the tenant.</summary>
@@ -28,7 +28,7 @@ public sealed record GetStubsQuery(TenantId Tenant) : IQuery<Result<IReadOnlyLis
 /// <summary>Gets a single stub by id (<see cref="Error.NotFound"/> when absent).</summary>
 public sealed record GetStubQuery(Guid Id, TenantId Tenant) : IQuery<Result<StubMapping>>;
 
-/// <summary>Counts journaled requests matching a WireMock request-pattern JSON (verification).</summary>
+/// <summary>Counts journaled requests matching a request-pattern JSON (verification).</summary>
 public sealed record CountRequestsQuery(string PatternJson, TenantId Tenant) : IQuery<Result<int>>;
 
 /// <summary>Lists the journaled requests that matched no stub.</summary>
@@ -44,7 +44,7 @@ public sealed record ScenarioView(string Name, string State, IReadOnlyList<strin
 /// <summary>Lists the tenant's scenarios with their current state.</summary>
 public sealed record GetScenariosQuery(TenantId Tenant) : IQuery<Result<IReadOnlyList<ScenarioView>>>;
 
-/// <summary>Sets a scenario's state directly (WireMock's <c>PUT /__admin/scenarios/{name}/state</c>).</summary>
+/// <summary>Sets a scenario's state directly (the <c>PUT /__admin/scenarios/{name}/state</c> admin endpoint).</summary>
 public sealed record SetScenarioStateCommand(string Name, string State, TenantId Tenant) : ICommand<Result>;
 
 /// <summary>Resets every scenario to <c>Started</c>.</summary>

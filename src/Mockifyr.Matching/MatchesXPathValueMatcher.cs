@@ -9,10 +9,10 @@ namespace Mockifyr.Matching;
 /// <summary>
 /// Matches an XPath expression against an XML body. Without a sub-matcher it matches when the
 /// expression selects at least one node; with a sub-matcher the extracted value(s) must satisfy it.
-/// Prefixes in the expression are bound via WireMock's <c>xPathNamespaces</c> map. WireMock treats an
-/// <em>unprefixed</em> step as namespace-agnostic (so an unprefixed path matches a default-namespaced
-/// document), while a prefixed step must match the bound namespace URI — reproduced here by retrying a
-/// namespace-aware miss against a namespace-stripped copy. See docs/parity/g1-matching.md.
+/// Prefixes in the expression are bound via the <c>xPathNamespaces</c> map. An
+/// <em>unprefixed</em> step is treated as namespace-agnostic (so an unprefixed path matches a default-namespaced
+/// document), while a prefixed step must match the bound namespace URI — implemented here by retrying a
+/// namespace-aware miss against a namespace-stripped copy. Verified by the differential suite; see docs/parity/g1-matching.md.
 /// </summary>
 public sealed class MatchesXPathValueMatcher(
     string expression,
@@ -51,7 +51,7 @@ public sealed class MatchesXPathValueMatcher(
 
         if (result is not IEnumerable<object> nodeSet)
         {
-            // A scalar result from an XPath function (boolean/number/string). WireMock's presence form
+            // A scalar result from an XPath function (boolean/number/string). The presence form
             // matches whenever the expression yields a value — `count()==0` and `contains()==false`
             // both match — so presence is always a match; a sub-matcher compares the value's string form.
             return subMatcher is null ? MatchResult.Exact : subMatcher.Match(present: true, [ScalarText(result)]);
@@ -60,7 +60,7 @@ public sealed class MatchesXPathValueMatcher(
         var nodes = nodeSet.OfType<XObject>().ToList();
 
         // The .NET engine is namespace-aware, so an unprefixed step won't match a namespaced element.
-        // WireMock is lenient there, so on an empty result retry against a namespace-stripped document.
+        // Mockifyr is lenient there, so on an empty result retry against a namespace-stripped document.
         if (nodes.Count == 0 && document.Root is not null)
         {
             try
@@ -114,7 +114,7 @@ public sealed class MatchesXPathValueMatcher(
         element.Nodes().Select(node => node is XElement child ? Strip(child) : node));
 
     // Renders an XPath scalar to the string a sub-matcher compares against: a whole number drops its
-    // fractional part (`count()` → "2", not "2.0") and a boolean is lower-case — matching WireMock.
+    // fractional part (`count()` → "2", not "2.0") and a boolean is lower-case. Verified by the differential suite.
     private static string ScalarText(object value) => value switch
     {
         bool b => b ? "true" : "false",
@@ -128,7 +128,7 @@ public sealed class MatchesXPathValueMatcher(
     {
         XText text => text.Value,
         // An element node is passed to the sub-matcher as its serialized XML (so an `equalToXml`
-        // sub-matcher works, and an element never text-equals its content) — matching WireMock.
+        // sub-matcher works, and an element never text-equals its content). Verified by the differential suite.
         XElement element => element.ToString(SaveOptions.DisableFormatting),
         XAttribute attribute => attribute.Value,
         _ => node.ToString() ?? string.Empty,

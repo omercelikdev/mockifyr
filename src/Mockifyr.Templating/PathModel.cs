@@ -8,13 +8,13 @@ using HandlebarsDotNet.PathStructure;
 namespace Mockifyr.Templating;
 
 /// <summary>
-/// WireMock's dual <c>request.path</c> model: it renders as the full path string when used bare
+/// The dual <c>request.path</c> model: it renders as the full path string when used bare
 /// (<c>{{request.path}}</c>), yet exposes members — named path variables from a <c>urlPathTemplate</c>
 /// (<c>{{request.path.id}}</c>) and zero-based path segments (<c>{{request.path.0}}</c> /
 /// <c>{{request.path.[0]}}</c>). Handlebars.Net renders any enumerable by listing its items, so a
 /// plain dictionary can't be this: instead a custom <see cref="IObjectDescriptorProvider"/> makes the
 /// type non-enumerable (bare → <see cref="ToString"/>) with a member accessor over the backing map.
-/// Missing members render empty, matching WireMock.
+/// Missing members render as an empty string. Verified by the differential suite.
 /// </summary>
 internal sealed class PathModel
 {
@@ -107,7 +107,7 @@ internal sealed class PathMemberAccessor : IMemberAccessor
             key = key[1..^1];
         }
 
-        // Always "found" so an unknown member renders empty (WireMock), never the type name.
+        // Always "found" so an unknown member renders as an empty string, never the type name.
         value = ((PathModel)instance).Members.TryGetValue(key, out var v) ? v : string.Empty;
         return true;
     }

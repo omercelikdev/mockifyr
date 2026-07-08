@@ -5,7 +5,7 @@ using Mockifyr.Core;
 namespace Mockifyr.Adapters.MappingJson;
 
 /// <summary>
-/// Generates a WireMock stub-mapping JSON from a captured request/response exchange (G9 record).
+/// Generates a stub-mapping JSON from a captured request/response exchange (G9 record; verified by the differential suite).
 /// The recorder proxies a request to an upstream, then hands the pair here to produce a stub that
 /// replays that response: an exact-URL + method request pattern (plus an <c>equalTo</c> body pattern
 /// when the request had a body), and the captured status/body/headers as a static response. This is

@@ -19,7 +19,7 @@ public sealed class ProxyResponder(HttpClient? client = null)
     public async Task<CanonicalResponse> ProxyAsync(
         ProxyDirective proxy, CanonicalRequest request, CancellationToken cancellationToken = default)
     {
-        // WireMock's proxyUrlPrefixToRemove strips a leading path prefix before forwarding.
+        // proxyUrlPrefixToRemove strips a leading path prefix from the request before forwarding (G8, verified by the differential suite).
         var forwardPath = proxy.UrlPrefixToRemove is { Length: > 0 } prefix && request.Url.StartsWith(prefix, StringComparison.Ordinal)
             ? request.Url[prefix.Length..]
             : request.Url;
@@ -46,7 +46,7 @@ public sealed class ProxyResponder(HttpClient? client = null)
             }
         }
 
-        // WireMock's additionalProxyRequestHeaders are added to the forwarded request.
+        // additionalProxyRequestHeaders are added to the forwarded request (G8, verified by the differential suite).
         foreach (var (name, value) in proxy.AdditionalHeaders)
         {
             if (!message.Headers.TryAddWithoutValidation(name, value))

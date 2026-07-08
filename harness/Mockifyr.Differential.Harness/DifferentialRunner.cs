@@ -73,7 +73,7 @@ public sealed class DifferentialRunner : IAsyncDisposable
         await _oracle.ResetAsync();
         await _oracle.LoadMappingAsync(wireMockJson);
         _mockifyr = new MockifyrUnderTest();
-        _mockifyr.ImportWireMockJson(wireMockJson);
+        _mockifyr.ImportMappingJson(wireMockJson);
     }
 
     /// <summary>
@@ -93,7 +93,7 @@ public sealed class DifferentialRunner : IAsyncDisposable
         // Mockifyr: in-process, so it reaches the receiver over loopback.
         receiver.Clear();
         var mockifyr = new MockifyrUnderTest();
-        mockifyr.ImportWireMockJson(mappingTemplate.Replace("__WEBHOOK_HOST__", $"127.0.0.1:{receiver.Port}"));
+        mockifyr.ImportMappingJson(mappingTemplate.Replace("__WEBHOOK_HOST__", $"127.0.0.1:{receiver.Port}"));
         mockifyr.Send(trigger);
         var mockifyrWebhook = await receiver.WaitForOneAsync(TimeSpan.FromSeconds(10));
 
@@ -112,7 +112,7 @@ public sealed class DifferentialRunner : IAsyncDisposable
         await _oracle.ResetAsync();
         await _oracle.LoadMappingAsync(mappingsJson);
         _mockifyr = new MockifyrUnderTest();
-        _mockifyr.ImportWireMockJson(mappingsJson);
+        _mockifyr.ImportMappingJson(mappingsJson);
 
         foreach (var request in traffic)
         {
@@ -142,7 +142,7 @@ public sealed class DifferentialRunner : IAsyncDisposable
         var oracle = await _oracle.SendAsync(request);
 
         var mockifyr = new MockifyrUnderTest();
-        mockifyr.ImportWireMockJson(stubTemplate.Replace("__PROXY_HOST__", $"127.0.0.1:{upstream.Port}"));
+        mockifyr.ImportMappingJson(stubTemplate.Replace("__PROXY_HOST__", $"127.0.0.1:{upstream.Port}"));
         var mockifyrResponse = await mockifyr.SendWithProxyAsync(request);
 
         return new ProxyOutcome(oracle, mockifyrResponse);
@@ -181,7 +181,7 @@ public sealed class DifferentialRunner : IAsyncDisposable
 
         // A fresh Mockifyr replays them too.
         var mockifyr = new MockifyrUnderTest();
-        mockifyr.ImportWireMockJson(bundle);
+        mockifyr.ImportMappingJson(bundle);
         var mockifyrReplay = requests.Select(spec => mockifyr.Send(spec)).ToList();
 
         return new RecordPlaybackOutcome(captured, oracleReplay, mockifyrReplay);
@@ -206,7 +206,7 @@ public sealed class DifferentialRunner : IAsyncDisposable
         var oracle = await _oracle.SendAsync(request);
 
         _mockifyr = new MockifyrUnderTest();
-        _mockifyr.ImportWireMockJson(stubTemplate.Replace("__SCHEMA_HOST__", $"127.0.0.1:{schemaPort}"));
+        _mockifyr.ImportMappingJson(stubTemplate.Replace("__SCHEMA_HOST__", $"127.0.0.1:{schemaPort}"));
         var mockifyr = _mockifyr.Send(request, "http");
 
         var diff = ResponseDiffer.Compare(oracle, mockifyr, mockifyr.Headers.Keys);

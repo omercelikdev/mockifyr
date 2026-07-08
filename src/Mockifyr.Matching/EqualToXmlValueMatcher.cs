@@ -7,7 +7,8 @@ namespace Mockifyr.Matching;
 
 /// <summary>
 /// Matches an XML value semantically: insignificant whitespace and attribute order are ignored,
-/// element order is significant, and leaf text is whitespace-normalized. WireMock uses XMLUnit.
+/// element order is significant, and leaf text is whitespace-normalized. Comparison semantics
+/// follow the XMLUnit dialect.
 ///
 /// <para>When <c>enablePlaceholders</c> is set, a leaf text or attribute value in the <em>expected</em>
 /// XML that is <b>entirely</b> an XMLUnit placeholder relaxes the comparison for that node:
@@ -96,8 +97,8 @@ public sealed class EqualToXmlValueMatcher : IValueMatcher
             return _exemptTextValue || LeafMatch(expected.Value, actual.Value);
         }
 
-        // Sibling element order is not significant (WireMock/XMLUnit treats a reorder as "similar",
-        // verified against the oracle), so children are matched as a multiset.
+        // Sibling element order is not significant (a reorder counts as "similar" under XMLUnit
+        // semantics, verified by the differential suite), so children are matched as a multiset.
         var consumed = new bool[actualChildren.Count];
         foreach (var expectedChild in expectedChildren)
         {

@@ -34,8 +34,9 @@ public static class MockServingEndpoints
         var request = await BuildRequestAsync(context);
 
         // Record mode (G12d): while a session is live, every incoming request is proxied to the target
-        // upstream, a WireMock stub is generated from the exchange and captured, and the upstream's
-        // response is returned to the caller — the same behavior WireMock's record-through-proxy has.
+        // upstream, a stub is generated from the exchange and captured, and the upstream's
+        // response is returned to the caller — this is Mockifyr's record-through-proxy behavior
+        // (G12d, verified by the differential suite).
         var recording = context.RequestServices.GetRequiredService<RecordingSession>();
         if (recording.TargetBaseUrl is { } target)
         {
@@ -70,8 +71,8 @@ public static class MockServingEndpoints
         }
 
         // Fault injection (G12b): a low-level fault breaks the connection, so the client sees a failed
-        // request rather than a valid response — the same observable outcome as WireMock (all four
-        // kinds surface to an HTTP client as a connection error).
+        // request rather than a valid response — all four fault kinds surface to an HTTP client as a
+        // connection error (verified by the differential suite).
         if (response.Fault is { } fault)
         {
             await EmitFaultAsync(context, fault);
@@ -103,7 +104,7 @@ public static class MockServingEndpoints
             }
         }
 
-        // gzip the body when the client accepts it (WireMock does, for any content type).
+        // gzip the body when the client accepts it, for any content type.
         var body = response.Body;
         if (body.Length > 0 && AcceptsGzip(context.Request))
         {
@@ -116,8 +117,8 @@ public static class MockServingEndpoints
 
     // Writes a proxied/recorded upstream response back to the caller verbatim: status, the upstream's
     // headers (minus the transport headers Kestrel reframes), and the body exactly as received — no
-    // re-encoding, since the upstream already set its own Content-Encoding. This is pass-through,
-    // matching how WireMock relays a proxied response.
+    // re-encoding, since the upstream already set its own Content-Encoding. This is pass-through
+    // relay of a proxied response.
     private static async Task WriteUpstreamAsync(HttpContext context, CanonicalResponse response)
     {
         context.Response.StatusCode = response.Status;
@@ -178,7 +179,8 @@ public static class MockServingEndpoints
         var url = context.Request.Path + context.Request.QueryString;
 
         // Scheme is supplied here (not header-borne); host/port derive from the Host header inside the
-        // builder, so WireMock's multi-domain matching (G15c) sees the same values the transport did.
+        // builder, so multi-domain matching (G15c, verified by the differential suite) sees the same
+        // values the transport did.
         return CanonicalRequestBuilder.Build(
             context.Request.Method, url, headers, buffer.ToArray(), context.Request.Scheme);
     }

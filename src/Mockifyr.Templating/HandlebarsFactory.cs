@@ -5,14 +5,15 @@ namespace Mockifyr.Templating;
 
 /// <summary>
 /// Builds the Handlebars engine Mockifyr uses for both response templating (G2) and webhook
-/// templating (G3b), with HTML escaping disabled (WireMock emits raw <c>{{ }}</c> output) and every
-/// built-in helper family registered. User-supplied helper extensions (G10) are registered too.
+/// templating (G3b), with HTML escaping disabled so rendered <c>{{ }}</c> output is emitted raw
+/// (verified by the differential suite) and every built-in helper family registered.
+/// User-supplied helper extensions (G10) are registered too.
 /// </summary>
 internal static class HandlebarsFactory
 {
     public static IHandlebars Create(IEnumerable<TemplateHelperExtension>? extraHelpers = null)
     {
-        // TextEncoder = null disables HTML escaping, matching WireMock's non-escaping output.
+        // TextEncoder = null disables HTML escaping so rendered output is emitted verbatim, not escaped.
         var configuration = new HandlebarsConfiguration { TextEncoder = null };
         // Teach Handlebars the dual request.path model (bare string + named vars + indexed segments).
         configuration.ObjectDescriptorProviders.Add(new PathModelDescriptorProvider());

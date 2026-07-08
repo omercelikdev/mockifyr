@@ -11,7 +11,7 @@ namespace Mockifyr.Differential.Generator;
 /// output satisfies the contract (proving it is real WireMock behavior, not a self-assertion) and
 /// then requires Mockifyr's output to satisfy the very same contract.
 /// </summary>
-public sealed record RandomCase(string Description, string WireMockJson, RequestSpec Request, Func<string, bool> IsValid);
+public sealed record RandomCase(string Description, string MappingJson, RequestSpec Request, Func<string, bool> IsValid);
 
 /// <summary>
 /// Structural-parity cases for the WireMock helpers whose output can't be byte-diffed: the random

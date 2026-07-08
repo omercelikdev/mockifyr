@@ -6,7 +6,8 @@ namespace Mockifyr.Server;
 
 /// <summary>
 /// Generates an ephemeral self-signed TLS certificate for the standalone host's HTTPS listener
-/// (G11a) — mirroring WireMock, which serves HTTPS with a bundled self-signed certificate by default.
+/// (G11a, verified by the differential suite): HTTPS is served with a self-signed certificate by
+/// default so a local client can connect without external setup.
 /// A configured keystore (PFX path/password) is a later refinement; here the cert is minted in-memory
 /// at startup, valid for <c>localhost</c> and the loopback addresses so a local client can connect.
 /// </summary>
