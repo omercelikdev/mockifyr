@@ -67,8 +67,10 @@ public static class WebSocketEndpoints
                 store.Add(mapping);
                 return Results.Json(new { id = mapping.Id }, statusCode: StatusCodes.Status201Created);
             }
-            catch (JsonException)
+            catch (Exception ex) when (ex is JsonException or InvalidOperationException)
             {
+                // JsonException = malformed JSON; InvalidOperationException = a well-formed but wrong-typed
+                // field (e.g. a string where the send body object is expected). Both are client input errors.
                 return Results.StatusCode(StatusCodes.Status422UnprocessableEntity);
             }
         });
