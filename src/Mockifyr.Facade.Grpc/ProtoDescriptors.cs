@@ -12,8 +12,9 @@ public sealed record GrpcMethod(string Service, string Method, MessageDescriptor
 /// <summary>
 /// Loads compiled proto descriptor sets (<c>*.dsc</c>, produced by <c>protoc --descriptor_set_out
 /// --include_imports</c>) and indexes their services/methods by the gRPC path
-/// <c>/{package.Service}/{Method}</c> — WireMock's gRPC extension reads the same descriptors from its
-/// <c>grpc</c> directory (G13). The engine never sees protobuf; this hands the codec the message types.
+/// <c>/{package.Service}/{Method}</c> — descriptor sets are loaded from the configured <c>grpc</c>
+/// directory (G13, verified by the differential suite). The engine never sees protobuf; this hands the
+/// codec the message types.
 /// </summary>
 public sealed class ProtoDescriptors
 {

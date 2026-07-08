@@ -74,7 +74,7 @@ public sealed class G6NearMissTests
             """;
 
         var server = new Mockifyr.Facade.Library.MockifyrServer();
-        server.ImportWireMockJson(mappings);
+        server.ImportMappingJson(mappings);
 
         var request = CanonicalRequestBuilder.Build("GET", "/nope", [], null);
         var nearMisses = server.FindNearMisses(request);

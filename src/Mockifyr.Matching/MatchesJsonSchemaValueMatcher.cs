@@ -7,21 +7,21 @@ using Mockifyr.Core;
 namespace Mockifyr.Matching;
 
 /// <summary>
-/// Matches a JSON body against a JSON Schema (WireMock's <c>matchesJsonSchema</c>). The body must
-/// parse as JSON and validate against the schema. WireMock uses networknt/json-schema-validator;
-/// we use json-everything's JsonSchema.Net. The dialect is taken from the schema's <c>$schema</c>
-/// (defaulting to Draft 2020-12, WireMock's default); when a <c>schemaVersion</c> is given and the
-/// schema omits <c>$schema</c>, the matching meta-schema is injected so the requested draft is used.
+/// Matches a JSON body against a JSON Schema (the <c>matchesJsonSchema</c> matcher). The body must
+/// parse as JSON and validate against the schema. This matcher is built on json-everything's
+/// JsonSchema.Net. The dialect is taken from the schema's <c>$schema</c> (defaulting to Draft
+/// 2020-12); when a <c>schemaVersion</c> is given and the schema omits <c>$schema</c>, the matching
+/// meta-schema is injected so the requested draft is used.
 ///
-/// <para><c>format</c> follows WireMock: it is an <em>assertion</em> on Draft-07 and earlier, and an
+/// <para><c>format</c> is treated as an <em>assertion</em> on Draft-07 and earlier, and as an
 /// annotation-only no-op on 2019-09 and later — the reverse of JsonSchema.Net's own defaults, so the
 /// dialect is pinned explicitly (inject <c>$schema</c> when absent) and format assertion is toggled per
-/// draft. Divergences are pinned by the differential suite — see docs/parity/g1-matching.md.</para>
+/// draft. This behavior is verified by the differential suite — see docs/parity/g1-matching.md.</para>
 /// </summary>
 public sealed class MatchesJsonSchemaValueMatcher : IValueMatcher
 {
-    // Remote `$ref` resolution: WireMock/networknt fetches an http(s) `$ref`, so JsonSchema.Net is
-    // taught to as well (off by default). Fetched schemas are cached; failures resolve to no-match.
+    // Remote `$ref` resolution: an http(s) `$ref` is fetched (JsonSchema.Net leaves this off by
+    // default, so it is enabled here). Fetched schemas are cached; failures resolve to no-match.
     private static readonly HttpClient RemoteHttp = new() { Timeout = TimeSpan.FromSeconds(5) };
     private static readonly ConcurrentDictionary<Uri, IBaseDocument?> RemoteCache = new();
 
@@ -61,7 +61,7 @@ public sealed class MatchesJsonSchemaValueMatcher : IValueMatcher
     }
 
     /// <param name="schemaJson">The JSON Schema (inline or string form).</param>
-    /// <param name="schemaVersion">WireMock schema version token (<c>V6</c>/<c>V7</c>/<c>V201909</c>/<c>V202012</c>).</param>
+    /// <param name="schemaVersion">Schema version token (<c>V6</c>/<c>V7</c>/<c>V201909</c>/<c>V202012</c>).</param>
     public MatchesJsonSchemaValueMatcher(string schemaJson, string? schemaVersion = null)
     {
         (_schema, _options) = TryBuild(schemaJson, schemaVersion);
@@ -84,10 +84,10 @@ public sealed class MatchesJsonSchemaValueMatcher : IValueMatcher
                 return MatchResult.Exact;
             }
 
-            // WireMock/networknt quirk (learned from the oracle): a **non-string scalar** body is ALSO
-            // validated as its JSON-literal string form, so e.g. `123` matches `{"type":"string"}`,
-            // `{"enum":["123"]}`, or `{"const":"123"}`. Objects/arrays get no such fallback, and a string
-            // body uses its parsed (unquoted) value only. See docs/parity/g1-matching.md.
+            // Non-string-scalar fallback (verified by the differential suite): a **non-string scalar**
+            // body is ALSO validated as its JSON-literal string form, so e.g. `123` matches
+            // `{"type":"string"}`, `{"enum":["123"]}`, or `{"const":"123"}`. Objects/arrays get no such
+            // fallback, and a string body uses its parsed (unquoted) value only. See docs/parity/g1-matching.md.
             if (root.ValueKind is JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False or JsonValueKind.Null)
             {
                 using var asString = JsonDocument.Parse(JsonSerializer.Serialize(values[0]));
@@ -116,8 +116,8 @@ public sealed class MatchesJsonSchemaValueMatcher : IValueMatcher
             var draft = ResolveDraft(declared, schemaVersion);
 
             // Pin the dialect explicitly. JsonSchema.Net keys `format` off the declared dialect: with no
-            // `$schema` it asserts `format`, which WireMock does not on 2019-09+. Injecting the resolved
-            // meta-schema makes it treat `format` as annotation-only there, matching WireMock.
+            // `$schema` it asserts `format`, which must not happen on 2019-09+. Injecting the resolved
+            // meta-schema makes it treat `format` as annotation-only there (verified by the differential suite).
             if (node is JsonObject target && declared is null)
             {
                 target["$schema"] = MetaSchemaId(draft);
@@ -126,7 +126,7 @@ public sealed class MatchesJsonSchemaValueMatcher : IValueMatcher
 
             var schema = JsonSchema.FromText(schemaJson);
 
-            // WireMock asserts `format` on Draft-07 and earlier only. JsonSchema.Net does the reverse by
+            // `format` is asserted on Draft-07 and earlier only. JsonSchema.Net does the reverse by
             // default, so drive it explicitly with RequireFormatValidation.
             var options = new EvaluationOptions { RequireFormatValidation = AssertsFormat(draft) };
             return (schema, options);
@@ -137,8 +137,8 @@ public sealed class MatchesJsonSchemaValueMatcher : IValueMatcher
         }
     }
 
-    // Resolves the draft from an explicit `$schema` URI, else the WireMock `schemaVersion` token, else
-    // WireMock's default (2020-12).
+    // Resolves the draft from an explicit `$schema` URI, else the `schemaVersion` token, else
+    // the default (2020-12).
     private static Draft ResolveDraft(string? declaredSchema, string? schemaVersion)
     {
         if (declaredSchema is { } uri)
@@ -170,6 +170,6 @@ public sealed class MatchesJsonSchemaValueMatcher : IValueMatcher
         _ => MetaSchemas.Draft202012Id.ToString(),
     };
 
-    // WireMock asserts `format` on Draft-07 and earlier; 2019-09+ treats it as an annotation.
+    // `format` is asserted on Draft-07 and earlier; 2019-09+ treats it as an annotation.
     private static bool AssertsFormat(Draft draft) => draft is Draft.V4 or Draft.V6 or Draft.V7;
 }

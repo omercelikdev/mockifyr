@@ -10,9 +10,9 @@ using Newtonsoft.Json.Linq;
 namespace Mockifyr.Templating;
 
 /// <summary>
-/// WireMock's built-in <em>data extraction</em> Handlebars helpers (G2c): <c>jsonPath</c>,
+/// The built-in <em>data extraction</em> Handlebars helpers (G2c): <c>jsonPath</c>,
 /// <c>xPath</c>, <c>regexExtract</c>, <c>formData</c>, and <c>parseJson</c>. All behaviors are
-/// pinned against the WireMock oracle — see docs/parity/g2-response.md. The value-returning
+/// verified by the differential suite — see docs/parity/g2-response.md. The value-returning
 /// helpers (<c>jsonPath</c>, <c>xPath</c>) emit the extracted value; the assigning helpers
 /// (<c>regexExtract</c> with a variable, <c>formData</c>, <c>parseJson</c>) write a variable into
 /// the root template scope and render nothing.
@@ -31,7 +31,7 @@ internal static class DataHelpers
     }
 
     // {{#assign 'name'}}<content>{{/assign}} renders the block and stores the result under the given
-    // variable in the root scope (WireMock's variable-assignment helper); the block renders nothing.
+    // variable in the root scope (the variable-assignment helper); the block renders nothing.
     private static void AssignBlock(
         EncodedTextWriter output, BlockHelperOptions options, Context context, Arguments arguments)
     {
@@ -68,8 +68,9 @@ internal static class DataHelpers
         return Represent(selected);
     }
 
-    // WireMock renders a jsonPath result as: raw scalar (string/number/boolean), an empty string for
-    // null/missing, a compact array (`[1,2,3]`), and a Jackson-pretty-printed object.
+    // Renders a jsonPath result as: raw scalar (string/number/boolean), an empty string for
+    // null/missing, a compact array (`[1,2,3]`), and a Jackson-pretty-printed object. Verified by the
+    // differential suite.
     private static string Represent(JToken? token) => token?.Type switch
     {
         null or JTokenType.Null => string.Empty,
@@ -109,7 +110,7 @@ internal static class DataHelpers
 
         return result switch
         {
-            // Node set: WireMock emits the first node — an element serialized as XML, or the text
+            // Node set: emit the first node — an element serialized as XML, or the text
             // value of a text node / attribute.
             IEnumerable<object> nodes => nodes.OfType<XObject>().FirstOrDefault() switch
             {
@@ -226,7 +227,8 @@ internal static class DataHelpers
         }
 
         // One argument (a subexpression, e.g. `lookup (parseJson '…') 'k'`) returns the parsed value;
-        // a second argument is the variable name to assign it to (rendering nothing), matching WireMock.
+        // a second argument is the variable name to assign it to (rendering nothing). Verified by the
+        // differential suite.
         if (arguments.Length < 2)
         {
             return token ?? (object)string.Empty;
@@ -237,8 +239,8 @@ internal static class DataHelpers
     }
 
     // Block form: {{#parseJson 'var'}}<json>{{/parseJson}}. The block body is rendered (so it may
-    // itself be templated) then parsed into the named variable; the block renders nothing. Mirrors
-    // WireMock's parseJson block/assignment form. See docs/parity/g2-response.md.
+    // itself be templated) then parsed into the named variable; the block renders nothing. This is the
+    // parseJson block/assignment form. Verified by the differential suite — see docs/parity/g2-response.md.
     private static void ParseJsonBlock(
         EncodedTextWriter output, BlockHelperOptions options, Context context, Arguments arguments)
     {
@@ -258,7 +260,7 @@ internal static class DataHelpers
 
     // --- shared -------------------------------------------------------------------------------
 
-    // Writes a variable into the root template scope so later expressions resolve it. WireMock's
+    // Writes a variable into the root template scope so later expressions resolve it. The
     // assign helpers are root-scoped; at the top level the current context value is the root model.
     private static void Assign(Context context, string name, object? value)
     {

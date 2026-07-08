@@ -18,8 +18,9 @@ public enum DateTimeComparison
 
 /// <summary>
 /// Matches a request value parsed as a date/time against an <b>absolute</b> ISO-8601 expected
-/// instant. Corresponds to WireMock's <c>before</c> / <c>after</c> / <c>equalToDateTime</c> over
-/// the deterministic subset; <c>now</c>-relative expected values, offsets, and truncation are
+/// instant. Implements the <c>before</c> / <c>after</c> / <c>equalToDateTime</c> operators over
+/// the deterministic subset (verified by the differential suite); <c>now</c>-relative expected
+/// values, offsets, and truncation are
 /// deferred (see docs/parity/g1-matching.md). Comparison is on the instant: a value without an
 /// explicit zone is read as UTC, matching how the corpus is pinned by the differential suite.
 /// </summary>

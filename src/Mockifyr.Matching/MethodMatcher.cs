@@ -3,7 +3,7 @@ using Mockifyr.Core;
 namespace Mockifyr.Matching;
 
 /// <summary>
-/// Matches the HTTP method. A method of <c>ANY</c> matches every request, mirroring WireMock.
+/// Matches the HTTP method. A method of <c>ANY</c> matches every request (verified by the differential suite).
 /// </summary>
 public sealed class MethodMatcher(string expected) : IMatcher
 {

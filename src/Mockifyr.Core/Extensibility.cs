@@ -139,7 +139,7 @@ public interface IMultiTenantMappingsLoader
 /// </summary>
 public interface IStubPersistence : IExtension
 {
-    /// <summary>Persists a stub. <paramref name="mappingJson"/> is its source WireMock JSON (single mapping).</summary>
+    /// <summary>Persists a stub. <paramref name="mappingJson"/> is its source JSON in the imported stub dialect (single mapping).</summary>
     void Save(StubMapping stub, string mappingJson);
 
     /// <summary>Removes a persisted stub by id.</summary>

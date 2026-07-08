@@ -63,7 +63,7 @@ public sealed class G2StaticResponseTests : IAsyncLifetime
 
         foreach (var scenario in RandomScenarios.All())
         {
-            await _runner.LoadAsync(scenario.WireMockJson);
+            await _runner.LoadAsync(scenario.MappingJson);
 
             for (var i = 0; i < iterations; i++)
             {
@@ -96,7 +96,7 @@ public sealed class G2StaticResponseTests : IAsyncLifetime
 
         foreach (var scenario in scenarios)
         {
-            await _runner.LoadAsync(scenario.WireMockJson);
+            await _runner.LoadAsync(scenario.MappingJson);
 
             foreach (var probe in scenario.Probes)
             {

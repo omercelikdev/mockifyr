@@ -7,9 +7,9 @@ namespace Mockifyr.Matching;
 /// <summary>
 /// Matches a JSONPath expression against a JSON body. Without a sub-matcher it matches when the
 /// path selects at least one node (presence). With a sub-matcher, the extracted value(s) must
-/// satisfy it. WireMock uses Jayway JsonPath; Newtonsoft's dialect is the closest .NET proxy
-/// (it accepts Jayway-style filters). Divergences are pinned by the differential suite — see
-/// docs/parity/g1-matching.md.
+/// satisfy it. The engine targets the Jayway JsonPath dialect; Newtonsoft's dialect is the
+/// closest .NET proxy (it accepts Jayway-style filters). Divergences are pinned and verified by
+/// the differential suite — see docs/parity/g1-matching.md.
 /// </summary>
 public sealed class MatchesJsonPathValueMatcher(string expression, IValueMatcher? subMatcher = null) : IValueMatcher
 {

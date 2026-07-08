@@ -7,9 +7,9 @@ using Mockifyr.Core;
 namespace Mockifyr.Facade.WebSocket;
 
 /// <summary>
-/// A WebSocket message stub (WireMock 4's <c>message-mappings</c>, G15d): a trigger that matches an
-/// inbound message body and a set of templated responses to send back to the originating channel.
-/// The trigger reuses the standard body value-matchers; the responses reuse the templating engine.
+/// A WebSocket message stub (the <c>message-mappings</c> JSON dialect, G15d; self-tested): a trigger
+/// that matches an inbound message body and a set of templated responses to send back to the originating
+/// channel. The trigger reuses the standard body value-matchers; the responses reuse the templating engine.
 /// </summary>
 /// <summary>A <c>send</c> action: the templated message data and whether it broadcasts (vs. the originating channel).</summary>
 public sealed record SendAction(string Data, bool Broadcast);
@@ -38,7 +38,7 @@ public sealed record MessageMapping(
     }
 }
 
-/// <summary>Parses a WireMock message-mapping JSON into a <see cref="MessageMapping"/>.</summary>
+/// <summary>Parses a message-mapping JSON document into a <see cref="MessageMapping"/>.</summary>
 public static class MessageMappingReader
 {
     /// <summary>
@@ -49,7 +49,8 @@ public static class MessageMappingReader
     /// <c>"trigger": { "type": "connection" }</c> makes the mapping <b>connect-time</b> (G15g): its actions
     /// fire once when a client connects, unsolicited, instead of on an inbound message. A send action's
     /// body may be <c>{ "data": &lt;template&gt; }</c> or <c>{ "filePath": &lt;name&gt; }</c> (G15g), the
-    /// latter read from <paramref name="filesDirectory"/> (WireMock's <c>__files</c>) at registration.
+    /// latter read from <paramref name="filesDirectory"/> (the <c>__files</c> asset directory) at
+    /// registration.
     /// </summary>
     public static MessageMapping Read(string json, TenantId tenant, string? filesDirectory = null)
     {
@@ -97,8 +98,8 @@ public static class MessageMappingReader
         return new MessageMapping(Guid.NewGuid(), tenant, trigger, responses, onConnect);
     }
 
-    // A send body is either inline `data` or a `filePath` read from the files directory (WireMock's
-    // __files). filePath is resolved to its text at registration, so the runtime path is unchanged.
+    // A send body is either inline `data` or a `filePath` read from the files directory (the
+    // __files asset directory). filePath is resolved to its text at registration, so the runtime path is unchanged.
     // Returns null when neither is present (or a filePath can't be read), so the action is skipped.
     private static string? ResolveData(JsonElement actionBody, string? filesDirectory)
     {

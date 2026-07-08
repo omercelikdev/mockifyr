@@ -7,8 +7,8 @@ namespace Mockifyr.Outbound;
 public sealed record RecordedExchange(string StubJson, CanonicalResponse CapturedResponse);
 
 /// <summary>
-/// WireMock's record mode (G9): proxy a request to the target upstream, capture the response, and
-/// generate a WireMock stub that replays it. Reuses <see cref="ProxyResponder"/> for the outbound
+/// Record mode (G9, verified by the differential suite): proxy a request to the target upstream,
+/// capture the response, and generate a stub that replays it. Reuses <see cref="ProxyResponder"/> for the outbound
 /// call (I/O at the facade edge) and <see cref="RecordingJsonWriter"/> for the stub JSON. Filters,
 /// body-file extraction, and repeat-request → scenario generation are deferred.
 /// </summary>

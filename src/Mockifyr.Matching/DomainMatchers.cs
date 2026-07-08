@@ -3,9 +3,10 @@ using Mockifyr.Core;
 namespace Mockifyr.Matching;
 
 /// <summary>
-/// Applies a value matcher to the request host — the hostname from the <c>Host</c> header. WireMock's
-/// <c>request.host</c> is a <c>StringValuePattern</c>, so any standard value matcher (equalTo, matches,
-/// contains, …) applies. Enables multi-domain mocking (G15c): one instance serving many hosts.
+/// Applies a value matcher to the request host — the hostname from the <c>Host</c> header. The host
+/// is treated as a string value, so any standard value matcher (equalTo, matches, contains, …)
+/// applies. Enables multi-domain mocking (G15c, verified by the differential suite): one instance
+/// serving many hosts.
 /// </summary>
 public sealed class HostMatcher(IValueMatcher value) : IMatcher
 {
@@ -20,8 +21,8 @@ public sealed class HostMatcher(IValueMatcher value) : IMatcher
 }
 
 /// <summary>
-/// Matches the request scheme (WireMock's <c>request.scheme</c>). WireMock's scheme is a plain string
-/// (not a value pattern); comparison is case-insensitive since schemes are canonically lower-case.
+/// Matches the request scheme. The scheme is a plain string (not a value pattern); comparison is
+/// case-insensitive since schemes are canonically lower-case. Verified by the differential suite.
 /// </summary>
 public sealed class SchemeMatcher(string expected) : IMatcher
 {
@@ -34,7 +35,7 @@ public sealed class SchemeMatcher(string expected) : IMatcher
             : MatchResult.NoMatch(1d);
 }
 
-/// <summary>Matches the request port for exact equality (WireMock's <c>request.port</c>).</summary>
+/// <summary>Matches the request port for exact equality. Verified by the differential suite.</summary>
 public sealed class PortMatcher(int expected) : IMatcher
 {
     private readonly int _expected = expected;

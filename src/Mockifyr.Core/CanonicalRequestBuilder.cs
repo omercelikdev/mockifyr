@@ -9,9 +9,9 @@ public static class CanonicalRequestBuilder
 {
     /// <summary>Builds a canonical request from a method, a URL (path + optional query), headers, and a body.</summary>
     /// <remarks>
-    /// The <c>Host</c> header drives the request host and port (for WireMock's multi-domain matching,
-    /// G15c), mirroring how the real transport derives them. <paramref name="scheme"/> is supplied by
-    /// the caller since it is not carried in a header.
+    /// The <c>Host</c> header drives the request host and port (feeding multi-domain host/port/scheme
+    /// matching, G15c — verified by the differential suite), mirroring how the real transport derives
+    /// them. <paramref name="scheme"/> is supplied by the caller since it is not carried in a header.
     /// </remarks>
     public static CanonicalRequest Build(
         string method,

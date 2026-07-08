@@ -9,11 +9,11 @@ using Mockifyr.Templating;
 namespace Mockifyr.Facade.WebSocket;
 
 /// <summary>
-/// The WebSocket message-serving facade (G15d), mirroring WireMock 4's message framework: register
-/// message stubs via <c>POST /__admin/message-mappings</c>, then a WebSocket client's inbound message is
+/// The WebSocket message-serving facade (G15d): register message stubs via
+/// <c>POST /__admin/message-mappings</c>, then a WebSocket client's inbound message is
 /// matched against each stub's trigger and the matching stubs' templated responses are sent back to the
-/// originating channel. WebSocket serving has no stable WireMock oracle (still beta), so it is validated
-/// by a self-test round-trip rather than differentially — see docs/parity/g15-extras.md.
+/// originating channel. This message-serving path has no stable external oracle to differential-test against,
+/// so it is verified by a self-test round-trip rather than differentially — see docs/parity/g15-extras.md.
 /// </summary>
 public static class WebSocketEndpoints
 {
@@ -75,7 +75,7 @@ public static class WebSocketEndpoints
             }
         });
 
-        // Admin push (WireMock 4's POST /__admin/channels/send): dispatch a message to connected clients.
+        // Admin push (POST /__admin/channels/send): dispatch a message to connected clients.
         app.MapPost("/__admin/channels/send", async (HttpRequest request) =>
         {
             using var reader = new StreamReader(request.Body);

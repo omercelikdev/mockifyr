@@ -5,10 +5,10 @@ using Newtonsoft.Json.Linq;
 namespace Mockifyr.Templating;
 
 /// <summary>
-/// WireMock's JSON-manipulation Handlebars helpers (G2f): <c>jsonArrayAdd</c>, <c>jsonMerge</c>,
+/// JSON-manipulation Handlebars helpers (G2f): <c>jsonArrayAdd</c>, <c>jsonMerge</c>,
 /// <c>jsonRemove</c>, and <c>toJson</c>. The first three take JSON <em>strings</em> and emit
 /// <strong>compact</strong> JSON; <c>toJson</c> emits <strong>Jackson-pretty</strong> JSON (the same
-/// serialization as a <c>jsonPath</c> object). All behaviors are pinned against the WireMock oracle —
+/// serialization as a <c>jsonPath</c> object). All behaviors are verified by the differential suite —
 /// see docs/parity/g2-response.md.
 /// </summary>
 internal static class JsonHelpers

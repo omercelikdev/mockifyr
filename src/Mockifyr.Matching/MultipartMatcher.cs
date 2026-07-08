@@ -6,7 +6,7 @@ namespace Mockifyr.Matching;
 /// <summary>How many multipart parts must satisfy a <see cref="MultipartMatcher"/>.</summary>
 public enum MultipartMatchingType
 {
-    /// <summary>At least one part must satisfy the body patterns (WireMock default).</summary>
+    /// <summary>At least one part must satisfy the body patterns (the default).</summary>
     Any,
 
     /// <summary>Every part must satisfy the body patterns.</summary>
@@ -14,11 +14,11 @@ public enum MultipartMatchingType
 }
 
 /// <summary>
-/// Matches a <c>multipart/form-data</c> request (WireMock's <c>multipartPatterns</c>). A part
+/// Matches a <c>multipart/form-data</c> request via the <c>multipartPatterns</c> construct. A part
 /// satisfies the pattern when <b>all</b> of its body patterns match that part's body;
 /// <c>matchingType</c> then decides whether <b>any</b> (default) or <b>all</b> parts must satisfy.
-/// A non-multipart request (no parsed parts) never matches. Verified against the oracle: the
-/// per-pattern <c>name</c> is a no-op in WireMock 3.10.0, so it is intentionally ignored — see
+/// A non-multipart request (no parsed parts) never matches. Verified by the differential suite: the
+/// per-pattern <c>name</c> is a no-op, so it is intentionally ignored — see
 /// docs/parity/g1-matching.md.
 /// </summary>
 public sealed class MultipartMatcher(IReadOnlyList<IValueMatcher> bodyPatterns, MultipartMatchingType matchingType)

@@ -3,10 +3,10 @@ using Mockifyr.Core;
 namespace Mockifyr.Server;
 
 /// <summary>
-/// The public extension builder (G10). Collects user-supplied extensions — custom request matchers,
-/// serve-event listeners, template helpers, and response transformers — which
-/// <c>AddMockifyr(cfg =&gt; …)</c> wires into the engine, renderer, and adapter. WireMock's other
-/// extension seams (<see cref="IResponseDefinitionTransformer"/>, <see cref="ITemplateModelProvider"/>,
+/// The public extension builder (G10, verified by the differential suite). Collects user-supplied
+/// extensions — custom request matchers, serve-event listeners, template helpers, and response
+/// transformers — which <c>AddMockifyr(cfg =&gt; …)</c> wires into the engine, renderer, and adapter.
+/// Mockifyr's other extension seams (<see cref="IResponseDefinitionTransformer"/>, <see cref="ITemplateModelProvider"/>,
 /// <see cref="IAdminApiExtension"/>, <see cref="IMappingsLoader"/>) are public on
 /// <c>Mockifyr.Core</c> and wired incrementally.
 /// </summary>

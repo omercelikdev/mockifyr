@@ -17,7 +17,7 @@ public sealed class MockifyrUnderTest
     private readonly ProxyResponder _proxy = new();
 
     /// <summary>Imports the same WireMock JSON the oracle receives.</summary>
-    public void ImportWireMockJson(string wireMockJson) => _server.ImportWireMockJson(wireMockJson);
+    public void ImportMappingJson(string wireMockJson) => _server.ImportMappingJson(wireMockJson);
 
     /// <summary>
     /// Handles a request and snapshots the response. <paramref name="scheme"/> mirrors the transport

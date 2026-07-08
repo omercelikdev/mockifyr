@@ -33,10 +33,10 @@ internal static class RequestModel
         ["baseUrl"] = BaseUrl(request),
     };
 
-    // WireMock exposes multipart parts as `request.parts.<name>` (G15f), each carrying `name`, its
-    // `headers` (first value per header) and the part `body` as text — so a template can reach
-    // `{{request.parts.avatar.body}}` or `{{request.parts.avatar.headers.[Content-Type]}}`. Later parts
-    // with a duplicate name win, mirroring WireMock's map keyed by name.
+    // Exposes multipart parts as `request.parts.<name>` (G15f, verified by the differential suite), each
+    // carrying `name`, its `headers` (first value per header) and the part `body` as text — so a template
+    // can reach `{{request.parts.avatar.body}}` or `{{request.parts.avatar.headers.[Content-Type]}}`.
+    // Later parts with a duplicate name win, since the parts are keyed by name in a map.
     private static Dictionary<string, object?> Parts(IReadOnlyList<MultipartPart> parts)
     {
         var model = new Dictionary<string, object?>(StringComparer.Ordinal);
@@ -54,7 +54,7 @@ internal static class RequestModel
         return model;
     }
 
-    // WireMock's request.baseUrl is `scheme://host[:port]`, from the request's scheme + Host header.
+    // request.baseUrl is `scheme://host[:port]`, built from the request's scheme + Host header.
     private static string? BaseUrl(CanonicalRequest request)
     {
         if (request.Scheme is null || request.Host is null)

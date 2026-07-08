@@ -6,9 +6,9 @@ using Mockifyr.Matching;
 namespace Mockifyr.Adapters.MappingJson;
 
 /// <summary>
-/// Reads WireMock stub mapping JSON (the canonical format the differential harness loads into
-/// both the oracle and Mockifyr) into the internal domain model. This adapter is itself under
-/// differential test. See docs/decisions/0004.
+/// Reads stub mapping JSON (the canonical format the differential harness loads into
+/// both the reference oracle and Mockifyr) into the internal domain model. This adapter is itself
+/// verified by the differential suite. See docs/decisions/0004.
 /// </summary>
 /// <remarks>
 /// G0 scope: <c>request.method</c>, <c>request.url</c>/<c>request.urlPath</c>, and
@@ -47,7 +47,7 @@ public static class MappingJsonReader
     }
 
     /// <summary>
-    /// Reads a bare WireMock request pattern (the body of <c>/__admin/requests/count</c> and
+    /// Reads a bare request pattern (the body of <c>/__admin/requests/count</c> and
     /// <c>find</c>) into a <see cref="RequestPattern"/>, reusing the same matcher parsing as stubs.
     /// An empty object <c>{}</c> matches every request.
     /// </summary>
@@ -75,7 +75,7 @@ public static class MappingJsonReader
         };
     }
 
-    /// <summary>Reads the stub's <c>id</c>/<c>uuid</c> (WireMock uses both), or mints a new one.</summary>
+    /// <summary>Reads the stub's <c>id</c>/<c>uuid</c> (both keys are accepted), or mints a new one.</summary>
     private static Guid ReadId(JsonElement mapping)
     {
         if (mapping.ValueKind == JsonValueKind.Object &&
@@ -167,7 +167,7 @@ public static class MappingJsonReader
                 }
             }
 
-            // WireMock supports `body` (string) and `base64Body` (bytes) for the webhook payload.
+            // The webhook payload accepts `body` (string) and `base64Body` (bytes).
             byte[]? body = null;
             if (parameters.TryGetProperty("body", out var b) && b.ValueKind == JsonValueKind.String)
             {
@@ -179,7 +179,7 @@ public static class MappingJsonReader
                 body = decoded;
             }
 
-            // WireMock's webhook delay: { "delay": { "type": "fixed", "milliseconds": N } }.
+            // Webhook delay shape: { "delay": { "type": "fixed", "milliseconds": N } }.
             var delayMs = 0;
             if (parameters.TryGetProperty("delay", out var delay) && delay.ValueKind == JsonValueKind.Object &&
                 delay.TryGetProperty("milliseconds", out var ms) && ms.ValueKind == JsonValueKind.Number)
@@ -366,7 +366,8 @@ public static class MappingJsonReader
                 bodyPatterns.AddRange(BuildValueMatchers(bps));
             }
 
-            // WireMock's default matchingType is ANY; the per-pattern `name` is a no-op (see parity doc).
+            // The default matchingType is ANY; the per-pattern `name` is a no-op (verified by the
+            // differential suite; see parity doc).
             var matchingType =
                 pattern.TryGetProperty("matchingType", out var mt) && mt.ValueKind == JsonValueKind.String &&
                 string.Equals(mt.GetString(), "ALL", StringComparison.OrdinalIgnoreCase)
@@ -603,8 +604,8 @@ public static class MappingJsonReader
             return new EqualToValueMatcher(eq.GetString()!, caseInsensitive);
         }
 
-        // Note: WireMock JSON has no `equalToIgnoreCase` key; case-insensitive equality is
-        // `equalTo` with `caseInsensitive: true` (handled above). Verified against the oracle.
+        // Note: the stub JSON dialect has no `equalToIgnoreCase` key; case-insensitive equality is
+        // `equalTo` with `caseInsensitive: true` (handled above). Verified by the differential suite.
 
         if (spec.TryGetProperty("contains", out var c) && c.ValueKind == JsonValueKind.String)
         {
@@ -691,8 +692,8 @@ public static class MappingJsonReader
             ? sm.GetString()
             : null;
 
-        // Body forms, in WireMock's precedence: a literal string body, inline JSON (re-serialized
-        // compact, matching WireMock's output), or base64-decoded bytes.
+        // Body forms, in precedence order: a literal string body, inline JSON (re-serialized
+        // compact, matching the reference oracle's output), or base64-decoded bytes.
         byte[]? body = null;
         if (response.ValueKind == JsonValueKind.Object)
         {

@@ -5,11 +5,11 @@ namespace Mockifyr.Templating;
 
 /// <summary>
 /// The Faker/<c>random</c> templating helper (G15): <c>{{random 'Class.method'}}</c> renders fake data
-/// from a Datafaker-style expression, mirroring WireMock's faker extension. The reference is backed by
-/// Datafaker; Mockifyr uses <see cref="Faker"/> (Bogus, Datafaker's .NET counterpart). The output is
-/// non-deterministic, so it is validated <em>structurally</em> (format contract per expression), the
-/// same method the random helpers use. A curated subset of the most common providers is supported;
-/// an unknown expression yields WireMock's own error string.
+/// from a Datafaker-style expression. Mockifyr uses <see cref="Faker"/> (Bogus, Datafaker's .NET
+/// counterpart) to back these expressions. The output is non-deterministic, so it is validated
+/// <em>structurally</em> (format contract per expression) rather than differentially — the same
+/// self-tested approach the random helpers use. A curated subset of the most common providers is
+/// supported; an unknown expression yields an inline error string.
 /// </summary>
 internal static class FakerHelpers
 {

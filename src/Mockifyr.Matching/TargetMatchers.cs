@@ -28,7 +28,7 @@ public sealed class QueryMatcher(string name, IValueMatcher value) : IMatcher
 }
 
 /// <summary>
-/// Applies a value matcher to a named form parameter (WireMock's <c>formParameters</c>). The
+/// Applies a value matcher to a named form parameter (the <c>formParameters</c> stub field). The
 /// <c>application/x-www-form-urlencoded</c> request body is parsed into parameters the same way a query
 /// string is; a non-form body yields none.
 /// </summary>
@@ -83,7 +83,7 @@ public sealed class CookieMatcher(string name, IValueMatcher value) : IMatcher
 }
 
 /// <summary>
-/// Matches the request body against an exact byte sequence (WireMock's <c>binaryEqualTo</c>).
+/// Matches the request body against an exact byte sequence (the <c>binaryEqualTo</c> body pattern).
 /// Comparison is byte-for-byte, so it is correct for non-text payloads.
 /// </summary>
 public sealed class BinaryEqualToBodyMatcher(byte[] expected) : IMatcher
@@ -95,8 +95,8 @@ public sealed class BinaryEqualToBodyMatcher(byte[] expected) : IMatcher
 
 /// <summary>Applies a value matcher to the request body.</summary>
 /// <remarks>
-/// WireMock treats an empty request body as absent for body matching (verified against the
-/// oracle: <c>bodyPatterns equalTo ""</c> does not match an empty body). See
+/// An empty request body is treated as absent for body matching, verified by the differential
+/// suite: <c>bodyPatterns equalTo ""</c> does not match an empty body. See
 /// docs/parity/g1-matching.md.
 /// </remarks>
 public sealed class BodyMatcher(IValueMatcher value) : IMatcher

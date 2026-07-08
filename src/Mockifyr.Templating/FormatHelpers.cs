@@ -9,11 +9,11 @@ using Newtonsoft.Json.Linq;
 namespace Mockifyr.Templating;
 
 /// <summary>
-/// WireMock's format / math / array / string Handlebars helpers (G2g), which come from the jknack
-/// Handlebars built-ins WireMock registers: <c>math</c>, <c>numberFormat</c>, <c>size</c>,
+/// Mockifyr's format / math / array / string Handlebars helpers (G2g), built on the jknack
+/// Handlebars built-ins: <c>math</c>, <c>numberFormat</c>, <c>size</c>,
 /// <c>join</c>, <c>substring</c>, <c>replace</c>, <c>upper</c>, <c>lower</c>, <c>capitalize</c>,
-/// <c>trim</c>. All behaviors are pinned against the oracle — see docs/parity/g2-response.md. The
-/// modulo/power operators, and helpers not present in open-source WireMock (abs/round/split/…), are
+/// <c>trim</c>. All behaviors are verified by the differential suite — see docs/parity/g2-response.md. The
+/// modulo/power operators, and helpers outside the jknack built-in set (abs/round/split/…), are
 /// deferred (the oracle rejects them, so there is nothing to validate against).
 /// </summary>
 internal static class FormatHelpers
@@ -97,7 +97,7 @@ internal static class FormatHelpers
     private static object ScalarOf(JToken token) =>
         token is JValue value ? value.Value ?? string.Empty : token.ToString();
 
-    // {{range start end}} — an inclusive integer sequence (iterable with {{#each}}), matching WireMock.
+    // {{range start end}} — an inclusive integer sequence (iterable with {{#each}}); verified by the differential suite.
     private static object Range(Arguments arguments)
     {
         var start = ToLong(Str(arguments, 0));
@@ -148,7 +148,7 @@ internal static class FormatHelpers
         return Hash(arguments, "padding") is "false" or "False" ? encoded.TrimEnd('=') : encoded;
     }
 
-    // {{urlEncode value}} — form URL encoding (space → '+'), matching WireMock. decode=true reverses it.
+    // {{urlEncode value}} — form URL encoding (space → '+'), verified by the differential suite. decode=true reverses it.
     private static object UrlEncode(Arguments arguments)
     {
         var value = Str(arguments, 0);
@@ -168,7 +168,7 @@ internal static class FormatHelpers
         }
     }
 
-    // {{{formatXml xml}}} pretty-prints with a 2-space indent and a trailing newline, matching WireMock.
+    // {{{formatXml xml}}} pretty-prints with a 2-space indent and a trailing newline; verified by the differential suite.
     private static object FormatXml(string raw)
     {
         XDocument document;

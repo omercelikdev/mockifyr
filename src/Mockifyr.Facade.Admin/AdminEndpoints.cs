@@ -10,7 +10,8 @@ using Mockifyr.Outbound;
 namespace Mockifyr.Facade.Admin;
 
 /// <summary>
-/// The WireMock-compatible admin HTTP surface (G7b). Each route is a thin translation of an HTTP
+/// The admin HTTP surface (G7b), whose routes and JSON shapes match the stub-format dialect Mockifyr
+/// imports so existing tooling interoperates (verified by the differential suite). Each route is a thin translation of an HTTP
 /// request into a Mediant command/query on <see cref="ISender"/>; all logic lives in
 /// <c>Mockifyr.Application</c>. Every route is scoped to the tenant named by the <c>X-Mockifyr-Tenant</c>
 /// header (the same header the mock-serving facade honours); an absent header resolves to the default
@@ -147,8 +148,9 @@ public static class AdminEndpoints
             return Results.Ok();
         });
 
-        // Record mode (G12d): WireMock's record-through-proxy admin API. While a session is live, the
-        // mock-serving fallback proxies every request to the target and captures a generated stub.
+        // Record mode (G12d): the record-through-proxy admin API (verified by the differential suite). While
+        // a session is live, the mock-serving fallback proxies every request to the target and captures a
+        // generated stub.
         admin.MapPost("/recordings/start", async (HttpRequest request, RecordingSession session) =>
         {
             using var doc = System.Text.Json.JsonDocument.Parse(await ReadBody(request));
@@ -205,7 +207,7 @@ public static class AdminEndpoints
         return endpoints;
     }
 
-    // WireMock's recording responses return a {"mappings":[…]} envelope of the generated stub JSON. The
+    // Recording responses return a {"mappings":[…]} envelope of the generated stub JSON. The
     // captured stubs are already JSON, so they are spliced in raw rather than re-serialized.
     private static IResult Mappings(IReadOnlyList<string> stubs) =>
         Results.Content("{\"mappings\":[" + string.Join(",", stubs) + "]}", "application/json");
@@ -216,7 +218,7 @@ public static class AdminEndpoints
         return await reader.ReadToEndAsync();
     }
 
-    // The full WireMock mapping for GET /mappings: the stub's own source JSON with its id/uuid stamped
+    // The full mapping for GET /mappings: the stub's own source JSON with its id/uuid stamped
     // in, so the dashboard can display and faithfully round-trip an edit (not just see an id).
     private static JsonNode FullMapping(StubMapping stub)
     {

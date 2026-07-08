@@ -76,9 +76,9 @@ public interface IServeEventListener
 
 /// <summary>
 /// Renders a template string against a serve event's original (triggering) request — the model
-/// WireMock exposes to webhooks as <c>originalRequest</c> (G3b). The implementation lives in the
-/// templating edge; the webhook listener depends only on this contract, keeping outbound I/O and
-/// templating decoupled.
+/// exposed to webhooks as <c>originalRequest</c> (G3b, verified by the differential suite). The
+/// implementation lives in the templating edge; the webhook listener depends only on this
+/// contract, keeping outbound I/O and templating decoupled.
 /// </summary>
 public interface IServeEventTemplateRenderer
 {

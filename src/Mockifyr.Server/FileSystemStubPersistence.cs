@@ -3,12 +3,12 @@ using Mockifyr.Core;
 namespace Mockifyr.Server;
 
 /// <summary>
-/// File-backed stub persistence (G16a): writes each stub as its own WireMock JSON file so it survives a
-/// restart, and <see cref="DirectoryMappingsLoader"/> reloads them on startup. This is WireMock's
-/// <c>&lt;root-dir&gt;/mappings</c> model — the persistence directory <em>is</em> the load directory.
+/// File-backed stub persistence (G16a): writes each stub as its own JSON mapping file so it survives a
+/// restart, and <see cref="DirectoryMappingsLoader"/> reloads them on startup. It follows a
+/// <c>&lt;root-dir&gt;/mappings</c> layout — the persistence directory <em>is</em> the load directory.
 /// The stub's id is stamped into the saved JSON so the reloaded stub keeps the same id (the reader
-/// mints a fresh id when none is present). Default-tenant stubs are written flat (matching the loader
-/// and WireMock); other tenants go in a per-tenant subdirectory (their startup reload is deferred).
+/// mints a fresh id when none is present). Default-tenant stubs are written flat (matching the loader);
+/// other tenants go in a per-tenant subdirectory (their startup reload is deferred).
 /// File I/O lives at the host edge, never in Core.
 /// </summary>
 public sealed class FileSystemStubPersistence(string mappingsDirectory) : IStubPersistence

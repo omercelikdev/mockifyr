@@ -23,7 +23,7 @@ public enum Target
 public sealed record ProbeRequest(RequestSpec Request, bool ExpectedMatch);
 
 /// <summary>One stub plus many request probes; the harness loads the stub once and sends every probe.</summary>
-public sealed record MatcherScenario(string Description, string WireMockJson, IReadOnlyList<ProbeRequest> Probes);
+public sealed record MatcherScenario(string Description, string MappingJson, IReadOnlyList<ProbeRequest> Probes);
 
 /// <summary>
 /// Deterministic, seed-driven generators that fuzz the standard matchers across the text corpus.
