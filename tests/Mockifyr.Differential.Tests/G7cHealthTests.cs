@@ -43,5 +43,29 @@ public sealed class G7cHealthTests : IAsyncLifetime
         Assert.True(after.Tenants >= 1);
     }
 
+    [Fact]
+    public async Task Tenants_ListsTheTenantsThatHaveStubs()
+    {
+        using var client = _app.CreateClient();
+
+        // No stubs yet → no tenants.
+        var empty = await client.GetFromJsonAsync<TenantsResponse>("/__admin/tenants");
+        Assert.Empty(empty!.Tenants);
+
+        // Create a stub under two tenants → both are listed, sorted.
+        foreach (var tenant in new[] { "globex", "acme" })
+        {
+            using var content = new StringContent(
+                """{"request":{"method":"GET","url":"/t"},"response":{"status":200}}""", Encoding.UTF8, "application/json");
+            var req = new HttpRequestMessage(HttpMethod.Post, "/__admin/mappings") { Content = content };
+            req.Headers.Add("X-Mockifyr-Tenant", tenant);
+            (await client.SendAsync(req)).EnsureSuccessStatusCode();
+        }
+
+        var listed = await client.GetFromJsonAsync<TenantsResponse>("/__admin/tenants");
+        Assert.Equal(["acme", "globex"], listed!.Tenants);
+    }
+
     private sealed record Health(string Name, string Version, string Persistence, int Tenants, int TotalStubs);
+    private sealed record TenantsResponse(string[] Tenants);
 }
