@@ -120,6 +120,21 @@ export async function saveStub(tenant: string, mappingJson: string, id?: string)
   }
 }
 
+/**
+ * Bulk-imports mappings from a WireMock export — a single mapping or a `{"mappings":[…]}` bundle —
+ * via POST /__admin/mappings/import. This is the migration path: a WireMock `GET /__admin/mappings`
+ * dump drops straight in. Returns `mock: true` when no host answered.
+ */
+export async function importMappings(tenant: string, json: string): Promise<{ mock: boolean }> {
+  try {
+    const res = await adminFetch('/mappings/import', tenant, { method: 'POST', body: json })
+    if (!res.ok) throw new Error(String(res.status))
+    return { mock: false }
+  } catch {
+    return { mock: true }
+  }
+}
+
 /** Tenants that exist server-side (materialized once they have stubs). Empty in sample mode. */
 export async function fetchTenants(): Promise<{ tenants: string[]; mock: boolean }> {
   try {

@@ -8,7 +8,7 @@ import {
   getSortedRowModel, type SortingState, useReactTable,
 } from '@tanstack/react-table'
 import {
-  ArrowUpDown, ChevronLeft, ChevronRight, Import, MoreHorizontal, Pencil, Plus, Rows2, Rows3, Trash2,
+  ArrowUpDown, ChevronLeft, ChevronRight, Download, Import, MoreHorizontal, Pencil, Plus, Rows2, Rows3, Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
@@ -62,6 +62,19 @@ export function StubsPage() {
 
   const openNew = useCallback(() => { setEditing(null); setEditorTab('form'); setEditorOpen(true) }, [])
   const openImport = useCallback(() => { setEditing(null); setEditorTab('json'); setEditorOpen(true) }, [])
+
+  // Export the tenant's stubs as a WireMock {"mappings":[…]} bundle — the same shape Import accepts,
+  // so it round-trips and is portable to/from WireMock. Uses the full raw mappings the host returned.
+  const exportAll = useCallback(() => {
+    const mappings = (data?.stubs ?? []).map((s) => s.raw).filter(Boolean)
+    const blob = new Blob([JSON.stringify({ mappings }, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `mockifyr-${tenant}-stubs.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [data, tenant])
   const openEdit = useCallback((stub: Stub) => { setEditing(stub); setEditorTab('form'); setEditorOpen(true) }, [])
   const remove = useCallback(async (stub: Stub) => {
     const { mock } = await deleteStub(tenant, stub.id)
@@ -161,6 +174,7 @@ export function StubsPage() {
           <p className="mt-1 max-w-[62ch] text-sm text-muted-foreground">{t('stubs.subtitle')}</p>
         </div>
         <div className="ms-auto flex gap-2">
+          <Button variant="outline" className="min-w-[116px]" onClick={exportAll} disabled={!data?.stubs.length}><Download />{t('stubs.export')}</Button>
           <Button variant="outline" className="min-w-[116px]" onClick={openImport}><Import />{t('stubs.import')}</Button>
           <Button variant="primary" className="min-w-[116px]" onClick={openNew}><Plus />{t('stubs.newStub')}</Button>
         </div>
