@@ -36,15 +36,29 @@ public static class ProxyScenarios
             urlPath: "/pah",
             trigger: new RequestSpec { Method = "GET", Url = "/pah" },
             additionalHeaders: new Dictionary<string, object> { ["X-Proxy-Added"] = "injected" });
+
+        // proxyUrlPrefixToRemove: the leading /api is stripped, so the upstream receives /widgets — the
+        // echoed path in the body must be /widgets (not /api/widgets) on both sides.
+        yield return Build(
+            "url-prefix-to-remove",
+            method: "GET",
+            urlPath: "/api/widgets",
+            trigger: new RequestSpec { Method = "GET", Url = "/api/widgets" },
+            urlPrefixToRemove: "/api");
     }
 
     private static ProxyScenario Build(
-        string description, string method, string urlPath, RequestSpec trigger, Dictionary<string, object>? additionalHeaders = null)
+        string description, string method, string urlPath, RequestSpec trigger,
+        Dictionary<string, object>? additionalHeaders = null, string? urlPrefixToRemove = null)
     {
         var response = new Dictionary<string, object> { ["proxyBaseUrl"] = "http://__PROXY_HOST__" };
         if (additionalHeaders is not null)
         {
             response["additionalProxyRequestHeaders"] = additionalHeaders;
+        }
+        if (urlPrefixToRemove is not null)
+        {
+            response["proxyUrlPrefixToRemove"] = urlPrefixToRemove;
         }
 
         var mapping = new Dictionary<string, object>
