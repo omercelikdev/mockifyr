@@ -43,6 +43,42 @@ public sealed class AdminCqrsTests
     }
 
     [Fact]
+    public async Task Update_ReplacesInPlace_AndIsServed()
+    {
+        var (sender, engine) = Compose();
+
+        var created = await sender.Send(new CreateStubCommand(
+            """{"request":{"method":"GET","url":"/u"},"response":{"status":200,"body":"before"}}""", Tenant));
+        Assert.True(created.IsSuccess);
+
+        var updated = await sender.Send(new UpdateStubCommand(
+            created.Value,
+            """{"request":{"method":"GET","url":"/u"},"response":{"status":503,"body":"after"}}""",
+            Tenant));
+        Assert.True(updated.IsSuccess);
+
+        // No duplicate — the update replaced the stub in place under the same id.
+        Assert.Single((await sender.Send(new GetStubsQuery(Tenant))).Value);
+        Assert.Equal(created.Value, (await sender.Send(new GetStubQuery(created.Value, Tenant))).Value.Id);
+
+        // The serving path reflects the new response.
+        var served = engine.Handle(Tenant, CanonicalRequestBuilder.Build("GET", "/u", [], null));
+        Assert.True(served.Matched);
+        Assert.Equal(503, served.Response!.Status);
+    }
+
+    [Fact]
+    public async Task Update_MalformedJson_ReturnsValidationError()
+    {
+        var (sender, _) = Compose();
+
+        var result = await sender.Send(new UpdateStubCommand(Guid.NewGuid(), "{ not json", Tenant));
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("Stub.Invalid", result.Error.Code);
+    }
+
+    [Fact]
     public async Task GetStub_Missing_ReturnsNotFound()
     {
         var (sender, _) = Compose();

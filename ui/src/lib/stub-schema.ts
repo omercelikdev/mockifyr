@@ -80,7 +80,7 @@ export function toWireMock(f: StubForm): Record<string, unknown> {
   if (f.proxyBaseUrl.trim()) {
     response.proxyBaseUrl = f.proxyBaseUrl.trim()
   } else {
-    response.status = f.responseStatus
+    response.status = Number(f.responseStatus)
     if (f.responseHeaders.length) response.headers = Object.fromEntries(f.responseHeaders.filter((h) => h.name).map((h) => [h.name, h.value]))
     if (f.responseBody) response.body = f.responseBody
     if (f.useTemplating) response.transformers = ['response-template']
@@ -88,7 +88,9 @@ export function toWireMock(f: StubForm): Record<string, unknown> {
   if (f.fixedDelayMs.trim()) response.fixedDelayMilliseconds = Number(f.fixedDelayMs)
   if (f.fault) response.fault = f.fault
 
-  const mapping: Record<string, unknown> = { request, response, priority: f.priority }
+  // Number-input form fields arrive as strings; WireMock's status/priority are JSON numbers, and the
+  // engine's reader rejects a string-typed status. Coerce here so edits to these fields serialize correctly.
+  const mapping: Record<string, unknown> = { request, response, priority: Number(f.priority) }
   if (f.scenarioName.trim()) {
     mapping.scenarioName = f.scenarioName.trim()
     if (f.requiredScenarioState.trim()) mapping.requiredScenarioState = f.requiredScenarioState.trim()

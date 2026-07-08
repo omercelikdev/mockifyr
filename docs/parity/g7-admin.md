@@ -54,3 +54,20 @@ management path is built. See [README](README.md) for the format.
 > **G7 is complete** with G7b: the management path is a full Mediant CQRS layer behind a
 > WireMock-compatible admin HTTP surface, validated in-process (handlers) and over HTTP (semantic
 > differential).
+
+## Backfill — `PUT /__admin/mappings/{id}` (stub update)
+
+WireMock supports **replacing** a mapping in place via `PUT /__admin/mappings/{id}`; the URL id is
+authoritative. Mockifyr originally shipped only create (`POST`), read, delete, import and reset, so an
+edit from the dashboard hit a non-existent route (`404`) and the change was silently dropped. Added
+`UpdateStubCommand` + `UpdateStubHandler` (forces the parsed stub's id to the route id so the store
+upserts in place rather than appending a duplicate) behind `admin.MapPut("/mappings/{id:guid}")`,
+returning `200 { id, uuid }` on success and `422` for malformed/empty JSON — the same shape as create.
+
+- **Non-obvious:** the WireMock JSON reader throws `InvalidOperationException` (not `JsonException`)
+  when a field is well-formed JSON but the wrong type — e.g. a string-encoded `"status"`. The create
+  and update handlers now treat that as a client input error (`422`) rather than letting it surface as
+  a `500`. (The dashboard was the trigger: number-input form fields serialize as strings; the editor's
+  `toWireMock` now coerces `status`/`priority` to JSON numbers.)
+- **Regression case:** `AdminCqrsTests.Update_ReplacesInPlace_AndIsServed` (the update reaches the
+  serving path — a follow-up request returns the new status) and `Update_MalformedJson_ReturnsValidationError`.
