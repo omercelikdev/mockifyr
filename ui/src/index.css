@@ -146,4 +146,7 @@ body {
 .scroll-area::-webkit-scrollbar-track { background: transparent; }
 
 :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: 6px; }
+/* Form fields carry their own subtle focus (a border tint), so drop the heavy global ring on them —
+   it reads as an ugly black box on inputs. Buttons/links keep the ring for keyboard accessibility. */
+input:focus-visible, textarea:focus-visible, select:focus-visible { outline: none; outline-offset: 0; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

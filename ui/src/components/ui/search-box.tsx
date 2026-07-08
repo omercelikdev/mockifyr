@@ -17,7 +17,7 @@ export function SearchBox({
   useEffect(() => { setDraft(value) }, [value])
 
   return (
-    <label className="flex h-9 min-w-[220px] flex-1 items-center gap-2 rounded-lg border border-border bg-muted/50 px-3">
+    <label className="flex h-9 min-w-[220px] flex-1 items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 transition-colors focus-within:border-border-strong">
       <Search className="size-4 shrink-0 text-muted-foreground" />
       <input
         value={draft}
