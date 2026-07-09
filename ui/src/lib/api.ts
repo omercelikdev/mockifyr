@@ -15,6 +15,8 @@ export interface Stub {
   persistence: string
   lastMatched: string | null
   status: StubStatus
+  /** The HTTP response status code (from response.status), when the mapping declares one. */
+  responseStatus: number | null
   /** The full mapping (when a host returned it), so the editor can round-trip an edit. */
   raw?: Record<string, unknown>
 }
@@ -84,7 +86,7 @@ interface RawMapping {
   priority?: number
   scenarioName?: string
   request?: { method?: string; url?: string; urlPath?: string; urlPattern?: string; urlPathPattern?: string }
-  response?: { proxyBaseUrl?: string }
+  response?: { proxyBaseUrl?: string; status?: number }
   metadata?: { 'mockifyr:persistence'?: string }
 }
 
@@ -102,6 +104,7 @@ function projectMapping(m: RawMapping): Stub {
     persistence: m.metadata?.['mockifyr:persistence'] ?? 'In-memory',
     lastMatched: null,
     status: m.response?.proxyBaseUrl ? 'proxy' : 'live',
+    responseStatus: typeof m.response?.status === 'number' ? m.response.status : null,
     raw: m as unknown as Record<string, unknown>,
   }
 }
@@ -291,6 +294,21 @@ export interface JournalEntry {
   url: string
   status: number | null
   wasMatched: boolean
+  /** ISO timestamp of when the request was served (for ordering + "time ago"). */
+  loggedDate: string | null
+}
+
+export interface HeaderPair { name: string; value: string }
+export interface JournalWebhook { method: string; url: string; headers: HeaderPair[]; body: string | null }
+/** Full detail for one journal entry (GET /__admin/requests/{id}) — backs the detail drawer's tabs. */
+export interface JournalDetail {
+  id: string
+  loggedDate: string | null
+  wasMatched: boolean
+  stubId: string | null
+  request: { method: string; url: string; headers: HeaderPair[]; body: string }
+  response: { status: number; statusMessage: string | null; headers: HeaderPair[]; body: string } | null
+  webhooks: JournalWebhook[]
 }
 
 // The journal is an inspection view of recent traffic. A long-running host can accumulate tens of
@@ -316,15 +334,46 @@ export async function fetchJournal(tenant: string, unmatchedOnly: boolean): Prom
 
 function sampleJournal(tenant: string): JournalEntry[] {
   if (!DEMO_TENANTS.has(tenant)) return []
+  const now = Date.now()
+  const ago = (sec: number) => new Date(now - sec * 1000).toISOString()
   const rows: JournalEntry[] = [
-    { id: 'r1', method: 'POST', url: '/api/v2/payments', status: 200, wasMatched: true },
-    { id: 'r2', method: 'GET', url: '/api/v2/accounts/8891', status: 200, wasMatched: true },
-    { id: 'r3', method: 'GET', url: '/api/v2/accounts/8891/statements', status: 404, wasMatched: false },
-    { id: 'r4', method: 'POST', url: '/api/v2/payments/9/capture', status: 200, wasMatched: true },
-    { id: 'r5', method: 'DELETE', url: '/api/v2/mandates/44', status: 404, wasMatched: false },
-    { id: 'r6', method: 'GET', url: '/api/v2/rates?from=EUR&to=TRY', status: 200, wasMatched: true },
+    { id: 'r1', method: 'POST', url: '/api/v2/payments', status: 200, wasMatched: true, loggedDate: ago(8) },
+    { id: 'r2', method: 'GET', url: '/api/v2/accounts/8891', status: 200, wasMatched: true, loggedDate: ago(95) },
+    { id: 'r3', method: 'GET', url: '/api/v2/accounts/8891/statements', status: 404, wasMatched: false, loggedDate: ago(320) },
+    { id: 'r4', method: 'POST', url: '/api/v2/payments/9/capture', status: 200, wasMatched: true, loggedDate: ago(1500) },
+    { id: 'r5', method: 'DELETE', url: '/api/v2/mandates/44', status: 404, wasMatched: false, loggedDate: ago(7800) },
+    { id: 'r6', method: 'GET', url: '/api/v2/rates?from=EUR&to=TRY', status: 200, wasMatched: true, loggedDate: ago(90000) },
   ]
   return tenant === 'globex' ? rows.slice(0, 3) : rows
+}
+
+/** Full detail for one journal entry; sampled when no host answers. */
+export async function fetchJournalDetail(tenant: string, id: string): Promise<JournalDetail | null> {
+  try {
+    const res = await adminFetch(`/requests/${id}`, tenant)
+    if (!res.ok) throw new Error(String(res.status))
+    return (await res.json()) as JournalDetail
+  } catch {
+    return sampleDetail(id)
+  }
+}
+
+function sampleDetail(id: string): JournalDetail {
+  const matched = id !== 'r3' && id !== 'r5'
+  return {
+    id, loggedDate: new Date().toISOString(), wasMatched: matched, stubId: matched ? 'stub-1' : null,
+    request: {
+      method: 'POST', url: '/api/v2/payments',
+      headers: [{ name: 'Content-Type', value: 'application/json' }, { name: 'Host', value: 'localhost:8080' }, { name: 'User-Agent', value: 'curl/8.4.0' }],
+      body: JSON.stringify({ amount: 4200, currency: 'TRY' }, null, 2),
+    },
+    response: matched ? {
+      status: 200, statusMessage: 'OK',
+      headers: [{ name: 'Content-Type', value: 'application/json' }, { name: 'Matched-Stub-Id', value: 'stub-1' }],
+      body: JSON.stringify({ ok: true, id: 'pay_9' }, null, 2),
+    } : { status: 404, statusMessage: 'Not Found', headers: [{ name: 'Content-Type', value: 'application/json' }], body: JSON.stringify({ error: 'no stub matched' }, null, 2) },
+    webhooks: matched ? [{ method: 'POST', url: 'https://callback.example.com/hook', headers: [{ name: 'Content-Type', value: 'application/json' }], body: JSON.stringify({ event: 'payment.captured' }, null, 2) }] : [],
+  }
 }
 
 /** Deletes a stub by id. Returns `mock: true` when no host answered. */
@@ -343,16 +392,19 @@ export async function deleteStub(tenant: string, id: string): Promise<{ mock: bo
 function sampleStubs(tenant: string): Stub[] {
   if (!DEMO_TENANTS.has(tenant)) return []
   const base: Stub[] = [
-    { id: '1', name: null, method: 'GET', url: '/api/v2/accounts/{id}', protocol: 'http', priority: 5, scenario: null, persistence: 'Postgres', lastMatched: '12s', status: 'live' },
-    { id: '2', name: null, method: 'POST', url: '/api/v2/payments', protocol: 'http', priority: 10, scenario: 'Checkout', persistence: 'Postgres', lastMatched: '3s', status: 'live' },
-    { id: '3', name: null, method: 'POST', url: '/api/v2/payments/{id}/capture', protocol: 'http', priority: 10, scenario: 'Checkout', persistence: 'Postgres', lastMatched: '7s', status: 'live' },
-    { id: '4', name: null, method: 'GET', url: '/api/v2/rates?from={a}&to={b}', protocol: 'http', priority: 3, scenario: null, persistence: 'Redis', lastMatched: '1m', status: 'proxy' },
-    { id: '5', name: null, method: 'PUT', url: '/api/v2/accounts/{id}/limits', protocol: 'http', priority: 5, scenario: null, persistence: 'Postgres', lastMatched: '18m', status: 'live' },
-    { id: '6', name: null, method: 'DELETE', url: '/api/v2/mandates/{id}', protocol: 'http', priority: 5, scenario: null, persistence: 'Postgres', lastMatched: '2h', status: 'draft' },
-    { id: '7', name: null, method: 'PATCH', url: '/api/v2/webhooks/{id}', protocol: 'http', priority: 1, scenario: null, persistence: 'LiteDB', lastMatched: '1d', status: 'live' },
-    { id: '8', name: null, method: 'POST', url: 'mockifyr.grpc.Greeter/SayHello', protocol: 'grpc', priority: 8, scenario: null, persistence: 'Postgres', lastMatched: '41s', status: 'live' },
-    { id: '9', name: null, method: 'POST', url: '/graphql · query Balance', protocol: 'graphql', priority: 8, scenario: null, persistence: 'Postgres', lastMatched: '55s', status: 'live' },
-    { id: '10', name: null, method: 'GET', url: '/ws/notifications', protocol: 'websocket', priority: 5, scenario: null, persistence: 'In-memory', lastMatched: '2m', status: 'live' },
+    // A few endpoints carry more than one case (same URL+method, different status/name) to show the tree.
+    { id: '1', name: 'Account found', method: 'GET', url: '/api/v2/accounts/{id}', protocol: 'http', priority: 5, scenario: null, persistence: 'Postgres', lastMatched: '12s', status: 'live', responseStatus: 200 },
+    { id: '1b', name: 'Account not found', method: 'GET', url: '/api/v2/accounts/{id}', protocol: 'http', priority: 3, scenario: null, persistence: 'Postgres', lastMatched: '4m', status: 'live', responseStatus: 404 },
+    { id: '2', name: 'Payment accepted', method: 'POST', url: '/api/v2/payments', protocol: 'http', priority: 10, scenario: 'Checkout', persistence: 'Postgres', lastMatched: '3s', status: 'live', responseStatus: 201 },
+    { id: '2b', name: 'Payment declined', method: 'POST', url: '/api/v2/payments', protocol: 'http', priority: 10, scenario: 'Checkout', persistence: 'Postgres', lastMatched: '30s', status: 'live', responseStatus: 402 },
+    { id: '3', name: null, method: 'POST', url: '/api/v2/payments/{id}/capture', protocol: 'http', priority: 10, scenario: 'Checkout', persistence: 'Postgres', lastMatched: '7s', status: 'live', responseStatus: 200 },
+    { id: '4', name: null, method: 'GET', url: '/api/v2/rates?from={a}&to={b}', protocol: 'http', priority: 3, scenario: null, persistence: 'Redis', lastMatched: '1m', status: 'proxy', responseStatus: null },
+    { id: '5', name: null, method: 'PUT', url: '/api/v2/accounts/{id}/limits', protocol: 'http', priority: 5, scenario: null, persistence: 'Postgres', lastMatched: '18m', status: 'live', responseStatus: 200 },
+    { id: '6', name: null, method: 'DELETE', url: '/api/v2/mandates/{id}', protocol: 'http', priority: 5, scenario: null, persistence: 'Postgres', lastMatched: '2h', status: 'draft', responseStatus: 204 },
+    { id: '7', name: null, method: 'PATCH', url: '/api/v2/webhooks/{id}', protocol: 'http', priority: 1, scenario: null, persistence: 'LiteDB', lastMatched: '1d', status: 'live', responseStatus: 200 },
+    { id: '8', name: null, method: 'POST', url: 'mockifyr.grpc.Greeter/SayHello', protocol: 'grpc', priority: 8, scenario: null, persistence: 'Postgres', lastMatched: '41s', status: 'live', responseStatus: 200 },
+    { id: '9', name: null, method: 'POST', url: '/graphql · query Balance', protocol: 'graphql', priority: 8, scenario: null, persistence: 'Postgres', lastMatched: '55s', status: 'live', responseStatus: 200 },
+    { id: '10', name: null, method: 'GET', url: '/ws/notifications', protocol: 'websocket', priority: 5, scenario: null, persistence: 'In-memory', lastMatched: '2m', status: 'live', responseStatus: 101 },
   ]
   if (tenant === 'globex') return base.slice(0, 6).map((s) => ({ ...s, url: s.url.replace('/api/v2', '/retail/v1') }))
   if (tenant === 'default') return base.slice(0, 3)

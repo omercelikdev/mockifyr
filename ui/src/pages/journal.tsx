@@ -1,18 +1,21 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import {
   type ColumnDef, flexRender, getCoreRowModel, getPaginationRowModel,
   getSortedRowModel, type SortingState, useReactTable,
 } from '@tanstack/react-table'
-import { ArrowUpDown, CheckCircle2, ChevronLeft, ChevronRight, Rows2, Rows3, XCircle } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { ArrowUpDown, CheckCircle2, ChevronLeft, ChevronRight, Clock, Rows2, Rows3, XCircle } from 'lucide-react'
+import { cn, timeAgo } from '@/lib/utils'
 import { useUi } from '@/components/providers'
 import { fetchJournal, type JournalEntry } from '@/lib/api'
 import { MethodChip } from '@/components/ui/badges'
 import { Button } from '@/components/ui/button'
 import { FacetFilter } from '@/components/ui/facet-filter'
 import { SearchBox } from '@/components/ui/search-box'
+import { EmptyState } from '@/components/ui/empty-state'
+import { JournalArt } from '@/components/ui/illustrations'
+import { JournalDetailSheet } from '@/components/journal/journal-detail'
 import {
   applyFilters, clearFacet, countSelected, type FacetDef, facetOptions, type Selections, toggleSelection,
 } from '@/lib/faceted'
@@ -57,8 +60,10 @@ export function JournalPage() {
 
   const [selected, setSelected] = useState<Selections>({})
   const [search, setSearch] = useState('')
-  const [sorting, setSorting] = useState<SortingState>([])
+  // Default to newest-first (#118); the timestamp column is sortable like the rest.
+  const [sorting, setSorting] = useState<SortingState>([{ id: 'loggedDate', desc: true }])
   const [dense, setDense] = useState(false)
+  const [detailId, setDetailId] = useState<string | null>(null)
 
   const columns = useMemo<ColumnDef<JournalEntry>[]>(() => [
     { accessorKey: 'method', header: () => t('stubs.method'), cell: ({ getValue }) => <MethodChip method={getValue<string>()} /> },
@@ -75,6 +80,10 @@ export function JournalPage() {
       cell: ({ getValue }) => getValue<boolean>()
         ? <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-success"><CheckCircle2 className="size-3.5" />{t('journal.matched')}</span>
         : <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-warning"><XCircle className="size-3.5" />{t('journal.unmatched')}</span>,
+    },
+    {
+      accessorKey: 'loggedDate', header: () => t('journal.when'),
+      cell: ({ getValue }) => <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[12px] text-muted-foreground"><Clock className="size-3.5" />{timeAgo(getValue<string | null>())}</span>,
     },
   ], [t])
 
@@ -96,6 +105,11 @@ export function JournalPage() {
     autoResetPageIndex: false,
     initialState: { pagination: { pageSize: 12 } },
   })
+
+  // Reset to the first page whenever the search term or filters change, so a match that lives on page 1
+  // isn't hidden behind a stale page index (#123). autoResetPageIndex is off to keep polling from
+  // yanking the page, so we reset explicitly on the inputs that should.
+  useEffect(() => { table.setPageIndex(0) }, [search, selected, unmatchedOnly, table])
 
   const activeCount = countSelected(selected)
 
@@ -148,10 +162,11 @@ export function JournalPage() {
                   <tr key={i}><td colSpan={columns.length} className="px-4 py-3.5"><div className="h-4 w-full animate-pulse rounded bg-muted" /></td></tr>
                 ))
               ) : table.getRowModel().rows.length === 0 ? (
-                <tr><td colSpan={columns.length} className="px-4 py-16 text-center text-sm text-muted-foreground">{t('journal.empty')}</td></tr>
+                <tr><td colSpan={columns.length}><EmptyState art={<JournalArt />} title={t('journal.empty')} className="py-16" /></td></tr>
               ) : (
                 table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="border-b border-border transition-colors hover:bg-muted/40">
+                  <tr key={row.id} onClick={() => setDetailId(row.original.id)}
+                    className="cursor-pointer border-b border-border transition-colors hover:bg-muted/40">
                     {row.getVisibleCells().map((cell) => (
                       <td key={cell.id} className={cn('px-4 align-middle', dense ? 'py-2' : 'py-3')}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
                     ))}
@@ -177,6 +192,8 @@ export function JournalPage() {
           </div>
         </div>
       </div>
+
+      <JournalDetailSheet id={detailId} tenant={tenant} onClose={() => setDetailId(null)} />
     </div>
   )
 }

@@ -10,6 +10,8 @@ import {
 } from '@/lib/api'
 import { MethodChip } from '@/components/ui/badges'
 import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
+import { RecordingsArt } from '@/components/ui/illustrations'
 import { Input } from '@/components/ui/field'
 import { FacetFilter } from '@/components/ui/facet-filter'
 import { SearchBox } from '@/components/ui/search-box'
@@ -99,9 +101,9 @@ export function RecordingsPage() {
           )}
         </div>
         {captured.length === 0 ? (
-          <div className="px-4 py-14 text-center text-sm text-muted-foreground">{t('recordings.captureEmpty')}</div>
+          <EmptyState art={<RecordingsArt />} title={t('recordings.captureEmpty')} className="py-14" />
         ) : filteredCaptured.length === 0 ? (
-          <div className="px-4 py-14 text-center text-sm text-muted-foreground">{t('common.noResults')}</div>
+          <EmptyState art={<RecordingsArt />} title={t('common.noResults')} className="py-14" />
         ) : (
           <ul className="divide-y divide-border">
             {filteredCaptured.map((s, i) => (

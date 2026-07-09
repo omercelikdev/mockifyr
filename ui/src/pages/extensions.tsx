@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Braces, Filter, Network, Puzzle } from 'lucide-react'
 import { SearchBox } from '@/components/ui/search-box'
+import { EmptyState } from '@/components/ui/empty-state'
+import { ExtensionsArt } from '@/components/ui/illustrations'
 
 // The Extensions screen documents the engine's built-in capabilities and extension seams. These are
 // compiled/registered at the host (not admin-mutable), so this is a reference, not an editor.
@@ -50,7 +52,7 @@ export function ExtensionsPage() {
       </div>
 
       {groups.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border bg-muted/40 px-6 py-16 text-center text-sm text-muted-foreground">{t('common.noResults')}</div>
+        <EmptyState art={<ExtensionsArt />} title={t('common.noResults')} className="rounded-2xl border border-dashed border-border bg-muted/40 py-16" />
       ) : (
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {groups.map(({ icon: Icon, key, items }) => (

@@ -134,6 +134,7 @@ public sealed class StubEngine
             MatchedStub = matchedStub,
             Response = response,
             SubEvents = [],
+            Timestamp = DateTimeOffset.UtcNow,
         };
 
         _journal.Record(serveEvent);

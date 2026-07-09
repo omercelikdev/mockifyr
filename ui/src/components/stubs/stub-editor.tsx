@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useForm, useFieldArray, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
-import { Copy, Plus, Sparkles, Trash2, Upload } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
@@ -13,16 +13,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input, Label, NativeSelect, Textarea } from '@/components/ui/field'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
-import { JsonEditor } from '@/components/ui/json-editor'
+import { JsonField } from '@/components/ui/json-editor'
+import { HelpersButton } from '@/components/templating/helpers-dialog'
 
-function seedFrom(stub: Stub | null): StubForm {
-  if (!stub) return emptyStub
+function seedFrom(stub: Stub | null, prefillUrl?: string): StubForm {
+  if (!stub) return prefillUrl ? { ...emptyStub, urlValue: prefillUrl } : emptyStub
   // Prefer a full reverse-map of the mapping the host returned (no field is lost on edit); fall back to
   // the projected fields when only those are available (e.g. sample mode).
   if (stub.raw) return fromMapping(stub.raw)
   return { ...emptyStub, name: stub.name ?? '', method: stub.method === 'ANY' ? 'GET' : stub.method, urlValue: stub.url, priority: stub.priority, scenarioName: stub.scenario ?? '' }
 }
 
+/**
+ * Sheet wrapper kept for deep-link / standalone use. The tabbed Stubs workspace embeds
+ * {@link StubEditorForm} directly instead.
+ */
 export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 'form' }: {
   open: boolean
   onOpenChange: (o: boolean) => void
@@ -31,8 +36,34 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
   initialTab?: 'form' | 'json'
 }) {
   const { t } = useTranslation()
+  const importing = !editing && initialTab === 'json'
+  const title = editing ? t('editor.editTitle') : importing ? t('editor.importTitle') : t('editor.newTitle')
+  const description = importing ? t('editor.importDesc') : t('stubs.subtitle')
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent>
+        <SheetHeader title={title} description={description} />
+        <StubEditorForm editing={editing} initialTab={initialTab} onSaved={() => { onSaved(); onOpenChange(false) }} onCancel={() => onOpenChange(false)} />
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+/**
+ * The stub editor body — Form + JSON tabs, validation, and Save. Renders inline (no Sheet) so the
+ * Stubs workspace can host one per open tab. Reports unsaved state via onDirtyChange for the tab dot.
+ */
+export function StubEditorForm({ editing, initialTab = 'form', prefillUrl, onSaved, onCancel, onDirtyChange }: {
+  editing: Stub | null
+  initialTab?: 'form' | 'json'
+  prefillUrl?: string
+  onSaved: (saved: boolean) => void
+  onCancel?: () => void
+  onDirtyChange?: (dirty: boolean) => void
+}) {
+  const { t } = useTranslation()
   const { tenant } = useUi()
-  const [tab, setTab] = useState('form')
+  const [tab, setTab] = useState(initialTab)
   const [rawJson, setRawJson] = useState('')
   const [saving, setSaving] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -42,16 +73,21 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
   const form = useForm<StubForm>({ resolver: zodResolver(stubSchema) as unknown as Resolver<StubForm>, defaultValues: emptyStub })
   const { register, control, reset, getValues, watch, handleSubmit, formState: { errors } } = form
 
+  const initialJson = useRef('')
   useEffect(() => {
-    if (open) {
-      const seed = seedFrom(editing)
-      reset(seed)
-      // When editing, the JSON tab shows the exact mapping the host returned (so nothing is lost even
-      // if the form doesn't surface a field); for a new stub it mirrors the form.
-      setRawJson(editing?.raw ? JSON.stringify(editing.raw, null, 2) : toJson(seed))
-      setTab(initialTab)
-    }
-  }, [open, editing, reset, initialTab])
+    const seed = seedFrom(editing, prefillUrl)
+    reset(seed)
+    // When editing, the JSON tab shows the exact mapping the host returned (so nothing is lost even if
+    // the form doesn't surface a field); for a new stub it mirrors the form.
+    const seeded = editing?.raw ? JSON.stringify(editing.raw, null, 2) : toJson(seed)
+    setRawJson(seeded)
+    initialJson.current = seeded
+    setTab(initialTab)
+  }, [editing, reset, initialTab, prefillUrl])
+
+  // Report unsaved state for the tab's dot: form edits (RHF isDirty) or a raw JSON change.
+  const dirty = form.formState.isDirty || (tab === 'json' && rawJson !== initialJson.current)
+  useEffect(() => { onDirtyChange?.(dirty) }, [dirty, onDirtyChange])
 
   // Keep the JSON preview live while editing the form (form is the source of truth on the Form tab).
   useEffect(() => {
@@ -69,15 +105,15 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
     if (tab === 'form') json = toJson(getValues())
     let parsed: unknown
     try { parsed = JSON.parse(json) } catch { toast.error(t('editor.invalidJson')); return }
-    // A {"mappings":[…]} bundle export goes through the bulk-import endpoint; a single
-    // mapping is a create/update. Editing an existing stub is always the latter.
-    const isBundle = !editing && typeof parsed === 'object' && parsed !== null && Array.isArray((parsed as { mappings?: unknown }).mappings)
+    // A bundle export — either a {"mappings":[…]} wrapper or a bare top-level array — goes through the
+    // bulk-import endpoint; a single mapping is a create/update. Editing an existing stub is always the latter.
+    const isBundle = !editing && (Array.isArray(parsed) || (typeof parsed === 'object' && parsed !== null && Array.isArray((parsed as { mappings?: unknown }).mappings)))
     setSaving(true)
     const { mock } = isBundle ? await importMappings(tenant, json) : await saveStub(tenant, json, editing?.id)
     setSaving(false)
     toast[mock ? 'message' : 'success'](mock ? t('editor.savedSample') : t('editor.saved'))
-    onSaved()
-    onOpenChange(false)
+    initialJson.current = json
+    onSaved(!mock)
   }
 
   function onPickFile(event: React.ChangeEvent<HTMLInputElement>) {
@@ -92,25 +128,9 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
     try { JSON.parse(rawJson); return null } catch { return t('editor.invalidJson') }
   })()
 
-  function beautify() {
-    try { setRawJson(JSON.stringify(JSON.parse(rawJson), null, 2)) } catch { toast.error(t('editor.invalidJson')) }
-  }
-
-  function copyJson() {
-    void navigator.clipboard?.writeText(rawJson)
-    toast.success(t('editor.copied'))
-  }
-
-  const importing = !editing && initialTab === 'json'
-  const title = editing ? t('editor.editTitle') : importing ? t('editor.importTitle') : t('editor.newTitle')
-  const description = importing ? t('editor.importDesc') : t('stubs.subtitle')
-
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent>
-        <SheetHeader title={title} description={description} />
-
-        <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col">
+    <div className="flex h-full min-h-0 flex-col">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as 'form' | 'json')} className="flex min-h-0 flex-1 flex-col">
           <div className="px-6 pt-4">
             <TabsList>
               <TabsTrigger value="form">{t('editor.form')}</TabsTrigger>
@@ -161,11 +181,16 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
                   <Input {...register(`responseHeaders.${i}.name`)} placeholder="Header" />
                   <Input {...register(`responseHeaders.${i}.value`)} placeholder={t('editor.value')} />
                 </>)} twoCol />
-              <div><Label>{t('editor.body')}</Label><Textarea rows={5} {...register('responseBody')} className="font-mono text-[12.5px]" placeholder='{"ok": true}' /></div>
-              <label className="flex items-center gap-2.5 text-sm">
-                <Switch checked={watch('useTemplating')} onCheckedChange={(v) => form.setValue('useTemplating', v)} />
-                {t('editor.templating')}
-              </label>
+              <div><Label>{t('editor.body')}</Label>
+                <JsonField value={watch('responseBody') ?? ''} onChange={(v) => form.setValue('responseBody', v, { shouldDirty: true })} height={180} lint={false} minimal />
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <label className="flex items-center gap-2.5 text-sm">
+                  <Switch checked={watch('useTemplating')} onCheckedChange={(v) => form.setValue('useTemplating', v)} />
+                  {t('editor.templating')}
+                </label>
+                <HelpersButton />
+              </div>
             </Section>
 
             {/* Behavior */}
@@ -195,32 +220,26 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
                   <Input {...register(`webhookHeaders.${i}.name`)} placeholder="Header" />
                   <Input {...register(`webhookHeaders.${i}.value`)} placeholder={t('editor.value')} />
                 </>)} twoCol />
-              <div><Label>{t('editor.webhookBody')}</Label><Textarea rows={3} {...register('webhookBody')} className="font-mono text-[12.5px]" placeholder='{"event": "matched"}' /></div>
+              <div><Label>{t('editor.webhookBody')}</Label>
+                <JsonField value={watch('webhookBody') ?? ''} onChange={(v) => form.setValue('webhookBody', v, { shouldDirty: true })} height={140} lint={false} minimal />
+              </div>
             </Section>
           </TabsContent>
 
           <TabsContent value="json" className="flex min-h-0 flex-1 flex-col gap-2 px-6 py-5">
-            <div className="flex items-center justify-between">
-              <span className={cn('text-xs', jsonError ? 'text-danger' : 'text-faint')}>{jsonError ?? 'JSON'}</span>
-              <div className="flex gap-1">
-                <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={onPickFile} />
-                <Button type="button" variant="ghost" size="sm" onClick={() => fileRef.current?.click()}><Upload />{t('editor.upload')}</Button>
-                <Button type="button" variant="ghost" size="sm" onClick={beautify}><Sparkles />{t('editor.beautify')}</Button>
-                <Button type="button" variant="ghost" size="sm" onClick={copyJson}><Copy />{t('editor.copy')}</Button>
-              </div>
-            </div>
-            <div className={cn('h-full min-h-[420px] overflow-hidden rounded-lg border bg-background', jsonError ? 'border-danger' : 'border-input')}>
-              <JsonEditor value={rawJson} onChange={setRawJson} className="h-full" />
+            <span className={cn('text-xs', jsonError ? 'text-danger' : 'text-faint')}>{jsonError ?? 'JSON'}</span>
+            <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={onPickFile} />
+            <div className="min-h-[420px] flex-1">
+              <JsonField fill value={rawJson} onChange={setRawJson} invalid={!!jsonError} onUpload={() => fileRef.current?.click()} />
             </div>
           </TabsContent>
         </Tabs>
 
         <div className="flex items-center justify-end gap-2 border-t border-border px-6 py-4">
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>{t('editor.cancel')}</Button>
+          {onCancel && <Button variant="ghost" onClick={onCancel}>{t('editor.cancel')}</Button>}
           <Button variant="primary" onClick={handleSubmit(persist, () => setTab('form'))} disabled={saving || !!jsonError}>{t('editor.save')}</Button>
         </div>
-      </SheetContent>
-    </Sheet>
+    </div>
   )
 }
 

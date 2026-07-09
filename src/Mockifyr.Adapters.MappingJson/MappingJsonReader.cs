@@ -35,11 +35,19 @@ public static class MappingJsonReader
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
-        if (root.ValueKind == JsonValueKind.Object &&
-            root.TryGetProperty("mappings", out var mappings) &&
-            mappings.ValueKind == JsonValueKind.Array)
+        // A bundle is either a {"mappings":[…]} wrapper or a bare top-level array of mappings — both are
+        // accepted so exports pasted without the wrapper still import.
+        var bundle = root.ValueKind == JsonValueKind.Array
+            ? root
+            : root.ValueKind == JsonValueKind.Object &&
+              root.TryGetProperty("mappings", out var mappings) &&
+              mappings.ValueKind == JsonValueKind.Array
+                ? mappings
+                : (JsonElement?)null;
+
+        if (bundle is { } arr)
         {
-            return [.. mappings.EnumerateArray().Select(m => { var src = m.GetRawText(); return (ReadOne(m, tenant, matchers) with { Source = src }, src); })];
+            return [.. arr.EnumerateArray().Select(m => { var src = m.GetRawText(); return (ReadOne(m, tenant, matchers) with { Source = src }, src); })];
         }
 
         var source = root.GetRawText();

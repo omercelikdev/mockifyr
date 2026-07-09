@@ -11,7 +11,7 @@ export interface FacetOption { value: string; label?: string; count?: number }
  * `@/lib/faceted` (OR within a facet, AND across facets).
  */
 export function FacetFilter({
-  label, options, selected, onToggle, onClear, clearLabel,
+  label, options, selected, onToggle, onClear, clearLabel, compact = false,
 }: {
   label: string
   options: FacetOption[]
@@ -19,6 +19,7 @@ export function FacetFilter({
   onToggle: (value: string) => void
   onClear: () => void
   clearLabel: string
+  compact?: boolean
 }) {
   const n = selected.size
   return (
@@ -26,11 +27,12 @@ export function FacetFilter({
       <DropdownMenuTrigger asChild>
         <button
           className={cn(
-            'inline-flex h-9 items-center gap-2 rounded-lg border bg-background px-3 text-sm font-medium transition-colors hover:bg-muted',
-            n > 0 ? 'border-primary/50 text-foreground' : 'border-border text-muted-foreground',
+            'inline-flex items-center gap-1.5 rounded-lg border font-medium transition-colors hover:bg-muted',
+            compact ? 'h-8 px-2.5 text-[13px]' : 'h-9 px-3 text-sm',
+            n > 0 ? 'border-primary/50 bg-background text-foreground' : 'border-border bg-background text-muted-foreground',
           )}
         >
-          <ListFilter className="size-4" />
+          <ListFilter className={compact ? 'size-3.5' : 'size-4'} />
           {label}
           {n > 0 && (
             <span className="rounded-md bg-primary px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-primary-foreground">{n}</span>

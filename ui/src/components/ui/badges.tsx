@@ -25,6 +25,20 @@ const STATUS: Record<StubStatus, { tone: string; dot: string; key: string }> = {
   draft: { tone: 'text-muted-foreground bg-muted border-border', dot: 'bg-faint', key: 'status.draft' },
 }
 
+// HTTP response-code chip for the stub tree: 2xx green, 3xx blue, 4xx amber, 5xx red, unknown grey.
+export function StatusCode({ code }: { code: number | null }) {
+  const tone = code == null ? 'text-muted-foreground bg-muted border-border'
+    : code < 300 ? 'text-success bg-success-bg border-success-border'
+    : code < 400 ? 'text-info bg-info-bg border-info-border'
+    : code < 500 ? 'text-warning bg-warning-bg border-warning-border'
+    : 'text-danger bg-danger-bg border-danger-border'
+  return (
+    <span className={cn('inline-flex min-w-[2.5rem] justify-center rounded-md border px-1.5 py-0.5 font-mono text-[11px] font-bold tabular-nums', tone)}>
+      {code ?? '—'}
+    </span>
+  )
+}
+
 export function StatusPill({ status, label }: { status: StubStatus; label: string }) {
   const s = STATUS[status]
   return (
