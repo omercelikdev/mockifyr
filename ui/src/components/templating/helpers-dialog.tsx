@@ -84,7 +84,7 @@ export function HelpersDialog() {
           </div>
 
           <div className="flex min-h-0 flex-1">
-            <nav className="scroll-area w-52 shrink-0 overflow-y-auto border-e border-border p-2">
+            <nav className="scroll-area w-52 shrink-0 space-y-0.5 overflow-y-auto border-e border-border p-2">
               {matches.map(({ cat: c, list }) => (
                 <button key={c.key} onClick={() => { setCat(c.key); setQ('') }}
                   className={cn('flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-start text-[13px] transition-colors',
