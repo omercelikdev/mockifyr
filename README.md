@@ -14,47 +14,41 @@ and no third-party mock-engine dependencies.
 
 ### Docker — one image (engine + admin API + dashboard)
 
+Just run it — in-memory, zero config, **the same one line on macOS, Linux and Windows**:
+
 ```bash
-docker pull ghcr.io/omercelikdev/mockifyr:latest      # or a pinned tag, e.g. :0.2.0
-
-# macOS / Linux (bash) — the trailing \ continues the line
-docker run -p 8080:8080 -v "$PWD/mappings:/work/mappings" \
-  ghcr.io/omercelikdev/mockifyr:latest --root-dir /work
+docker run -p 8080:8080 ghcr.io/omercelikdev/mockifyr
 ```
-
-On **Windows PowerShell** a `\` is not a line continuation (it becomes part of the image name →
-`invalid reference format`). Use a single line with `${PWD}`:
-
-```powershell
-docker run --rm -p 8080:8080 -v "${PWD}/mappings:/work/mappings" ghcr.io/omercelikdev/mockifyr:latest --root-dir /work
-```
-
-> **Stub files:** drop your WireMock `*.json` into `./mappings` — the server loads them on startup
-> (from `<root-dir>/mappings`) into the **default tenant**, and persists new stubs created via the
-> dashboard/admin API back there. Note the mount target is `/work/mappings`, not `/work`.
->
-> **Named tenants** (e.g. `maestro`): startup file-load only populates the default tenant. To load a
-> WireMock export into a named tenant, select it in the dashboard and use **Import**, or POST the
-> bundle to `/__admin/mappings/import` with an `X-Mockifyr-Tenant: maestro` header.
 
 - Mock surface — `http://localhost:8080`
 - Admin API — `http://localhost:8080/__admin`
 - Dashboard — `http://localhost:8080/__mockifyr`
 
-Runs on `linux/amd64` and `linux/arm64` (Apple Silicon included).
+Create stubs in the dashboard, or import a WireMock bundle. Runs on `linux/amd64` and `linux/arm64`
+(Apple Silicon included).
 
-Compose:
+**Keep your stubs across restarts** — `docker compose up`, or a named volume (both identical on every OS):
 
 ```bash
-docker compose up                                   # ephemeral, file-backed mappings (./mappings)
-docker compose -f docker-compose.postgres.yml up    # durable PostgreSQL persistence
-docker compose -f docker-compose.redis.yml up       # durable Redis persistence
+docker compose up                                        # stubs live in ./mappings, next to you
+docker run -p 8080:8080 -v mockifyr-data:/work/mappings ghcr.io/omercelikdev/mockifyr   # named volume
 ```
 
-The Postgres/Redis variants write stubs through to a datastore, so they survive a restart (and
-`--change-feed` keeps multiple instances coherent) — see
-[docker-compose.postgres.yml](docker-compose.postgres.yml) and
-[docker-compose.redis.yml](docker-compose.redis.yml).
+**Preload / edit stub files on your host** (advanced) — bind-mount a folder of WireMock `*.json`. Only
+the path syntax differs per shell; nothing else changes:
+
+```bash
+docker run -p 8080:8080 -v "$PWD/mappings:/work/mappings" ghcr.io/omercelikdev/mockifyr   # macOS / Linux
+#   PowerShell:  -v "${PWD}/mappings:/work/mappings"       CMD:  -v "%cd%/mappings:/work/mappings"
+```
+
+Files load into the **default tenant**; for a named tenant (e.g. `maestro`) use the dashboard **Import**,
+or POST to `/__admin/mappings/import` with an `X-Mockifyr-Tenant` header. Durable datastores:
+
+```bash
+docker compose -f docker-compose.postgres.yml up    # PostgreSQL persistence
+docker compose -f docker-compose.redis.yml up       # Redis persistence
+```
 
 ### Local (.NET 10 SDK)
 
