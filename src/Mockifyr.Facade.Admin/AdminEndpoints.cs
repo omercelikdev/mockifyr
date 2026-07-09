@@ -27,6 +27,13 @@ public static class AdminEndpoints
             ? new TenantId(value!)
             : TenantId.Default;
 
+    /// <summary>Flattens multi-valued headers into name/value pairs for the journal detail view.</summary>
+    private static object HeaderPairs(ILookup<string, string> headers) =>
+        headers.Select(g => new { name = g.Key, value = string.Join(", ", g) }).ToArray();
+
+    /// <summary>Decodes a body for display; bodies in the journal are already materialised in memory.</summary>
+    private static string Utf8(byte[] body) => System.Text.Encoding.UTF8.GetString(body);
+
     public static IEndpointRouteBuilder MapAdminEndpoints(this IEndpointRouteBuilder endpoints)
     {
         var admin = endpoints.MapGroup("/__admin");
@@ -121,6 +128,49 @@ public static class AdminEndpoints
                     status = e.Response?.Status,
                     wasMatched = e.MatchedStub is not null,
                     stubId = e.MatchedStub?.Id,
+                    loggedDate = e.Timestamp,
+                }),
+            });
+        });
+
+        // Full detail for one journal entry (backs the dashboard's Request/Response/Callback tabs). The
+        // list stays lean; headers + bodies are fetched on demand here. Webhooks show the matched stub's
+        // configured callbacks (the intent), since outbound firing happens fire-and-forget at the edge.
+        admin.MapGet("/requests/{id}", async (string id, HttpRequest request, ISender sender) =>
+        {
+            var result = await sender.Send(new GetServeEventsQuery(TenantOf(request), UnmatchedOnly: false));
+            var e = result.Value.FirstOrDefault(x => x.Id.ToString() == id);
+            if (e is null)
+            {
+                return Results.NotFound();
+            }
+
+            return Results.Json(new
+            {
+                id = e.Id,
+                loggedDate = e.Timestamp,
+                wasMatched = e.MatchedStub is not null,
+                stubId = e.MatchedStub?.Id,
+                request = new
+                {
+                    method = e.Request.Method,
+                    url = e.Request.Url,
+                    headers = HeaderPairs(e.Request.Headers),
+                    body = Utf8(e.Request.Body),
+                },
+                response = e.Response is null ? null : new
+                {
+                    status = e.Response.Status,
+                    statusMessage = e.Response.StatusMessage,
+                    headers = HeaderPairs(e.Response.Headers),
+                    body = Utf8(e.Response.Body),
+                },
+                webhooks = (e.MatchedStub?.Webhooks ?? []).Select(w => new
+                {
+                    method = w.Method,
+                    url = w.Url,
+                    headers = w.Headers.Select(h => new { name = h.Key, value = h.Value }),
+                    body = w.Body is null ? null : Utf8(w.Body),
                 }),
             });
         });

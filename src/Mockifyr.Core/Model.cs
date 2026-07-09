@@ -354,6 +354,12 @@ public sealed record ServeEvent
 
     /// <summary>Correlated sub-events (e.g. webhook request/response).</summary>
     public required IReadOnlyList<SubEvent> SubEvents { get; init; }
+
+    /// <summary>
+    /// When the event was recorded. Stamped at dispatch by the (already non-deterministic) serve path,
+    /// never read by matching/templating — it only backs the journal's ordering and "time ago" display.
+    /// </summary>
+    public DateTimeOffset Timestamp { get; init; }
 }
 
 /// <summary>Query criteria for the request journal.</summary>

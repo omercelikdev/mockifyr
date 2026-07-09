@@ -294,6 +294,21 @@ export interface JournalEntry {
   url: string
   status: number | null
   wasMatched: boolean
+  /** ISO timestamp of when the request was served (for ordering + "time ago"). */
+  loggedDate: string | null
+}
+
+export interface HeaderPair { name: string; value: string }
+export interface JournalWebhook { method: string; url: string; headers: HeaderPair[]; body: string | null }
+/** Full detail for one journal entry (GET /__admin/requests/{id}) — backs the detail drawer's tabs. */
+export interface JournalDetail {
+  id: string
+  loggedDate: string | null
+  wasMatched: boolean
+  stubId: string | null
+  request: { method: string; url: string; headers: HeaderPair[]; body: string }
+  response: { status: number; statusMessage: string | null; headers: HeaderPair[]; body: string } | null
+  webhooks: JournalWebhook[]
 }
 
 // The journal is an inspection view of recent traffic. A long-running host can accumulate tens of
@@ -319,15 +334,46 @@ export async function fetchJournal(tenant: string, unmatchedOnly: boolean): Prom
 
 function sampleJournal(tenant: string): JournalEntry[] {
   if (!DEMO_TENANTS.has(tenant)) return []
+  const now = Date.now()
+  const ago = (sec: number) => new Date(now - sec * 1000).toISOString()
   const rows: JournalEntry[] = [
-    { id: 'r1', method: 'POST', url: '/api/v2/payments', status: 200, wasMatched: true },
-    { id: 'r2', method: 'GET', url: '/api/v2/accounts/8891', status: 200, wasMatched: true },
-    { id: 'r3', method: 'GET', url: '/api/v2/accounts/8891/statements', status: 404, wasMatched: false },
-    { id: 'r4', method: 'POST', url: '/api/v2/payments/9/capture', status: 200, wasMatched: true },
-    { id: 'r5', method: 'DELETE', url: '/api/v2/mandates/44', status: 404, wasMatched: false },
-    { id: 'r6', method: 'GET', url: '/api/v2/rates?from=EUR&to=TRY', status: 200, wasMatched: true },
+    { id: 'r1', method: 'POST', url: '/api/v2/payments', status: 200, wasMatched: true, loggedDate: ago(8) },
+    { id: 'r2', method: 'GET', url: '/api/v2/accounts/8891', status: 200, wasMatched: true, loggedDate: ago(95) },
+    { id: 'r3', method: 'GET', url: '/api/v2/accounts/8891/statements', status: 404, wasMatched: false, loggedDate: ago(320) },
+    { id: 'r4', method: 'POST', url: '/api/v2/payments/9/capture', status: 200, wasMatched: true, loggedDate: ago(1500) },
+    { id: 'r5', method: 'DELETE', url: '/api/v2/mandates/44', status: 404, wasMatched: false, loggedDate: ago(7800) },
+    { id: 'r6', method: 'GET', url: '/api/v2/rates?from=EUR&to=TRY', status: 200, wasMatched: true, loggedDate: ago(90000) },
   ]
   return tenant === 'globex' ? rows.slice(0, 3) : rows
+}
+
+/** Full detail for one journal entry; sampled when no host answers. */
+export async function fetchJournalDetail(tenant: string, id: string): Promise<JournalDetail | null> {
+  try {
+    const res = await adminFetch(`/requests/${id}`, tenant)
+    if (!res.ok) throw new Error(String(res.status))
+    return (await res.json()) as JournalDetail
+  } catch {
+    return sampleDetail(id)
+  }
+}
+
+function sampleDetail(id: string): JournalDetail {
+  const matched = id !== 'r3' && id !== 'r5'
+  return {
+    id, loggedDate: new Date().toISOString(), wasMatched: matched, stubId: matched ? 'stub-1' : null,
+    request: {
+      method: 'POST', url: '/api/v2/payments',
+      headers: [{ name: 'Content-Type', value: 'application/json' }, { name: 'Host', value: 'localhost:8080' }, { name: 'User-Agent', value: 'curl/8.4.0' }],
+      body: JSON.stringify({ amount: 4200, currency: 'TRY' }, null, 2),
+    },
+    response: matched ? {
+      status: 200, statusMessage: 'OK',
+      headers: [{ name: 'Content-Type', value: 'application/json' }, { name: 'Matched-Stub-Id', value: 'stub-1' }],
+      body: JSON.stringify({ ok: true, id: 'pay_9' }, null, 2),
+    } : { status: 404, statusMessage: 'Not Found', headers: [{ name: 'Content-Type', value: 'application/json' }], body: JSON.stringify({ error: 'no stub matched' }, null, 2) },
+    webhooks: matched ? [{ method: 'POST', url: 'https://callback.example.com/hook', headers: [{ name: 'Content-Type', value: 'application/json' }], body: JSON.stringify({ event: 'payment.captured' }, null, 2) }] : [],
+  }
 }
 
 /** Deletes a stub by id. Returns `mock: true` when no host answered. */
