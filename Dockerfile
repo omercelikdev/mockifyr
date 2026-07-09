@@ -33,6 +33,7 @@ WORKDIR /app
 COPY --from=build /app ./
 COPY --from=ui /ui/dist ./dashboard
 EXPOSE 8080
-# --dashboard serves the built UI under /__mockifyr. Mount your *.json stubs at /work/mappings and pass
-# --root-dir /work to load them (the server reads/writes <root-dir>/mappings).
-ENTRYPOINT ["dotnet", "Mockifyr.Server.dll", "--port", "8080", "--dashboard", "/app/dashboard"]
+# The dashboard is served under /__mockifyr. --root-dir /work is baked in so no run command needs it:
+# stubs load from and persist to /work/mappings. Mount a volume there (bind or named) to keep them; a
+# datastore flag (--postgres/--redis/--litedb) passed at run time takes precedence over the file store.
+ENTRYPOINT ["dotnet", "Mockifyr.Server.dll", "--port", "8080", "--dashboard", "/app/dashboard", "--root-dir", "/work"]

@@ -14,10 +14,8 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      # Host ./mappings holds the *.json stubs; the server loads them from <root-dir>/mappings.
+      # Your *.json stubs live in ./mappings; the image already loads/persists there (--root-dir baked in).
       - ./mappings:/work/mappings
-    # Appended to the image entrypoint (which already sets --port 8080 --dashboard /app/dashboard):
-    command: ["--root-dir", "/work"]
     # Durable Postgres instead of file-based — uncomment this command and the postgres service:
     # command: ["--postgres", "Host=postgres;Username=mockifyr;Password=mockifyr;Database=mockifyr", "--change-feed"]
     # depends_on:
