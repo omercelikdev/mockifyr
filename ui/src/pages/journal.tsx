@@ -13,6 +13,8 @@ import { MethodChip } from '@/components/ui/badges'
 import { Button } from '@/components/ui/button'
 import { FacetFilter } from '@/components/ui/facet-filter'
 import { SearchBox } from '@/components/ui/search-box'
+import { EmptyState } from '@/components/ui/empty-state'
+import { JournalArt } from '@/components/ui/illustrations'
 import {
   applyFilters, clearFacet, countSelected, type FacetDef, facetOptions, type Selections, toggleSelection,
 } from '@/lib/faceted'
@@ -148,7 +150,7 @@ export function JournalPage() {
                   <tr key={i}><td colSpan={columns.length} className="px-4 py-3.5"><div className="h-4 w-full animate-pulse rounded bg-muted" /></td></tr>
                 ))
               ) : table.getRowModel().rows.length === 0 ? (
-                <tr><td colSpan={columns.length} className="px-4 py-16 text-center text-sm text-muted-foreground">{t('journal.empty')}</td></tr>
+                <tr><td colSpan={columns.length}><EmptyState art={<JournalArt />} title={t('journal.empty')} className="py-16" /></td></tr>
               ) : (
                 table.getRowModel().rows.map((row) => (
                   <tr key={row.id} className="border-b border-border transition-colors hover:bg-muted/40">
