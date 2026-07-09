@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
 import { importMappings, saveStub, type Stub } from '@/lib/api'
-import { BODY_OPS, emptyStub, FAULTS, fromMapping, MATCH_OPS, stubSchema, toJson, URL_MATCH, type StubForm } from '@/lib/stub-schema'
+import { BODY_OPS, emptyStub, FAULTS, fromMapping, MATCH_OPS, stubSchema, suggestName, toJson, URL_MATCH, type StubForm } from '@/lib/stub-schema'
 import { Sheet, SheetContent, SheetHeader } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input, Label, NativeSelect, Textarea } from '@/components/ui/field'
@@ -20,7 +20,7 @@ function seedFrom(stub: Stub | null): StubForm {
   // Prefer a full reverse-map of the mapping the host returned (no field is lost on edit); fall back to
   // the projected fields when only those are available (e.g. sample mode).
   if (stub.raw) return fromMapping(stub.raw)
-  return { ...emptyStub, method: stub.method === 'ANY' ? 'GET' : stub.method, urlValue: stub.url, priority: stub.priority, scenarioName: stub.scenario ?? '' }
+  return { ...emptyStub, name: stub.name ?? '', method: stub.method === 'ANY' ? 'GET' : stub.method, urlValue: stub.url, priority: stub.priority, scenarioName: stub.scenario ?? '' }
 }
 
 export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 'form' }: {
@@ -119,6 +119,12 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
           </div>
 
           <TabsContent value="form" className="scroll-area min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-5">
+            {/* Details — friendly name + description (WireMock name + metadata.description). */}
+            <Section title={t('editor.details')}>
+              <div><Label>{t('editor.name')}</Label><Input {...register('name')} placeholder={suggestName(watch('method'), watch('urlValue')) || 'Get users'} /></div>
+              <div><Label>{t('editor.description')}</Label><Textarea rows={2} {...register('description')} placeholder={t('editor.descriptionHint')} /></div>
+            </Section>
+
             {/* Request */}
             <Section title={t('editor.request')}>
               <div className="grid grid-cols-[110px_1fr] gap-3">
