@@ -303,3 +303,17 @@ oracle (`wiremock/wiremock:3.10.0`). See [README](README.md) for the format.
 > **G2 (Response + templating) is complete** with G2h. The response vertical now covers static
 > responses, the templating engine, and all built-in helper families (data, date, random, JSON,
 > format/math/array, system).
+
+## `jsonBody` is serialized verbatim (relaxed escaping)
+
+A `response.jsonBody` object is serialized to the response body **without** escaping `'`, `<`, `>`,
+`&`, or non-ASCII — matching the reference oracle (Jackson), which emits them literally. The default
+`System.Text.Json` encoder escapes them to `\uXXXX`, which diverges from the oracle and, worse, breaks
+Handlebars template expressions embedded in a `jsonBody`: WireMock's common
+`{{jsonPath request.body '$.field'}}` uses **single-quoted** helper arguments, and `'` → `'`
+makes the argument unparseable, so the value rendered empty (and `now format='…'` / `randomValue
+type='…'` silently fell back to defaults).
+
+- **Fix:** serialize `jsonBody` with `JavaScriptEncoder.UnsafeRelaxedJsonEscaping`.
+- **Regression:** `G2jTemplatedJsonBodyTests` — a templated `jsonBody` echoing `request.body` via a
+  single-quoted `jsonPath` argument is byte-diffed against the oracle.

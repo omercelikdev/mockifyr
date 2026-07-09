@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using Mockifyr.Core;
 using Mockifyr.Matching;
@@ -17,6 +18,13 @@ namespace Mockifyr.Adapters.MappingJson;
 /// </remarks>
 public static class MappingJsonReader
 {
+    // jsonBody is serialized to the response body verbatim — like the reference oracle (Jackson), which
+    // does NOT escape ', <, >, & or non-ASCII. The default System.Text.Json encoder escapes them to
+    // \uXXXX, which both diverges from the oracle and, critically, breaks Handlebars template expressions
+    // inside a jsonBody (e.g. {{jsonPath request.body '$.x'}} — the ' becomes ' and the helper
+    // arg no longer parses). UnsafeRelaxedJsonEscaping keeps them literal, so templated bodies work.
+    private static readonly JsonSerializerOptions JsonBodyOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
     /// <summary>
     /// Reads one or more mappings (a single object or a <c>{"mappings":[...]}</c> wrapper). A matcher
     /// registry, when supplied, resolves <c>customMatcher</c> references to extension matchers (G10).
@@ -712,7 +720,7 @@ public static class MappingJsonReader
             else if (response.TryGetProperty("jsonBody", out var jb) &&
                      jb.ValueKind is not JsonValueKind.Undefined and not JsonValueKind.Null)
             {
-                body = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(jb));
+                body = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(jb, JsonBodyOptions));
             }
             else if (response.TryGetProperty("base64Body", out var b64) && b64.ValueKind == JsonValueKind.String &&
                      TryFromBase64(b64.GetString()!, out var decoded))
