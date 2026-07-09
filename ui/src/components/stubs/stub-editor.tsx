@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input, Label, NativeSelect, Textarea } from '@/components/ui/field'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
+import { JsonEditor } from '@/components/ui/json-editor'
 
 function seedFrom(stub: Stub | null): StubForm {
   if (!stub) return emptyStub
@@ -202,7 +203,9 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
                 <Button type="button" variant="ghost" size="sm" onClick={copyJson}><Copy />{t('editor.copy')}</Button>
               </div>
             </div>
-            <Textarea value={rawJson} onChange={(e) => setRawJson(e.target.value)} className={cn('h-full min-h-[420px] font-mono text-[12.5px]', jsonError && 'border-danger focus:border-danger')} spellCheck={false} />
+            <div className={cn('h-full min-h-[420px] overflow-hidden rounded-lg border bg-background', jsonError ? 'border-danger' : 'border-input')}>
+              <JsonEditor value={rawJson} onChange={setRawJson} className="h-full" />
+            </div>
           </TabsContent>
         </Tabs>
 
