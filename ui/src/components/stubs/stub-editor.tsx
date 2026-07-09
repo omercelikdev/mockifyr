@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useForm, useFieldArray, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
-import { Copy, Plus, Sparkles, Trash2, Upload } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
@@ -13,10 +13,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input, Label, NativeSelect, Textarea } from '@/components/ui/field'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
-import { JsonEditor } from '@/components/ui/json-editor'
+import { JsonField } from '@/components/ui/json-editor'
 
-function seedFrom(stub: Stub | null): StubForm {
-  if (!stub) return emptyStub
+function seedFrom(stub: Stub | null, prefillUrl?: string): StubForm {
+  if (!stub) return prefillUrl ? { ...emptyStub, urlValue: prefillUrl } : emptyStub
   // Prefer a full reverse-map of the mapping the host returned (no field is lost on edit); fall back to
   // the projected fields when only those are available (e.g. sample mode).
   if (stub.raw) return fromMapping(stub.raw)
@@ -52,9 +52,10 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
  * The stub editor body — Form + JSON tabs, validation, and Save. Renders inline (no Sheet) so the
  * Stubs workspace can host one per open tab. Reports unsaved state via onDirtyChange for the tab dot.
  */
-export function StubEditorForm({ editing, initialTab = 'form', onSaved, onCancel, onDirtyChange }: {
+export function StubEditorForm({ editing, initialTab = 'form', prefillUrl, onSaved, onCancel, onDirtyChange }: {
   editing: Stub | null
   initialTab?: 'form' | 'json'
+  prefillUrl?: string
   onSaved: (saved: boolean) => void
   onCancel?: () => void
   onDirtyChange?: (dirty: boolean) => void
@@ -73,7 +74,7 @@ export function StubEditorForm({ editing, initialTab = 'form', onSaved, onCancel
 
   const initialJson = useRef('')
   useEffect(() => {
-    const seed = seedFrom(editing)
+    const seed = seedFrom(editing, prefillUrl)
     reset(seed)
     // When editing, the JSON tab shows the exact mapping the host returned (so nothing is lost even if
     // the form doesn't surface a field); for a new stub it mirrors the form.
@@ -81,7 +82,7 @@ export function StubEditorForm({ editing, initialTab = 'form', onSaved, onCancel
     setRawJson(seeded)
     initialJson.current = seeded
     setTab(initialTab)
-  }, [editing, reset, initialTab])
+  }, [editing, reset, initialTab, prefillUrl])
 
   // Report unsaved state for the tab's dot: form edits (RHF isDirty) or a raw JSON change.
   const dirty = form.formState.isDirty || (tab === 'json' && rawJson !== initialJson.current)
@@ -125,15 +126,6 @@ export function StubEditorForm({ editing, initialTab = 'form', onSaved, onCancel
     if (tab !== 'json') return null
     try { JSON.parse(rawJson); return null } catch { return t('editor.invalidJson') }
   })()
-
-  function beautify() {
-    try { setRawJson(JSON.stringify(JSON.parse(rawJson), null, 2)) } catch { toast.error(t('editor.invalidJson')) }
-  }
-
-  function copyJson() {
-    void navigator.clipboard?.writeText(rawJson)
-    toast.success(t('editor.copied'))
-  }
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -188,7 +180,9 @@ export function StubEditorForm({ editing, initialTab = 'form', onSaved, onCancel
                   <Input {...register(`responseHeaders.${i}.name`)} placeholder="Header" />
                   <Input {...register(`responseHeaders.${i}.value`)} placeholder={t('editor.value')} />
                 </>)} twoCol />
-              <div><Label>{t('editor.body')}</Label><Textarea rows={5} {...register('responseBody')} className="font-mono text-[12.5px]" placeholder='{"ok": true}' /></div>
+              <div><Label>{t('editor.body')}</Label>
+                <JsonField value={watch('responseBody') ?? ''} onChange={(v) => form.setValue('responseBody', v, { shouldDirty: true })} height={180} lint={false} minimal />
+              </div>
               <label className="flex items-center gap-2.5 text-sm">
                 <Switch checked={watch('useTemplating')} onCheckedChange={(v) => form.setValue('useTemplating', v)} />
                 {t('editor.templating')}
@@ -222,22 +216,17 @@ export function StubEditorForm({ editing, initialTab = 'form', onSaved, onCancel
                   <Input {...register(`webhookHeaders.${i}.name`)} placeholder="Header" />
                   <Input {...register(`webhookHeaders.${i}.value`)} placeholder={t('editor.value')} />
                 </>)} twoCol />
-              <div><Label>{t('editor.webhookBody')}</Label><Textarea rows={3} {...register('webhookBody')} className="font-mono text-[12.5px]" placeholder='{"event": "matched"}' /></div>
+              <div><Label>{t('editor.webhookBody')}</Label>
+                <JsonField value={watch('webhookBody') ?? ''} onChange={(v) => form.setValue('webhookBody', v, { shouldDirty: true })} height={140} lint={false} minimal />
+              </div>
             </Section>
           </TabsContent>
 
           <TabsContent value="json" className="flex min-h-0 flex-1 flex-col gap-2 px-6 py-5">
-            <div className="flex items-center justify-between">
-              <span className={cn('text-xs', jsonError ? 'text-danger' : 'text-faint')}>{jsonError ?? 'JSON'}</span>
-              <div className="flex gap-1">
-                <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={onPickFile} />
-                <Button type="button" variant="ghost" size="sm" onClick={() => fileRef.current?.click()}><Upload />{t('editor.upload')}</Button>
-                <Button type="button" variant="ghost" size="sm" onClick={beautify}><Sparkles />{t('editor.beautify')}</Button>
-                <Button type="button" variant="ghost" size="sm" onClick={copyJson}><Copy />{t('editor.copy')}</Button>
-              </div>
-            </div>
-            <div className={cn('h-full min-h-[420px] overflow-hidden rounded-lg border bg-background', jsonError ? 'border-danger' : 'border-input')}>
-              <JsonEditor value={rawJson} onChange={setRawJson} className="h-full" />
+            <span className={cn('text-xs', jsonError ? 'text-danger' : 'text-faint')}>{jsonError ?? 'JSON'}</span>
+            <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={onPickFile} />
+            <div className="min-h-[420px] flex-1">
+              <JsonField fill value={rawJson} onChange={setRawJson} invalid={!!jsonError} onUpload={() => fileRef.current?.click()} />
             </div>
           </TabsContent>
         </Tabs>
