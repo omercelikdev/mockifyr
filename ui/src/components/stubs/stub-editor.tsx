@@ -14,7 +14,7 @@ import { Input, Label, NativeSelect, Textarea } from '@/components/ui/field'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { JsonField } from '@/components/ui/json-editor'
-import { HelpersDialog } from '@/components/templating/helpers-dialog'
+import { HelpersButton } from '@/components/templating/helpers-dialog'
 
 function seedFrom(stub: Stub | null, prefillUrl?: string): StubForm {
   if (!stub) return prefillUrl ? { ...emptyStub, urlValue: prefillUrl } : emptyStub
@@ -189,7 +189,7 @@ export function StubEditorForm({ editing, initialTab = 'form', prefillUrl, onSav
                   <Switch checked={watch('useTemplating')} onCheckedChange={(v) => form.setValue('useTemplating', v)} />
                   {t('editor.templating')}
                 </label>
-                <HelpersDialog />
+                <HelpersButton />
               </div>
             </Section>
 

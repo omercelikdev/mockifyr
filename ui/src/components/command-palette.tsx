@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Command } from 'cmdk'
 import {
-  Activity, Disc, LayoutDashboard, LayoutGrid, ListTree, Moon, Plus, Search, Settings, Sun, Waypoints,
+  Activity, BookOpen, Disc, LayoutDashboard, LayoutGrid, ListTree, Moon, Plus, Search, Settings, Sun, Waypoints,
 } from 'lucide-react'
 import { useUi } from '@/components/providers'
+import { openHelpers } from '@/components/templating/helpers-dialog'
 
 const NAV = [
   { to: '/', key: 'nav.dashboard', icon: LayoutDashboard },
@@ -62,6 +63,10 @@ export function CommandPalette() {
             <Command.Item value={t('stubs.newStub')} onSelect={() => run(() => navigate('/stubs?new=1'))}
               className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm data-[selected=true]:bg-muted">
               <Plus className="size-4 text-muted-foreground" />{t('stubs.newStub')}
+            </Command.Item>
+            <Command.Item value={t('editor.helpers')} onSelect={() => run(openHelpers)}
+              className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm data-[selected=true]:bg-muted">
+              <BookOpen className="size-4 text-muted-foreground" />{t('editor.helpers')}
             </Command.Item>
             <Command.Item value={t('common.darkMode')} onSelect={() => run(() => setTheme(theme === 'dark' ? 'light' : 'dark'))}
               className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm data-[selected=true]:bg-muted">

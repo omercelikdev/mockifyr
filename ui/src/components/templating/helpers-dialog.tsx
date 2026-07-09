@@ -1,9 +1,24 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { useTranslation } from 'react-i18next'
 import { BookOpen, Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TEMPLATING_HELPERS, type Helper } from '@/lib/templating-helpers'
+
+// The popup is a single app-wide instance opened via this event, so any surface (the editor button, the
+// ⌘K command palette, …) can raise it without threading state through the tree.
+const OPEN_EVENT = 'open-helpers'
+export const openHelpers = () => window.dispatchEvent(new Event(OPEN_EVENT))
+
+/** The trigger button used in the stub editor's Response section. */
+export function HelpersButton({ className }: { className?: string }) {
+  const { t } = useTranslation()
+  return (
+    <button type="button" onClick={openHelpers} className={cn('inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground', className)}>
+      <BookOpen className="size-3.5" />{t('editor.helpers')}
+    </button>
+  )
+}
 
 function HelperCard({ h }: { h: Helper }) {
   return (
@@ -27,11 +42,17 @@ function HelperCard({ h }: { h: Helper }) {
  * Self-contained "Templating helpers" reference popup (#120): a searchable, categorized catalog of the
  * Handlebars helpers for mapping request values into responses. Renders its own trigger button.
  */
-export function HelpersDialog({ className }: { className?: string }) {
+export function HelpersDialog() {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const [cat, setCat] = useState(TEMPLATING_HELPERS[0].key)
+
+  useEffect(() => {
+    const onOpen = () => setOpen(true)
+    window.addEventListener(OPEN_EVENT, onOpen)
+    return () => window.removeEventListener(OPEN_EVENT, onOpen)
+  }, [])
 
   const query = q.trim().toLowerCase()
   const searching = query.length > 0
@@ -44,11 +65,6 @@ export function HelpersDialog({ className }: { className?: string }) {
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
-      <Dialog.Trigger asChild>
-        <button type="button" className={cn('inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground', className)}>
-          <BookOpen className="size-3.5" />{t('editor.helpers')}
-        </button>
-      </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex h-[76vh] max-h-[680px] w-[92vw] max-w-[880px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95">
