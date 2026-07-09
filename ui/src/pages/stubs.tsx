@@ -1,74 +1,105 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import {
-  type ColumnDef, flexRender, getCoreRowModel, getPaginationRowModel,
-  getSortedRowModel, type SortingState, useReactTable,
-} from '@tanstack/react-table'
-import {
-  ArrowUpDown, ChevronLeft, ChevronRight, Download, Import, MoreHorizontal, Pencil, Plus, Rows2, Rows3, Trash2,
-} from 'lucide-react'
+import { ChevronRight, Download, Import, Plus, Trash2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
-import { deleteStub, fetchStubs, type Protocol, type Stub } from '@/lib/api'
-import { MethodChip, StatusPill } from '@/components/ui/badges'
+import { deleteStub, fetchStubs, type Stub } from '@/lib/api'
+import { buildStubTree, countLeaves, type StubTreeNode } from '@/lib/stub-tree'
+import { MethodChip } from '@/components/ui/badges'
 import { Button } from '@/components/ui/button'
 import { FacetFilter } from '@/components/ui/facet-filter'
 import { SearchBox } from '@/components/ui/search-box'
-import {
-  applyFilters, clearFacet, countSelected, type FacetDef, facetOptions, type Selections, toggleSelection,
-} from '@/lib/faceted'
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { StubEditor } from '@/components/stubs/stub-editor'
-
-const PROTOCOLS: { key: 'all' | Protocol; label: string }[] = [
-  { key: 'all', label: 'all' }, { key: 'http', label: 'HTTP' }, { key: 'grpc', label: 'gRPC' },
-  { key: 'graphql', label: 'GraphQL' }, { key: 'websocket', label: 'WebSocket' },
-]
+import { applyFilters, clearFacet, countSelected, type FacetDef, facetOptions, type Selections, toggleSelection } from '@/lib/faceted'
+import { StubEditorForm } from '@/components/stubs/stub-editor'
 
 const EMPTY_SET = new Set<string>()
 const FACETS: FacetDef<Stub>[] = [
   { id: 'method', get: (s) => s.method },
   { id: 'status', get: (s) => s.status },
-  { id: 'persistence', get: (s) => s.persistence },
 ]
+
+interface Tab { key: string; kind: 'stub' | 'new' | 'import'; stubId?: string; initial: 'form' | 'json' }
 
 export function StubsPage() {
   const { t } = useTranslation()
   const { tenant } = useUi()
   const queryClient = useQueryClient()
   const { data, isLoading } = useQuery({ queryKey: ['stubs', tenant], queryFn: () => fetchStubs(tenant) })
+  const stubs = useMemo(() => data?.stubs ?? [], [data])
 
-  const [searchParams, setSearchParams] = useSearchParams()
-  const [editorOpen, setEditorOpen] = useState(false)
-  const [editing, setEditing] = useState<Stub | null>(null)
-  const [editorTab, setEditorTab] = useState<'form' | 'json'>('form')
-  // A stub mutation can also add or remove a scenario (via scenarioName), so refresh both the stubs
-  // and the scenarios queries — otherwise the sidebar's Scenarios count and the Scenarios page stay
-  // stale until a manual reload.
   const refresh = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ['stubs', tenant] })
     void queryClient.invalidateQueries({ queryKey: ['scenarios', tenant] })
   }, [queryClient, tenant])
 
-  // Deep-link: ?new=1 opens a blank editor, ?import=1 opens it on the JSON tab (from the command
-  // palette or the dashboard's quick actions). Consumed once, then the query is cleared.
+  // Search + method/status facets narrow the tree.
+  const [search, setSearch] = useState('')
+  const [selected, setSelected] = useState<Selections>({})
+  const filtering = search.trim().length > 0 || countSelected(selected) > 0
+  const filtered = useMemo(() => applyFilters(stubs, FACETS, selected, search, (s) => `${s.name ?? ''} ${s.url}`), [stubs, selected, search])
+  const tree = useMemo(() => buildStubTree(filtered), [filtered])
+  const methodOptions = useMemo(() => facetOptions(stubs, (s) => s.method), [stubs])
+  const statusOptions = useMemo(() => facetOptions(stubs, (s) => s.status), [stubs])
+
+  // Open tabs — persistent (localStorage) per tenant. Stub tabs restore across reloads; new/import tabs
+  // are ephemeral. Every open tab's editor stays mounted (hidden when inactive), so unsaved edits
+  // survive switching tabs.
+  const storageKey = `ui.stubTabs.${tenant}`
+  const [tabs, setTabs] = useState<Tab[]>([])
+  const [active, setActive] = useState<string>('')
+  const [dirty, setDirty] = useState<Record<string, boolean>>({})
+  const restored = useRef('')
+
   useEffect(() => {
-    if (searchParams.get('new') === '1') { setEditing(null); setEditorTab('form'); setEditorOpen(true); setSearchParams({}, { replace: true }) }
-    else if (searchParams.get('import') === '1') { setEditing(null); setEditorTab('json'); setEditorOpen(true); setSearchParams({}, { replace: true }) }
-  }, [searchParams, setSearchParams])
+    if (isLoading || restored.current === tenant) return
+    restored.current = tenant
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey) ?? 'null') as { ids?: string[]; active?: string } | null
+      const ids = (saved?.ids ?? []).filter((id) => stubs.some((s) => s.id === id))
+      const restoredTabs = ids.map<Tab>((id) => ({ key: `stub:${id}`, kind: 'stub', stubId: id, initial: 'form' }))
+      setTabs(restoredTabs)
+      setActive(restoredTabs.some((x) => x.key === saved?.active) ? saved!.active! : restoredTabs[0]?.key ?? '')
+    } catch { /* start clean */ }
+  }, [isLoading, tenant, stubs, storageKey])
 
-  const openNew = useCallback(() => { setEditing(null); setEditorTab('form'); setEditorOpen(true) }, [])
-  const openImport = useCallback(() => { setEditing(null); setEditorTab('json'); setEditorOpen(true) }, [])
+  useEffect(() => {
+    const ids = tabs.filter((x) => x.kind === 'stub' && x.stubId).map((x) => x.stubId!)
+    localStorage.setItem(storageKey, JSON.stringify({ ids, active }))
+  }, [tabs, active, storageKey])
 
-  // Export the tenant's stubs as a {"mappings":[…]} bundle — the same shape Import accepts,
-  // so it round-trips and is portable across tools using the standard mapping format. Uses the full raw mappings the host returned.
+  const openStub = useCallback((stub: Stub) => {
+    const key = `stub:${stub.id}`
+    setTabs((prev) => (prev.some((x) => x.key === key) ? prev : [...prev, { key, kind: 'stub', stubId: stub.id, initial: 'form' }]))
+    setActive(key)
+  }, [])
+
+  const openBlank = useCallback((initial: 'form' | 'json') => {
+    const key = `${initial === 'json' ? 'import' : 'new'}:${tabs.length}-${active}`
+    setTabs((prev) => [...prev, { key, kind: initial === 'json' ? 'import' : 'new', initial }])
+    setActive(key)
+  }, [tabs.length, active])
+
+  const closeTab = useCallback((key: string) => {
+    setTabs((prev) => {
+      const idx = prev.findIndex((x) => x.key === key)
+      const next = prev.filter((x) => x.key !== key)
+      setActive((cur) => (cur !== key ? cur : next[Math.max(0, idx - 1)]?.key ?? ''))
+      return next
+    })
+    setDirty((d) => { const { [key]: _, ...rest } = d; return rest })
+  }, [])
+
+  const [searchParams, setSearchParams] = useSearchParams()
+  useEffect(() => {
+    if (searchParams.get('new') === '1') { openBlank('form'); setSearchParams({}, { replace: true }) }
+    else if (searchParams.get('import') === '1') { openBlank('json'); setSearchParams({}, { replace: true }) }
+  }, [searchParams, setSearchParams, openBlank])
+
   const exportAll = useCallback(() => {
-    const mappings = (data?.stubs ?? []).map((s) => s.raw).filter(Boolean)
+    const mappings = stubs.map((s) => s.raw).filter(Boolean)
     const blob = new Blob([JSON.stringify({ mappings }, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -76,228 +107,164 @@ export function StubsPage() {
     a.download = `mockifyr-${tenant}-stubs.json`
     a.click()
     URL.revokeObjectURL(url)
-  }, [data, tenant])
-  const openEdit = useCallback((stub: Stub) => { setEditing(stub); setEditorTab('form'); setEditorOpen(true) }, [])
+  }, [stubs, tenant])
+
   const remove = useCallback(async (stub: Stub) => {
     const { mock } = await deleteStub(tenant, stub.id)
     toast[mock ? 'message' : 'success'](mock ? t('editor.savedSample') : t('editor.deleted'))
+    closeTab(`stub:${stub.id}`)
     refresh()
-  }, [tenant, refresh, t])
+  }, [tenant, refresh, t, closeTab])
 
-  const [proto, setProto] = useState<'all' | Protocol>('all')
-  const [selected, setSelected] = useState<Selections>({})
-  const [search, setSearch] = useState('')
-  const [sorting, setSorting] = useState<SortingState>([])
-  const [rowSelection, setRowSelection] = useState({})
-  const [dense, setDense] = useState(false)
+  const onTabSaved = useCallback((tab: Tab, saved: boolean) => {
+    refresh()
+    if (saved && tab.kind !== 'stub') closeTab(tab.key)
+    else setDirty((d) => ({ ...d, [tab.key]: false }))
+  }, [refresh, closeTab])
 
-  // Protocol (segmented) narrows first; facets + search then filter that set on the client.
-  const stubs = useMemo(
-    () => (data?.stubs ?? []).filter((s) => proto === 'all' || s.protocol === proto),
-    [data, proto],
-  )
-  const methodOptions = useMemo(() => facetOptions(stubs, (s) => s.method), [stubs])
-  const statusOptions = useMemo(() => facetOptions(stubs, (s) => s.status), [stubs])
-  const persistenceOptions = useMemo(() => facetOptions(stubs, (s) => s.persistence), [stubs])
-  const filtered = useMemo(() => applyFilters(stubs, FACETS, selected, search, (s) => s.url), [stubs, selected, search])
-
-  const columns = useMemo<ColumnDef<Stub>[]>(() => [
-    {
-      id: 'select',
-      header: ({ table }) => (
-        <input type="checkbox" className="size-3.5 accent-[var(--primary)]"
-          checked={table.getIsAllRowsSelected()} onChange={table.getToggleAllRowsSelectedHandler()} />
-      ),
-      cell: ({ row }) => (
-        <input type="checkbox" className="size-3.5 accent-[var(--primary)]"
-          checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} />
-      ),
-      enableSorting: false,
-      size: 36,
-    },
-    { accessorKey: 'method', header: () => t('stubs.method'), cell: ({ getValue }) => <MethodChip method={getValue<string>()} /> },
-    { accessorKey: 'url', header: () => t('stubs.url'), cell: ({ row }) => (
-      <div className="min-w-0">
-        {row.original.name
-          ? (<><div className="truncate text-[13px] font-medium">{row.original.name}</div><div className="truncate font-mono text-[11.5px] text-muted-foreground">{row.original.url}</div></>)
-          : (<span className="font-mono text-[12.5px]">{row.original.url}</span>)}
-      </div>
-    ) },
-    { accessorKey: 'priority', header: () => t('stubs.priority'), cell: ({ getValue }) => <span className="tabular-nums text-muted-foreground">{getValue<number>()}</span> },
-    { accessorKey: 'scenario', header: () => t('stubs.scenario'), cell: ({ getValue }) => getValue<string | null>() ?? <span className="text-muted-foreground">—</span> },
-    { accessorKey: 'persistence', header: () => t('stubs.persistence'), cell: ({ getValue }) => <span className="text-muted-foreground">{getValue<string>()}</span> },
-    { accessorKey: 'lastMatched', header: () => t('stubs.lastMatched'), cell: ({ getValue }) => <span className="tabular-nums text-muted-foreground">{getValue<string | null>() ?? t('stubs.never')}</span> },
-    { accessorKey: 'status', header: () => t('stubs.status'), cell: ({ getValue }) => { const s = getValue<Stub['status']>(); return <StatusPill status={s} label={t(`status.${s}`)} /> } },
-    {
-      id: 'actions',
-      header: () => null,
-      cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="iconSm" aria-label="Actions"><MoreHorizontal /></Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-40">
-            <DropdownMenuItem onSelect={() => openEdit(row.original)}><Pencil className="size-4 text-muted-foreground" />{t('stubs.edit')}</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => remove(row.original)} className="text-danger"><Trash2 className="size-4" />{t('stubs.delete')}</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
-      enableSorting: false,
-      size: 44,
-    },
-  ], [t, openEdit, remove])
-
-  const table = useReactTable({
-    data: filtered,
-    columns,
-    state: { sorting, rowSelection },
-    onSortingChange: setSorting,
-    onRowSelectionChange: setRowSelection,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    autoResetPageIndex: false,
-    initialState: { pagination: { pageSize: 8 } },
-  })
-
-  const selectedCount = Object.keys(rowSelection).length
-  const pad = dense ? 'py-2' : 'py-3'
+  const empty = !isLoading && stubs.length === 0
 
   return (
-    <div className="mx-auto max-w-[1360px]">
-      {/* Protocol segmented tabs */}
-      <div className="mb-6 inline-flex gap-1 rounded-xl bg-muted p-1">
-        {PROTOCOLS.map((p) => (
-          <button key={p.key} onClick={() => setProto(p.key)}
-            className={cn('rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-colors',
-              proto === p.key ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
-            {p.key === 'all' ? t('stubs.all') : p.label}
-          </button>
-        ))}
-      </div>
-
-      <header className="mb-5 flex items-start gap-4">
-        <div>
-          <h1 className="text-[22px] font-bold tracking-tight">{t('nav.stubs')}</h1>
-          <p className="mt-1 max-w-[62ch] text-sm text-muted-foreground">{t('stubs.subtitle')}</p>
-        </div>
-        <div className="ms-auto flex gap-2">
-          <Button variant="outline" className="min-w-[116px]" onClick={exportAll} disabled={!data?.stubs.length}><Download />{t('stubs.export')}</Button>
-          <Button variant="outline" className="min-w-[116px]" onClick={openImport}><Import />{t('stubs.import')}</Button>
-          <Button variant="primary" className="min-w-[116px]" onClick={openNew}><Plus />{t('stubs.newStub')}</Button>
-        </div>
-      </header>
-
-      <div className="overflow-hidden rounded-2xl border border-border bg-background shadow-surface">
-        {/* Toolbar */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-border p-3">
-          {selectedCount > 0 ? (
-            <>
-              <span className="ps-1 text-sm font-medium">{t('stubs.selected', { count: selectedCount })}</span>
-              <Button variant="outline" className="text-danger"
-                onClick={async () => {
-                  const rows = table.getSelectedRowModel().rows
-                  await Promise.all(rows.map((r) => deleteStub(tenant, r.original.id)))
-                  toast.success(t('editor.deleted'))
-                  setRowSelection({})
-                  refresh()
-                }}>
-                <Trash2 />{t('stubs.delete')}
-              </Button>
-            </>
-          ) : (
-            <>
-              <SearchBox value={search} onCommit={setSearch} placeholder={t('stubs.filter')} />
-              <FacetFilter label={t('stubs.method')} options={methodOptions} selected={selected.method ?? EMPTY_SET}
-                onToggle={(v) => setSelected((s) => toggleSelection(s, 'method', v))} onClear={() => setSelected((s) => clearFacet(s, 'method'))} clearLabel={t('common.clear')} />
-              <FacetFilter label={t('stubs.status')} options={statusOptions} selected={selected.status ?? EMPTY_SET}
-                onToggle={(v) => setSelected((s) => toggleSelection(s, 'status', v))} onClear={() => setSelected((s) => clearFacet(s, 'status'))} clearLabel={t('common.clear')} />
-              <FacetFilter label={t('stubs.persistence')} options={persistenceOptions} selected={selected.persistence ?? EMPTY_SET}
-                onToggle={(v) => setSelected((s) => toggleSelection(s, 'persistence', v))} onClear={() => setSelected((s) => clearFacet(s, 'persistence'))} clearLabel={t('common.clear')} />
-              {countSelected(selected) > 0 && (
-                <Button variant="ghost" size="sm" onClick={() => setSelected({})}>{t('common.clear')}</Button>
-              )}
-            </>
-          )}
-          <Button variant="outline" className="ms-auto" onClick={() => setDense((d) => !d)}>
-            {dense ? <Rows3 /> : <Rows2 />}{t('stubs.density')}
-          </Button>
-        </div>
-
-        {/* Table */}
-        <div className="scroll-area overflow-x-auto">
-          <table className="w-full min-w-[900px] border-collapse">
-            <thead>
-              {table.getHeaderGroups().map((hg) => (
-                <tr key={hg.id}>
-                  {hg.headers.map((h) => (
-                    <th key={h.id} style={{ width: h.getSize() !== 150 ? h.getSize() : undefined }}
-                      className="border-b border-border bg-muted/40 px-4 py-2.5 text-start text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      {h.column.getCanSort() ? (
-                        <button onClick={h.column.getToggleSortingHandler()} className="inline-flex items-center gap-1.5 hover:text-foreground">
-                          {flexRender(h.column.columnDef.header, h.getContext())}
-                          <ArrowUpDown className="size-3" />
-                        </button>
-                      ) : (
-                        flexRender(h.column.columnDef.header, h.getContext())
-                      )}
-                    </th>
-                  ))}
-                </tr>
-              ))}
-            </thead>
-            <tbody>
-              {isLoading ? (
-                Array.from({ length: 6 }).map((_, i) => (
-                  <tr key={i}>
-                    <td colSpan={columns.length} className="px-4 py-3.5">
-                      <div className="h-4 w-full animate-pulse rounded bg-muted" />
-                    </td>
-                  </tr>
-                ))
-              ) : table.getRowModel().rows.length === 0 ? (
-                <tr>
-                  <td colSpan={columns.length} className="px-4 py-16 text-center text-sm text-muted-foreground">{t('stubs.empty')}</td>
-                </tr>
-              ) : (
-                table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className={cn('border-b border-border transition-colors hover:bg-muted/40', row.getIsSelected() && 'bg-muted/40')}>
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className={cn('px-4 align-middle', pad)}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
-                    ))}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Footer: sample hint + pagination */}
-        <div className="flex flex-wrap items-center gap-3 border-t border-border bg-muted/30 px-4 py-3 text-[12.5px] text-muted-foreground">
-          {data?.mock && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-warning-border bg-warning-bg px-2.5 py-0.5 text-[11.5px] font-medium text-warning">
-              {t('stubs.sample')}
-            </span>
-          )}
-          <span>
-            {t('stubs.showing')} <b className="tabular-nums">{table.getRowModel().rows.length}</b> {t('stubs.of')}{' '}
-            <b className="tabular-nums">{filtered.length}</b>
-          </span>
-          <div className="ms-auto flex items-center gap-1.5">
-            <Button variant="outline" size="iconSm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()} aria-label="Previous">
-              <ChevronLeft className="rtl:rotate-180" />
-            </Button>
-            <span className="px-1 tabular-nums">
-              {table.getState().pagination.pageIndex + 1} / {Math.max(1, table.getPageCount())}
-            </span>
-            <Button variant="outline" size="iconSm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()} aria-label="Next">
-              <ChevronRight className="rtl:rotate-180" />
-            </Button>
+    <div className="flex h-full min-h-0 gap-4">
+      {/* Tree panel */}
+      <aside className="flex w-[272px] shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-surface">
+        <div className="flex flex-col gap-2.5 border-b border-border p-3">
+          <div className="flex items-center gap-2">
+            <h1 className="text-[15px] font-bold">{t('nav.stubs')}</h1>
+            <span className="rounded-full bg-muted px-1.5 text-[11px] tabular-nums text-muted-foreground">{stubs.length}</span>
+            <div className="ms-auto flex gap-1">
+              <Button variant="ghost" size="iconSm" aria-label={t('stubs.export')} onClick={exportAll} disabled={!stubs.length}><Download /></Button>
+              <Button variant="ghost" size="iconSm" aria-label={t('stubs.import')} onClick={() => openBlank('json')}><Import /></Button>
+              <Button variant="primary" size="iconSm" aria-label={t('stubs.newStub')} onClick={() => openBlank('form')}><Plus /></Button>
+            </div>
+          </div>
+          <SearchBox value={search} onCommit={setSearch} placeholder={t('stubs.filter')} />
+          <div className="flex gap-1.5">
+            <FacetFilter label={t('stubs.method')} options={methodOptions} selected={selected.method ?? EMPTY_SET}
+              onToggle={(v) => setSelected((s) => toggleSelection(s, 'method', v))} onClear={() => setSelected((s) => clearFacet(s, 'method'))} clearLabel={t('common.clear')} />
+            <FacetFilter label={t('stubs.status')} options={statusOptions} selected={selected.status ?? EMPTY_SET}
+              onToggle={(v) => setSelected((s) => toggleSelection(s, 'status', v))} onClear={() => setSelected((s) => clearFacet(s, 'status'))} clearLabel={t('common.clear')} />
           </div>
         </div>
-      </div>
+        <div className="scroll-area min-h-0 flex-1 overflow-y-auto p-1.5">
+          {isLoading ? (
+            <div className="space-y-2 p-2">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-6 animate-pulse rounded bg-muted" />)}</div>
+          ) : filtered.length === 0 ? (
+            <p className="p-3 text-sm text-faint">{filtering ? t('stubs.empty') : t('dashboard.getStarted')}</p>
+          ) : (
+            <TreeView node={tree} depth={0} path="" forceOpen={filtering} activeStubId={tabs.find((x) => x.key === active)?.stubId} onOpen={openStub} onDelete={remove} />
+          )}
+        </div>
+        {data?.mock && <div className="border-t border-border p-2 text-center"><span className="rounded-full border border-warning-border bg-warning-bg px-2 py-0.5 text-[11px] font-medium text-warning">{t('stubs.sample')}</span></div>}
+      </aside>
 
-      <StubEditor open={editorOpen} onOpenChange={setEditorOpen} editing={editing} onSaved={refresh} initialTab={editorTab} />
+      {/* Workspace */}
+      <section className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-surface">
+        {tabs.length === 0 ? (
+          <EmptyWorkspace t={t} empty={empty} onNew={() => openBlank('form')} onImport={() => openBlank('json')} />
+        ) : (
+          <>
+            <div className="flex items-stretch overflow-x-auto border-b border-border bg-muted/30">
+              {tabs.map((tab) => {
+                const stub = tab.stubId ? stubs.find((s) => s.id === tab.stubId) : null
+                const label = stub ? (stub.name || stub.url) : tab.kind === 'import' ? t('editor.importTitle') : t('editor.newTitle')
+                return (
+                  <button key={tab.key} onClick={() => setActive(tab.key)}
+                    className={cn('group flex max-w-[220px] shrink-0 items-center gap-2 border-e border-border px-3 py-2 text-[12.5px] transition-colors',
+                      active === tab.key ? 'border-b-2 border-b-primary bg-background text-foreground' : 'text-muted-foreground hover:text-foreground')}>
+                    {stub && <MethodChip method={stub.method} />}
+                    <span className="truncate">{label}</span>
+                    {dirty[tab.key] && <span className="size-1.5 shrink-0 rounded-full bg-primary" aria-label="unsaved" />}
+                    <span role="button" tabIndex={-1} aria-label={t('editor.cancel')} onClick={(e) => { e.stopPropagation(); closeTab(tab.key) }}
+                      className="rounded p-0.5 text-faint hover:bg-muted hover:text-foreground"><X className="size-3.5" /></span>
+                  </button>
+                )
+              })}
+              <button onClick={() => openBlank('form')} aria-label={t('stubs.newStub')} className="shrink-0 px-3 text-muted-foreground hover:text-foreground"><Plus className="size-4" /></button>
+            </div>
+            {tabs.map((tab) => (
+              <div key={tab.key} className={cn('min-h-0 flex-1', active === tab.key ? 'flex flex-col' : 'hidden')}>
+                <StubEditorForm
+                  editing={tab.stubId ? stubs.find((s) => s.id === tab.stubId) ?? null : null}
+                  initialTab={tab.initial}
+                  onSaved={(saved) => onTabSaved(tab, saved)}
+                  onDirtyChange={(d) => setDirty((prev) => (prev[tab.key] === d ? prev : { ...prev, [tab.key]: d }))}
+                />
+              </div>
+            ))}
+          </>
+        )}
+      </section>
+    </div>
+  )
+}
+
+function TreeView({ node, depth, path, forceOpen, activeStubId, onOpen, onDelete }: {
+  node: StubTreeNode
+  depth: number
+  path: string
+  forceOpen: boolean
+  activeStubId?: string
+  onOpen: (s: Stub) => void
+  onDelete: (s: Stub) => void
+}) {
+  const groups = [...node.groups.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+  const leaves = [...node.leaves].sort((a, b) => a.label.localeCompare(b.label))
+  return (
+    <div>
+      {groups.map(([seg, child]) => (
+        <Group key={seg} seg={seg} child={child} depth={depth} path={`${path}/${seg}`} forceOpen={forceOpen} activeStubId={activeStubId} onOpen={onOpen} onDelete={onDelete} />
+      ))}
+      {leaves.map(({ label, stub }) => (
+        <div key={stub.id} style={{ paddingInlineStart: depth * 14 + 8 }}
+          onClick={() => onOpen(stub)}
+          className={cn('group flex cursor-pointer items-center gap-2 rounded-lg py-1.5 pe-1.5 text-[12.5px] transition-colors',
+            stub.id === activeStubId ? 'bg-muted text-foreground' : 'text-foreground hover:bg-muted/60')}>
+          <MethodChip method={stub.method} />
+          <span className="min-w-0 flex-1 truncate">{label}</span>
+          <span role="button" tabIndex={-1} aria-label="Delete" onClick={(e) => { e.stopPropagation(); onDelete(stub) }}
+            className="rounded p-0.5 text-faint opacity-0 transition-opacity hover:bg-danger-bg hover:text-danger group-hover:opacity-100"><Trash2 className="size-3.5" /></span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function Group({ seg, child, depth, path, forceOpen, activeStubId, onOpen, onDelete }: {
+  seg: string
+  child: StubTreeNode
+  depth: number
+  path: string
+  forceOpen: boolean
+  activeStubId?: string
+  onOpen: (s: Stub) => void
+  onDelete: (s: Stub) => void
+}) {
+  const [open, setOpen] = useState(true)
+  const expanded = forceOpen || open
+  return (
+    <div>
+      <div style={{ paddingInlineStart: depth * 14 + 4 }}
+        onClick={() => setOpen((o) => !o)}
+        className="flex cursor-pointer items-center gap-1.5 rounded-lg py-1.5 pe-1.5 text-[12.5px] text-muted-foreground transition-colors hover:bg-muted/60">
+        <ChevronRight className={cn('size-3.5 shrink-0 transition-transform', expanded && 'rotate-90')} />
+        <span className="min-w-0 flex-1 truncate font-medium">/{seg}</span>
+        <span className="text-[11px] tabular-nums text-faint">{countLeaves(child)}</span>
+      </div>
+      {expanded && <TreeView node={child} depth={depth + 1} path={path} forceOpen={forceOpen} activeStubId={activeStubId} onOpen={onOpen} onDelete={onDelete} />}
+    </div>
+  )
+}
+
+function EmptyWorkspace({ t, empty, onNew, onImport }: { t: (k: string) => string; empty: boolean; onNew: () => void; onImport: () => void }) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+      <h2 className="text-base font-semibold">{empty ? t('dashboard.getStarted') : t('stubs.pickHint')}</h2>
+      <p className="max-w-[42ch] text-sm text-muted-foreground">{empty ? t('dashboard.getStartedHint') : t('stubs.pickHintBody')}</p>
+      <div className="flex gap-2">
+        <Button variant="primary" size="sm" onClick={onNew}><Plus />{t('stubs.newStub')}</Button>
+        <Button variant="outline" size="sm" onClick={onImport}><Download />{t('stubs.import')}</Button>
+      </div>
     </div>
   )
 }

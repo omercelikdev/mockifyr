@@ -23,6 +23,10 @@ function seedFrom(stub: Stub | null): StubForm {
   return { ...emptyStub, name: stub.name ?? '', method: stub.method === 'ANY' ? 'GET' : stub.method, urlValue: stub.url, priority: stub.priority, scenarioName: stub.scenario ?? '' }
 }
 
+/**
+ * Sheet wrapper kept for deep-link / standalone use. The tabbed Stubs workspace embeds
+ * {@link StubEditorForm} directly instead.
+ */
 export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 'form' }: {
   open: boolean
   onOpenChange: (o: boolean) => void
@@ -31,8 +35,33 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
   initialTab?: 'form' | 'json'
 }) {
   const { t } = useTranslation()
+  const importing = !editing && initialTab === 'json'
+  const title = editing ? t('editor.editTitle') : importing ? t('editor.importTitle') : t('editor.newTitle')
+  const description = importing ? t('editor.importDesc') : t('stubs.subtitle')
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent>
+        <SheetHeader title={title} description={description} />
+        <StubEditorForm editing={editing} initialTab={initialTab} onSaved={() => { onSaved(); onOpenChange(false) }} onCancel={() => onOpenChange(false)} />
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+/**
+ * The stub editor body — Form + JSON tabs, validation, and Save. Renders inline (no Sheet) so the
+ * Stubs workspace can host one per open tab. Reports unsaved state via onDirtyChange for the tab dot.
+ */
+export function StubEditorForm({ editing, initialTab = 'form', onSaved, onCancel, onDirtyChange }: {
+  editing: Stub | null
+  initialTab?: 'form' | 'json'
+  onSaved: (saved: boolean) => void
+  onCancel?: () => void
+  onDirtyChange?: (dirty: boolean) => void
+}) {
+  const { t } = useTranslation()
   const { tenant } = useUi()
-  const [tab, setTab] = useState('form')
+  const [tab, setTab] = useState(initialTab)
   const [rawJson, setRawJson] = useState('')
   const [saving, setSaving] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -42,16 +71,21 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
   const form = useForm<StubForm>({ resolver: zodResolver(stubSchema) as unknown as Resolver<StubForm>, defaultValues: emptyStub })
   const { register, control, reset, getValues, watch, handleSubmit, formState: { errors } } = form
 
+  const initialJson = useRef('')
   useEffect(() => {
-    if (open) {
-      const seed = seedFrom(editing)
-      reset(seed)
-      // When editing, the JSON tab shows the exact mapping the host returned (so nothing is lost even
-      // if the form doesn't surface a field); for a new stub it mirrors the form.
-      setRawJson(editing?.raw ? JSON.stringify(editing.raw, null, 2) : toJson(seed))
-      setTab(initialTab)
-    }
-  }, [open, editing, reset, initialTab])
+    const seed = seedFrom(editing)
+    reset(seed)
+    // When editing, the JSON tab shows the exact mapping the host returned (so nothing is lost even if
+    // the form doesn't surface a field); for a new stub it mirrors the form.
+    const seeded = editing?.raw ? JSON.stringify(editing.raw, null, 2) : toJson(seed)
+    setRawJson(seeded)
+    initialJson.current = seeded
+    setTab(initialTab)
+  }, [editing, reset, initialTab])
+
+  // Report unsaved state for the tab's dot: form edits (RHF isDirty) or a raw JSON change.
+  const dirty = form.formState.isDirty || (tab === 'json' && rawJson !== initialJson.current)
+  useEffect(() => { onDirtyChange?.(dirty) }, [dirty, onDirtyChange])
 
   // Keep the JSON preview live while editing the form (form is the source of truth on the Form tab).
   useEffect(() => {
@@ -76,8 +110,8 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
     const { mock } = isBundle ? await importMappings(tenant, json) : await saveStub(tenant, json, editing?.id)
     setSaving(false)
     toast[mock ? 'message' : 'success'](mock ? t('editor.savedSample') : t('editor.saved'))
-    onSaved()
-    onOpenChange(false)
+    initialJson.current = json
+    onSaved(!mock)
   }
 
   function onPickFile(event: React.ChangeEvent<HTMLInputElement>) {
@@ -101,16 +135,9 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
     toast.success(t('editor.copied'))
   }
 
-  const importing = !editing && initialTab === 'json'
-  const title = editing ? t('editor.editTitle') : importing ? t('editor.importTitle') : t('editor.newTitle')
-  const description = importing ? t('editor.importDesc') : t('stubs.subtitle')
-
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent>
-        <SheetHeader title={title} description={description} />
-
-        <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col">
+    <div className="flex h-full min-h-0 flex-col">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as 'form' | 'json')} className="flex min-h-0 flex-1 flex-col">
           <div className="px-6 pt-4">
             <TabsList>
               <TabsTrigger value="form">{t('editor.form')}</TabsTrigger>
@@ -216,11 +243,10 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
         </Tabs>
 
         <div className="flex items-center justify-end gap-2 border-t border-border px-6 py-4">
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>{t('editor.cancel')}</Button>
+          {onCancel && <Button variant="ghost" onClick={onCancel}>{t('editor.cancel')}</Button>}
           <Button variant="primary" onClick={handleSubmit(persist, () => setTab('form'))} disabled={saving || !!jsonError}>{t('editor.save')}</Button>
         </div>
-      </SheetContent>
-    </Sheet>
+    </div>
   )
 }
 
