@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { AppSidebar } from './app-sidebar'
 import { CommandPalette } from '@/components/command-palette'
 import { LoginGate } from '@/components/login-gate'
@@ -11,6 +11,9 @@ import { cn } from '@/lib/utils'
 // the Praxis layout so the frame stays put while content moves.
 export function AppShell() {
   const { collapsed } = useUi()
+  // The Stubs screen is a full-bleed workspace (tree + tabs): it fills the rounded surface edge-to-edge
+  // and manages its own scrolling, so we drop the surface padding and let it be the single oval.
+  const bleed = useLocation().pathname.endsWith('/stubs')
   return (
     <div className="flex h-dvh overflow-hidden bg-app">
       <aside
@@ -22,7 +25,10 @@ export function AppShell() {
         <AppSidebar />
       </aside>
       <div className="min-w-0 flex-1 p-3 pe-3 ps-0">
-        <main className="scroll-area h-full overflow-y-auto rounded-2xl border border-border bg-surface p-6 shadow-surface md:p-7">
+        <main className={cn(
+          'h-full rounded-2xl border border-border bg-surface shadow-surface',
+          bleed ? 'overflow-hidden' : 'scroll-area overflow-y-auto p-6 md:p-7',
+        )}>
           <ErrorBoundary>
             <Outlet />
           </ErrorBoundary>

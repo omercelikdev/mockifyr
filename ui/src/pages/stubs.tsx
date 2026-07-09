@@ -7,11 +7,14 @@ import { ChevronRight, Download, Import, Plus, Trash2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
 import { deleteStub, fetchStubs, type Stub } from '@/lib/api'
-import { buildStubTree, countLeaves, type StubTreeNode } from '@/lib/stub-tree'
-import { MethodChip } from '@/components/ui/badges'
+import { buildStubTree, countStubs, type StubTreeNode } from '@/lib/stub-tree'
+import { MethodChip, StatusCode } from '@/components/ui/badges'
 import { Button } from '@/components/ui/button'
 import { FacetFilter } from '@/components/ui/facet-filter'
 import { SearchBox } from '@/components/ui/search-box'
+import { EmptyState } from '@/components/ui/empty-state'
+import { PickArt, StubsArt } from '@/components/ui/illustrations'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { applyFilters, clearFacet, countSelected, type FacetDef, facetOptions, type Selections, toggleSelection } from '@/lib/faceted'
 import { StubEditorForm } from '@/components/stubs/stub-editor'
 
@@ -21,7 +24,9 @@ const FACETS: FacetDef<Stub>[] = [
   { id: 'status', get: (s) => s.status },
 ]
 
-interface Tab { key: string; kind: 'stub' | 'new' | 'import'; stubId?: string; initial: 'form' | 'json' }
+interface Tab { key: string; kind: 'stub' | 'new' | 'import'; stubId?: string; initial: 'form' | 'json'; prefillUrl?: string }
+
+const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n))
 
 export function StubsPage() {
   const { t } = useTranslation()
@@ -76,11 +81,12 @@ export function StubsPage() {
     setActive(key)
   }, [])
 
-  const openBlank = useCallback((initial: 'form' | 'json') => {
-    const key = `${initial === 'json' ? 'import' : 'new'}:${tabs.length}-${active}`
-    setTabs((prev) => [...prev, { key, kind: initial === 'json' ? 'import' : 'new', initial }])
+  const seq = useRef(0)
+  const openBlank = useCallback((initial: 'form' | 'json', prefillUrl?: string) => {
+    const key = `${initial === 'json' ? 'import' : 'new'}:${seq.current++}`
+    setTabs((prev) => [...prev, { key, kind: initial === 'json' ? 'import' : 'new', initial, prefillUrl }])
     setActive(key)
-  }, [tabs.length, active])
+  }, [])
 
   const closeTab = useCallback((key: string) => {
     setTabs((prev) => {
@@ -124,42 +130,71 @@ export function StubsPage() {
 
   const empty = !isLoading && stubs.length === 0
 
+  // Resizable tree — one panel, split from the workspace by a draggable divider (min/max clamped).
+  const [treeWidth, setTreeWidth] = useState(() => clamp(Number(localStorage.getItem('ui.stubTreeWidth')) || 288, 220, 560))
+  useEffect(() => { localStorage.setItem('ui.stubTreeWidth', String(treeWidth)) }, [treeWidth])
+  const onSplitterDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = treeWidth
+    const move = (ev: PointerEvent) => setTreeWidth(clamp(startW + (ev.clientX - startX), 220, 560))
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); document.body.style.cursor = '' }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    document.body.style.cursor = 'col-resize'
+  }, [treeWidth])
+  const activeStubId = tabs.find((x) => x.key === active)?.stubId
+
   return (
-    <div className="flex h-full min-h-0 gap-4">
-      {/* Tree panel */}
-      <aside className="flex w-[272px] shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-surface">
-        <div className="flex flex-col gap-2.5 border-b border-border p-3">
+    <div className="flex h-full min-h-0 overflow-hidden">
+      {/* Tree panel — the frame side: sits on the grey surface, so it reads as chrome around the white workspace */}
+      <aside style={{ width: treeWidth }} className="flex shrink-0 flex-col overflow-hidden">
+        <div className="flex flex-col gap-2.5 p-3">
           <div className="flex items-center gap-2">
-            <h1 className="text-[15px] font-bold">{t('nav.stubs')}</h1>
+            <h1 className="text-sm font-semibold">{t('nav.stubs')}</h1>
             <span className="rounded-full bg-muted px-1.5 text-[11px] tabular-nums text-muted-foreground">{stubs.length}</span>
-            <div className="ms-auto flex gap-1">
-              <Button variant="ghost" size="iconSm" aria-label={t('stubs.export')} onClick={exportAll} disabled={!stubs.length}><Download /></Button>
-              <Button variant="ghost" size="iconSm" aria-label={t('stubs.import')} onClick={() => openBlank('json')}><Import /></Button>
-              <Button variant="primary" size="iconSm" aria-label={t('stubs.newStub')} onClick={() => openBlank('form')}><Plus /></Button>
-            </div>
+            <TooltipProvider delayDuration={300}>
+              <div className="ms-auto flex gap-0.5">
+                <Tooltip><TooltipTrigger asChild>
+                  <Button variant="ghost" size="iconSm" aria-label={t('stubs.export')} onClick={exportAll} disabled={!stubs.length}><Download /></Button>
+                </TooltipTrigger><TooltipContent>{t('stubs.export')}</TooltipContent></Tooltip>
+                <Tooltip><TooltipTrigger asChild>
+                  <Button variant="ghost" size="iconSm" aria-label={t('stubs.import')} onClick={() => openBlank('json')}><Import /></Button>
+                </TooltipTrigger><TooltipContent>{t('stubs.import')}</TooltipContent></Tooltip>
+                <Tooltip><TooltipTrigger asChild>
+                  <Button variant="ghost" size="iconSm" aria-label={t('stubs.newStub')} onClick={() => openBlank('form')}><Plus /></Button>
+                </TooltipTrigger><TooltipContent>{t('stubs.newStub')}</TooltipContent></Tooltip>
+              </div>
+            </TooltipProvider>
           </div>
-          <SearchBox value={search} onCommit={setSearch} placeholder={t('stubs.filter')} />
+          {/* flex-none: the tree header is a flex column, so SearchBox's own flex-1 would collapse its height. */}
+          <SearchBox value={search} onCommit={setSearch} placeholder={t('stubs.filter')} className="flex-none bg-background" />
           <div className="flex gap-1.5">
-            <FacetFilter label={t('stubs.method')} options={methodOptions} selected={selected.method ?? EMPTY_SET}
+            <FacetFilter compact label={t('stubs.method')} options={methodOptions} selected={selected.method ?? EMPTY_SET}
               onToggle={(v) => setSelected((s) => toggleSelection(s, 'method', v))} onClear={() => setSelected((s) => clearFacet(s, 'method'))} clearLabel={t('common.clear')} />
-            <FacetFilter label={t('stubs.status')} options={statusOptions} selected={selected.status ?? EMPTY_SET}
+            <FacetFilter compact label={t('stubs.status')} options={statusOptions} selected={selected.status ?? EMPTY_SET}
               onToggle={(v) => setSelected((s) => toggleSelection(s, 'status', v))} onClear={() => setSelected((s) => clearFacet(s, 'status'))} clearLabel={t('common.clear')} />
           </div>
         </div>
-        <div className="scroll-area min-h-0 flex-1 overflow-y-auto p-1.5">
+        <div className="scroll-area min-h-0 flex-1 overflow-y-auto px-1.5 pb-2">
           {isLoading ? (
             <div className="space-y-2 p-2">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-6 animate-pulse rounded bg-muted" />)}</div>
           ) : filtered.length === 0 ? (
             <p className="p-3 text-sm text-faint">{filtering ? t('stubs.empty') : t('dashboard.getStarted')}</p>
           ) : (
-            <TreeView node={tree} depth={0} path="" forceOpen={filtering} activeStubId={tabs.find((x) => x.key === active)?.stubId} onOpen={openStub} onDelete={remove} />
+            <TreeView node={tree} depth={0} basePath="" defaultOpen={filtered.length <= 40} forceOpen={filtering} activeStubId={activeStubId} onOpen={openStub} onDelete={remove} onAddUnder={(url) => openBlank('form', url)} />
           )}
         </div>
-        {data?.mock && <div className="border-t border-border p-2 text-center"><span className="rounded-full border border-warning-border bg-warning-bg px-2 py-0.5 text-[11px] font-medium text-warning">{t('stubs.sample')}</span></div>}
+        {data?.mock && <div className="p-2 text-center"><span className="rounded-full border border-warning-border bg-warning-bg px-2 py-0.5 text-[11px] font-medium text-warning">{t('stubs.sample')}</span></div>}
       </aside>
 
-      {/* Workspace */}
-      <section className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-surface">
+      {/* Splitter — a hairline that firms up subtly on hover/drag (no loud highlight) */}
+      <div onPointerDown={onSplitterDown} className="group relative z-10 w-px shrink-0 cursor-col-resize bg-border" role="separator" aria-orientation="vertical">
+        <div className="absolute inset-y-0 -inset-x-1 transition-colors group-hover:bg-border-strong/50" />
+      </div>
+
+      {/* Workspace — the white editing canvas, lifted above the grey frame */}
+      <section className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background">
         {tabs.length === 0 ? (
           <EmptyWorkspace t={t} empty={empty} onNew={() => openBlank('form')} onImport={() => openBlank('json')} />
         ) : (
@@ -187,6 +222,7 @@ export function StubsPage() {
                 <StubEditorForm
                   editing={tab.stubId ? stubs.find((s) => s.id === tab.stubId) ?? null : null}
                   initialTab={tab.initial}
+                  prefillUrl={tab.prefillUrl}
                   onSaved={(saved) => onTabSaved(tab, saved)}
                   onDirtyChange={(d) => setDirty((prev) => (prev[tab.key] === d ? prev : { ...prev, [tab.key]: d }))}
                 />
@@ -199,72 +235,108 @@ export function StubsPage() {
   )
 }
 
-function TreeView({ node, depth, path, forceOpen, activeStubId, onOpen, onDelete }: {
+interface TreeProps {
   node: StubTreeNode
   depth: number
-  path: string
+  basePath: string
+  defaultOpen: boolean
   forceOpen: boolean
   activeStubId?: string
   onOpen: (s: Stub) => void
   onDelete: (s: Stub) => void
-}) {
+  onAddUnder: (url: string) => void
+}
+type Shared = Omit<TreeProps, 'node' | 'depth'>
+
+// Path → Method → Case. A node renders its sub-path folders, then the method buckets for stubs that end
+// at this node; each method expands to its individual cases (one stub each, by status + name).
+function TreeView({ node, depth, basePath, ...shared }: TreeProps) {
   const groups = [...node.groups.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-  const leaves = [...node.leaves].sort((a, b) => a.label.localeCompare(b.label))
+  const methods = [...node.methods.entries()].sort((a, b) => a[0].localeCompare(b[0]))
   return (
-    <div>
+    <div className="space-y-0.5">
       {groups.map(([seg, child]) => (
-        <Group key={seg} seg={seg} child={child} depth={depth} path={`${path}/${seg}`} forceOpen={forceOpen} activeStubId={activeStubId} onOpen={onOpen} onDelete={onDelete} />
+        <Folder key={`g:${seg}`} seg={seg} child={child} depth={depth} basePath={`${basePath}/${seg}`} {...shared} />
       ))}
-      {leaves.map(({ label, stub }) => (
-        <div key={stub.id} style={{ paddingInlineStart: depth * 14 + 8 }}
-          onClick={() => onOpen(stub)}
-          className={cn('group flex cursor-pointer items-center gap-2 rounded-lg py-1.5 pe-1.5 text-[12.5px] transition-colors',
-            stub.id === activeStubId ? 'bg-muted text-foreground' : 'text-foreground hover:bg-muted/60')}>
-          <MethodChip method={stub.method} />
-          <span className="min-w-0 flex-1 truncate">{label}</span>
-          <span role="button" tabIndex={-1} aria-label="Delete" onClick={(e) => { e.stopPropagation(); onDelete(stub) }}
-            className="rounded p-0.5 text-faint opacity-0 transition-opacity hover:bg-danger-bg hover:text-danger group-hover:opacity-100"><Trash2 className="size-3.5" /></span>
-        </div>
+      {methods.map(([method, stubs]) => (
+        <MethodGroup key={`m:${method}`} method={method} stubs={stubs} basePath={basePath} {...shared} />
       ))}
     </div>
   )
 }
 
-function Group({ seg, child, depth, path, forceOpen, activeStubId, onOpen, onDelete }: {
-  seg: string
-  child: StubTreeNode
-  depth: number
-  path: string
-  forceOpen: boolean
-  activeStubId?: string
-  onOpen: (s: Stub) => void
-  onDelete: (s: Stub) => void
-}) {
-  const [open, setOpen] = useState(true)
-  const expanded = forceOpen || open
+// A subtle connector line + breathing room wraps every nested level so the hierarchy reads at a glance.
+// The line sits at 15px — row padding (8) + half a chevron (7) — so it drops straight under the parent's
+// chevron. Padding is kept tight so 3–4 levels deep don't eat the panel's width.
+function Nested({ children }: { children: React.ReactNode }) {
+  return <div className="ms-[15px] mt-1 space-y-0.5 border-s border-border/70 ps-1.5">{children}</div>
+}
+
+function Folder({ seg, child, depth, basePath, ...shared }: Shared & { seg: string; child: StubTreeNode; depth: number }) {
+  const [open, setOpen] = useState(shared.defaultOpen)
+  const expanded = shared.forceOpen || open
   return (
     <div>
-      <div style={{ paddingInlineStart: depth * 14 + 4 }}
-        onClick={() => setOpen((o) => !o)}
-        className="flex cursor-pointer items-center gap-1.5 rounded-lg py-1.5 pe-1.5 text-[12.5px] text-muted-foreground transition-colors hover:bg-muted/60">
+      <div onClick={() => setOpen((o) => !o)}
+        className="group flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] text-muted-foreground transition-colors hover:bg-muted/60">
         <ChevronRight className={cn('size-3.5 shrink-0 transition-transform', expanded && 'rotate-90')} />
         <span className="min-w-0 flex-1 truncate font-medium">/{seg}</span>
-        <span className="text-[11px] tabular-nums text-faint">{countLeaves(child)}</span>
+        <span role="button" tabIndex={-1} aria-label="Add stub here" onClick={(e) => { e.stopPropagation(); shared.onAddUnder(`${basePath}/`) }}
+          className="shrink-0 rounded p-0.5 text-faint opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"><Plus className="size-3.5" /></span>
+        <span className="shrink-0 text-[11px] tabular-nums text-faint group-hover:hidden">{countStubs(child)}</span>
       </div>
-      {expanded && <TreeView node={child} depth={depth + 1} path={path} forceOpen={forceOpen} activeStubId={activeStubId} onOpen={onOpen} onDelete={onDelete} />}
+      {expanded && <Nested><TreeView node={child} depth={depth + 1} basePath={basePath} {...shared} /></Nested>}
+    </div>
+  )
+}
+
+function MethodGroup({ method, stubs, basePath, ...shared }: Shared & { method: string; stubs: Stub[] }) {
+  const [open, setOpen] = useState(shared.defaultOpen)
+  const expanded = shared.forceOpen || open
+  // Order cases by status code, then name — so the happy path (2xx) reads first.
+  const cases = [...stubs].sort((a, b) => (a.responseStatus ?? 0) - (b.responseStatus ?? 0) || (a.name ?? '').localeCompare(b.name ?? ''))
+  return (
+    <div>
+      <div onClick={() => setOpen((o) => !o)}
+        className="group flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] transition-colors hover:bg-muted/60">
+        <ChevronRight className={cn('size-3.5 shrink-0 text-muted-foreground transition-transform', expanded && 'rotate-90')} />
+        <MethodChip method={method} />
+        <span className="min-w-0 flex-1" />
+        <span role="button" tabIndex={-1} aria-label="Add case here" onClick={(e) => { e.stopPropagation(); shared.onAddUnder(basePath || '/') }}
+          className="shrink-0 rounded p-0.5 text-faint opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"><Plus className="size-3.5" /></span>
+        <span className="shrink-0 text-[11px] tabular-nums text-faint group-hover:hidden">{stubs.length}</span>
+      </div>
+      {expanded && <Nested>{cases.map((stub) => <CaseLeaf key={stub.id} stub={stub} active={stub.id === shared.activeStubId} onOpen={shared.onOpen} onDelete={shared.onDelete} />)}</Nested>}
+    </div>
+  )
+}
+
+function CaseLeaf({ stub, active, onOpen, onDelete }: { stub: Stub; active: boolean; onOpen: (s: Stub) => void; onDelete: (s: Stub) => void }) {
+  const { t } = useTranslation()
+  return (
+    <div onClick={() => onOpen(stub)}
+      className={cn('group flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-[13px] transition-colors',
+        active ? 'bg-muted font-medium text-foreground' : 'text-foreground hover:bg-muted/60')}>
+      <StatusCode code={stub.responseStatus} />
+      <span className="min-w-0 flex-1 truncate">{stub.name?.trim() || t('stubs.untitledCase')}</span>
+      <span role="button" tabIndex={-1} aria-label="Delete" onClick={(e) => { e.stopPropagation(); onDelete(stub) }}
+        className="shrink-0 rounded p-0.5 text-faint opacity-0 transition-opacity hover:bg-danger-bg hover:text-danger group-hover:opacity-100"><Trash2 className="size-3.5" /></span>
     </div>
   )
 }
 
 function EmptyWorkspace({ t, empty, onNew, onImport }: { t: (k: string) => string; empty: boolean; onNew: () => void; onImport: () => void }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
-      <h2 className="text-base font-semibold">{empty ? t('dashboard.getStarted') : t('stubs.pickHint')}</h2>
-      <p className="max-w-[42ch] text-sm text-muted-foreground">{empty ? t('dashboard.getStartedHint') : t('stubs.pickHintBody')}</p>
-      <div className="flex gap-2">
-        <Button variant="primary" size="sm" onClick={onNew}><Plus />{t('stubs.newStub')}</Button>
-        <Button variant="outline" size="sm" onClick={onImport}><Download />{t('stubs.import')}</Button>
-      </div>
-    </div>
+    <EmptyState
+      art={empty ? <StubsArt /> : <PickArt />}
+      title={empty ? t('dashboard.getStarted') : t('stubs.pickHint')}
+      body={empty ? t('dashboard.getStartedHint') : t('stubs.pickHintBody')}
+      action={empty ? (
+        <>
+          <Button variant="primary" size="sm" onClick={onNew}><Plus />{t('stubs.newStub')}</Button>
+          <Button variant="outline" size="sm" onClick={onImport}><Download />{t('stubs.import')}</Button>
+        </>
+      ) : undefined}
+    />
   )
 }

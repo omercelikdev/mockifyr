@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Search, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 /**
  * A search input that commits on Enter (not on every keystroke) — matching a server-side search mental
@@ -7,17 +8,18 @@ import { Search, X } from 'lucide-react'
  * when the committed value is reset externally (e.g. switching tenant).
  */
 export function SearchBox({
-  value, onCommit, placeholder,
+  value, onCommit, placeholder, className,
 }: {
   value: string
   onCommit: (v: string) => void
   placeholder?: string
+  className?: string
 }) {
   const [draft, setDraft] = useState(value)
   useEffect(() => { setDraft(value) }, [value])
 
   return (
-    <label className="flex h-9 min-w-[220px] flex-1 items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 transition-colors focus-within:border-border-strong">
+    <label className={cn('flex h-9 min-w-[220px] flex-1 items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 transition-colors focus-within:border-border-strong', className)}>
       <Search className="size-4 shrink-0 text-muted-foreground" />
       <input
         value={draft}
