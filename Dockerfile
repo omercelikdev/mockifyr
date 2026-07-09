@@ -33,5 +33,6 @@ WORKDIR /app
 COPY --from=build /app ./
 COPY --from=ui /ui/dist ./dashboard
 EXPOSE 8080
-# --dashboard serves the built UI under /__mockifyr; mount mappings at /work and pass --root-dir to load them.
+# --dashboard serves the built UI under /__mockifyr. Mount your *.json stubs at /work/mappings and pass
+# --root-dir /work to load them (the server reads/writes <root-dir>/mappings).
 ENTRYPOINT ["dotnet", "Mockifyr.Server.dll", "--port", "8080", "--dashboard", "/app/dashboard"]

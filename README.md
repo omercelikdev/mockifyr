@@ -17,9 +17,13 @@ and no third-party mock-engine dependencies.
 ```bash
 docker pull ghcr.io/omercelikdev/mockifyr:latest      # or a pinned tag, e.g. :0.1.1
 
-docker run -p 8080:8080 -v "$PWD/mappings:/work" \
+docker run -p 8080:8080 -v "$PWD/mappings:/work/mappings" \
   ghcr.io/omercelikdev/mockifyr:latest --root-dir /work
 ```
+
+> **Stub files:** drop your WireMock `*.json` into `./mappings`. The server loads them on startup
+> (from `<root-dir>/mappings`) and persists new stubs created via the dashboard/admin API back there.
+> Note the mount target is `/work/mappings`, not `/work`.
 
 - Mock surface — `http://localhost:8080`
 - Admin API — `http://localhost:8080/__admin`
@@ -43,7 +47,7 @@ The Postgres/Redis variants write stubs through to a datastore, so they survive 
 ### Local (.NET 10 SDK)
 
 ```bash
-dotnet run --project src/Mockifyr.Server -- --port 8080 --root-dir ./mappings
+dotnet run --project src/Mockifyr.Server -- --port 8080 --root-dir .   # stubs load from ./mappings
 ```
 
 ### Engine only (no dashboard)
@@ -52,10 +56,10 @@ The dashboard is opt-in via `--dashboard`; omit it to serve just the mock surfac
 
 ```bash
 # Local
-dotnet run --project src/Mockifyr.Server -- --port 8080 --root-dir ./mappings
+dotnet run --project src/Mockifyr.Server -- --port 8080 --root-dir .   # stubs load from ./mappings
 
 # From the image (override the entrypoint to drop the built-in --dashboard)
-docker run -p 8080:8080 --entrypoint dotnet \
+docker run -p 8080:8080 -v "$PWD/mappings:/work/mappings" --entrypoint dotnet \
   ghcr.io/omercelikdev/mockifyr:latest Mockifyr.Server.dll --port 8080 --root-dir /work
 ```
 

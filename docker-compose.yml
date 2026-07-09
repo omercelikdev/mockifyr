@@ -2,7 +2,8 @@
 #
 #   docker compose up
 #
-# Default is ephemeral in-memory persistence with file-backed mappings under ./mappings.
+# Put your WireMock *.json stub files in ./mappings — they're loaded on startup and new stubs
+# created via the dashboard/admin API are persisted back there. In-memory serving, file-backed mappings.
 # For durable Postgres persistence, uncomment the `postgres` service and swap the mockifyr
 # `command:` for the Postgres one below.
 
@@ -13,7 +14,8 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./mappings:/work
+      # Host ./mappings holds the *.json stubs; the server loads them from <root-dir>/mappings.
+      - ./mappings:/work/mappings
     # Appended to the image entrypoint (which already sets --port 8080 --dashboard /app/dashboard):
     command: ["--root-dir", "/work"]
     # Durable Postgres instead of file-based — uncomment this command and the postgres service:
