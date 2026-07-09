@@ -14,6 +14,7 @@ import { Input, Label, NativeSelect, Textarea } from '@/components/ui/field'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { JsonField } from '@/components/ui/json-editor'
+import { HelpersDialog } from '@/components/templating/helpers-dialog'
 
 function seedFrom(stub: Stub | null, prefillUrl?: string): StubForm {
   if (!stub) return prefillUrl ? { ...emptyStub, urlValue: prefillUrl } : emptyStub
@@ -104,9 +105,9 @@ export function StubEditorForm({ editing, initialTab = 'form', prefillUrl, onSav
     if (tab === 'form') json = toJson(getValues())
     let parsed: unknown
     try { parsed = JSON.parse(json) } catch { toast.error(t('editor.invalidJson')); return }
-    // A {"mappings":[…]} bundle export goes through the bulk-import endpoint; a single
-    // mapping is a create/update. Editing an existing stub is always the latter.
-    const isBundle = !editing && typeof parsed === 'object' && parsed !== null && Array.isArray((parsed as { mappings?: unknown }).mappings)
+    // A bundle export — either a {"mappings":[…]} wrapper or a bare top-level array — goes through the
+    // bulk-import endpoint; a single mapping is a create/update. Editing an existing stub is always the latter.
+    const isBundle = !editing && (Array.isArray(parsed) || (typeof parsed === 'object' && parsed !== null && Array.isArray((parsed as { mappings?: unknown }).mappings)))
     setSaving(true)
     const { mock } = isBundle ? await importMappings(tenant, json) : await saveStub(tenant, json, editing?.id)
     setSaving(false)
@@ -183,10 +184,13 @@ export function StubEditorForm({ editing, initialTab = 'form', prefillUrl, onSav
               <div><Label>{t('editor.body')}</Label>
                 <JsonField value={watch('responseBody') ?? ''} onChange={(v) => form.setValue('responseBody', v, { shouldDirty: true })} height={180} lint={false} minimal />
               </div>
-              <label className="flex items-center gap-2.5 text-sm">
-                <Switch checked={watch('useTemplating')} onCheckedChange={(v) => form.setValue('useTemplating', v)} />
-                {t('editor.templating')}
-              </label>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <label className="flex items-center gap-2.5 text-sm">
+                  <Switch checked={watch('useTemplating')} onCheckedChange={(v) => form.setValue('useTemplating', v)} />
+                  {t('editor.templating')}
+                </label>
+                <HelpersDialog />
+              </div>
             </Section>
 
             {/* Behavior */}
