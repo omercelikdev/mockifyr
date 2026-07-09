@@ -6,6 +6,7 @@ export type StubStatus = 'live' | 'proxy' | 'draft'
 
 export interface Stub {
   id: string
+  name: string | null
   method: string
   url: string
   protocol: Protocol
@@ -79,6 +80,7 @@ export async function fetchStubs(tenant: string): Promise<{ stubs: Stub[]; mock:
 interface RawMapping {
   id?: string
   uuid?: string
+  name?: string
   priority?: number
   scenarioName?: string
   request?: { method?: string; url?: string; urlPath?: string; urlPattern?: string; urlPathPattern?: string }
@@ -91,6 +93,7 @@ function projectMapping(m: RawMapping): Stub {
   const url = req.url ?? req.urlPath ?? req.urlPattern ?? req.urlPathPattern ?? '/'
   return {
     id: m.id ?? m.uuid ?? crypto.randomUUID(),
+    name: typeof m.name === 'string' && m.name.trim() ? m.name : null,
     method: (typeof req.method === 'string' ? req.method : 'ANY').toUpperCase(),
     url,
     protocol: url.includes('/grpc') ? 'grpc' : url.includes('graphql') ? 'graphql' : 'http',
@@ -340,16 +343,16 @@ export async function deleteStub(tenant: string, id: string): Promise<{ mock: bo
 function sampleStubs(tenant: string): Stub[] {
   if (!DEMO_TENANTS.has(tenant)) return []
   const base: Stub[] = [
-    { id: '1', method: 'GET', url: '/api/v2/accounts/{id}', protocol: 'http', priority: 5, scenario: null, persistence: 'Postgres', lastMatched: '12s', status: 'live' },
-    { id: '2', method: 'POST', url: '/api/v2/payments', protocol: 'http', priority: 10, scenario: 'Checkout', persistence: 'Postgres', lastMatched: '3s', status: 'live' },
-    { id: '3', method: 'POST', url: '/api/v2/payments/{id}/capture', protocol: 'http', priority: 10, scenario: 'Checkout', persistence: 'Postgres', lastMatched: '7s', status: 'live' },
-    { id: '4', method: 'GET', url: '/api/v2/rates?from={a}&to={b}', protocol: 'http', priority: 3, scenario: null, persistence: 'Redis', lastMatched: '1m', status: 'proxy' },
-    { id: '5', method: 'PUT', url: '/api/v2/accounts/{id}/limits', protocol: 'http', priority: 5, scenario: null, persistence: 'Postgres', lastMatched: '18m', status: 'live' },
-    { id: '6', method: 'DELETE', url: '/api/v2/mandates/{id}', protocol: 'http', priority: 5, scenario: null, persistence: 'Postgres', lastMatched: '2h', status: 'draft' },
-    { id: '7', method: 'PATCH', url: '/api/v2/webhooks/{id}', protocol: 'http', priority: 1, scenario: null, persistence: 'LiteDB', lastMatched: '1d', status: 'live' },
-    { id: '8', method: 'POST', url: 'mockifyr.grpc.Greeter/SayHello', protocol: 'grpc', priority: 8, scenario: null, persistence: 'Postgres', lastMatched: '41s', status: 'live' },
-    { id: '9', method: 'POST', url: '/graphql · query Balance', protocol: 'graphql', priority: 8, scenario: null, persistence: 'Postgres', lastMatched: '55s', status: 'live' },
-    { id: '10', method: 'GET', url: '/ws/notifications', protocol: 'websocket', priority: 5, scenario: null, persistence: 'In-memory', lastMatched: '2m', status: 'live' },
+    { id: '1', name: null, method: 'GET', url: '/api/v2/accounts/{id}', protocol: 'http', priority: 5, scenario: null, persistence: 'Postgres', lastMatched: '12s', status: 'live' },
+    { id: '2', name: null, method: 'POST', url: '/api/v2/payments', protocol: 'http', priority: 10, scenario: 'Checkout', persistence: 'Postgres', lastMatched: '3s', status: 'live' },
+    { id: '3', name: null, method: 'POST', url: '/api/v2/payments/{id}/capture', protocol: 'http', priority: 10, scenario: 'Checkout', persistence: 'Postgres', lastMatched: '7s', status: 'live' },
+    { id: '4', name: null, method: 'GET', url: '/api/v2/rates?from={a}&to={b}', protocol: 'http', priority: 3, scenario: null, persistence: 'Redis', lastMatched: '1m', status: 'proxy' },
+    { id: '5', name: null, method: 'PUT', url: '/api/v2/accounts/{id}/limits', protocol: 'http', priority: 5, scenario: null, persistence: 'Postgres', lastMatched: '18m', status: 'live' },
+    { id: '6', name: null, method: 'DELETE', url: '/api/v2/mandates/{id}', protocol: 'http', priority: 5, scenario: null, persistence: 'Postgres', lastMatched: '2h', status: 'draft' },
+    { id: '7', name: null, method: 'PATCH', url: '/api/v2/webhooks/{id}', protocol: 'http', priority: 1, scenario: null, persistence: 'LiteDB', lastMatched: '1d', status: 'live' },
+    { id: '8', name: null, method: 'POST', url: 'mockifyr.grpc.Greeter/SayHello', protocol: 'grpc', priority: 8, scenario: null, persistence: 'Postgres', lastMatched: '41s', status: 'live' },
+    { id: '9', name: null, method: 'POST', url: '/graphql · query Balance', protocol: 'graphql', priority: 8, scenario: null, persistence: 'Postgres', lastMatched: '55s', status: 'live' },
+    { id: '10', name: null, method: 'GET', url: '/ws/notifications', protocol: 'websocket', priority: 5, scenario: null, persistence: 'In-memory', lastMatched: '2m', status: 'live' },
   ]
   if (tenant === 'globex') return base.slice(0, 6).map((s) => ({ ...s, url: s.url.replace('/api/v2', '/retail/v1') }))
   if (tenant === 'default') return base.slice(0, 3)

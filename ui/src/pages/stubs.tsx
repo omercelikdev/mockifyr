@@ -116,7 +116,13 @@ export function StubsPage() {
       size: 36,
     },
     { accessorKey: 'method', header: () => t('stubs.method'), cell: ({ getValue }) => <MethodChip method={getValue<string>()} /> },
-    { accessorKey: 'url', header: () => t('stubs.url'), cell: ({ getValue }) => <span className="font-mono text-[12.5px]">{getValue<string>()}</span> },
+    { accessorKey: 'url', header: () => t('stubs.url'), cell: ({ row }) => (
+      <div className="min-w-0">
+        {row.original.name
+          ? (<><div className="truncate text-[13px] font-medium">{row.original.name}</div><div className="truncate font-mono text-[11.5px] text-muted-foreground">{row.original.url}</div></>)
+          : (<span className="font-mono text-[12.5px]">{row.original.url}</span>)}
+      </div>
+    ) },
     { accessorKey: 'priority', header: () => t('stubs.priority'), cell: ({ getValue }) => <span className="tabular-nums text-muted-foreground">{getValue<number>()}</span> },
     { accessorKey: 'scenario', header: () => t('stubs.scenario'), cell: ({ getValue }) => getValue<string | null>() ?? <span className="text-muted-foreground">—</span> },
     { accessorKey: 'persistence', header: () => t('stubs.persistence'), cell: ({ getValue }) => <span className="text-muted-foreground">{getValue<string>()}</span> },

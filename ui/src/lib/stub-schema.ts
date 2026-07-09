@@ -20,6 +20,8 @@ const kvMatcher = z.object({
 const msField = z.string().refine((v) => v.trim() === '' || /^\d+$/.test(v.trim()), 'Enter milliseconds as a whole number')
 
 export const stubSchema = z.object({
+  name: z.string(),
+  description: z.string(),
   method: z.string().min(1),
   urlMatchType: z.enum(URL_MATCH),
   urlValue: z.string().min(1, 'URL is required'),
@@ -52,7 +54,16 @@ export const stubSchema = z.object({
 
 export type StubForm = z.infer<typeof stubSchema>
 
+/** A best-practice name suggestion from the method + last URL segment, e.g. GET /a/RetrieveApp → "Retrieve app". */
+export function suggestName(_method: string, url: string): string {
+  const seg = (url || '').split('?')[0].split('/').filter(Boolean).pop() ?? ''
+  const words = seg.replace(/[-_]+/g, ' ').replace(/([a-z0-9])([A-Z])/g, '$1 $2').trim().toLowerCase()
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : ''
+}
+
 export const emptyStub: StubForm = {
+  name: '',
+  description: '',
   method: 'GET',
   urlMatchType: 'urlPath',
   urlValue: '/',
@@ -101,6 +112,11 @@ export function toMapping(f: StubForm): Record<string, unknown> {
   // Number-input form fields arrive as strings; status/priority are JSON numbers, and the
   // engine's reader rejects a string-typed status. Coerce here so edits to these fields serialize correctly.
   const mapping: Record<string, unknown> = { request, response, priority: Number(f.priority) }
+  // Friendly name + description ride along as WireMock's standard `name` field and `metadata.description`.
+  // The matching engine ignores both; the admin API round-trips them via the raw source, so no backend
+  // change is needed. They drive the tree's readable labels and the editor's description.
+  if (f.name.trim()) mapping.name = f.name.trim()
+  if (f.description.trim()) mapping.metadata = { description: f.description.trim() }
   if (f.scenarioName.trim()) {
     mapping.scenarioName = f.scenarioName.trim()
     if (f.requiredScenarioState.trim()) mapping.requiredScenarioState = f.requiredScenarioState.trim()
@@ -158,6 +174,8 @@ export function fromMapping(mapping: Record<string, unknown>): StubForm {
   const whDelay = obj(whParams.delay)
 
   return {
+    name: str(mapping.name),
+    description: str(obj(mapping.metadata).description),
     method: str(req.method, 'GET'),
     urlMatchType,
     urlValue,
