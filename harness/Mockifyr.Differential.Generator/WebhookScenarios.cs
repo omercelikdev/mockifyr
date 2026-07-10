@@ -50,6 +50,18 @@ public static class WebhookScenarios
             body: "plain text payload",
             trigger: new RequestSpec { Method = "POST", Url = "/p" });
 
+        // WireMock 3's serveEventListeners form (#147) — same webhook semantics, newer envelope.
+        // WireMock accepts both; Mockifyr must too, or a WireMock 3 export silently loses callbacks.
+        yield return Build(
+            "serve-event-listeners",
+            new Dictionary<string, object> { ["method"] = "POST", ["url"] = "/sel" },
+            method: "POST",
+            path: "/sel-callback",
+            headers: new Dictionary<string, object> { ["Content-Type"] = "application/json" },
+            body: "{\"via\":\"serveEventListeners\"}",
+            trigger: new RequestSpec { Method = "POST", Url = "/sel" },
+            actionsKey: "serveEventListeners");
+
         // G3b — templated URL (path segment + query), header value, and body against originalRequest.
         yield return Build(
             "templated",
@@ -80,7 +92,8 @@ public static class WebhookScenarios
         string path,
         Dictionary<string, object>? headers,
         string? body,
-        RequestSpec trigger)
+        RequestSpec trigger,
+        string actionsKey = "postServeActions")
     {
         var parameters = new Dictionary<string, object>
         {
@@ -101,7 +114,7 @@ public static class WebhookScenarios
         {
             ["request"] = requestPattern,
             ["response"] = new Dictionary<string, object> { ["status"] = 200, ["body"] = "served" },
-            ["postServeActions"] = new object[]
+            [actionsKey] = new object[]
             {
                 new Dictionary<string, object> { ["name"] = "webhook", ["parameters"] = parameters },
             },

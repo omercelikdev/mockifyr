@@ -135,19 +135,32 @@ public static class MappingJsonReader
     };
 
     /// <summary>
-    /// Reads <c>postServeActions</c> webhook actions: <c>[{ "name": "webhook", "parameters": {
-    /// "method", "url", "headers", "body" } }]</c>. Non-webhook actions are ignored.
+    /// Reads webhook actions — <c>[{ "name": "webhook", "parameters": { "method", "url", "headers",
+    /// "body" } }]</c> — from <c>postServeActions</c> (the 2.x form) <em>and</em>
+    /// <c>serveEventListeners</c> (the 3.x form); the upstream accepts both, so a mapping exported
+    /// from either generation keeps its callbacks (#147). Non-webhook entries are ignored.
     /// </summary>
     private static IReadOnlyList<WebhookDefinition> ReadWebhooks(JsonElement mapping)
     {
-        if (mapping.ValueKind != JsonValueKind.Object ||
-            !mapping.TryGetProperty("postServeActions", out var actions) ||
-            actions.ValueKind != JsonValueKind.Array)
+        if (mapping.ValueKind != JsonValueKind.Object)
         {
             return [];
         }
 
         var webhooks = new List<WebhookDefinition>();
+        foreach (var key in (string[])["postServeActions", "serveEventListeners"])
+        {
+            if (mapping.TryGetProperty(key, out var actions) && actions.ValueKind == JsonValueKind.Array)
+            {
+                ReadWebhookActions(actions, webhooks);
+            }
+        }
+
+        return webhooks;
+    }
+
+    private static void ReadWebhookActions(JsonElement actions, List<WebhookDefinition> webhooks)
+    {
         foreach (var action in actions.EnumerateArray())
         {
             if (action.ValueKind != JsonValueKind.Object ||
@@ -205,8 +218,6 @@ public static class MappingJsonReader
 
             webhooks.Add(new WebhookDefinition { Method = method, Url = url, Headers = headers, Body = body, DelayMilliseconds = delayMs });
         }
-
-        return webhooks;
     }
 
     /// <summary>
