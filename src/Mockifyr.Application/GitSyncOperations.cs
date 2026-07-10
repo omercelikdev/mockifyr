@@ -17,11 +17,17 @@ public interface IGitSync
     Task<Result<GitSyncStatus>> StatusAsync(CancellationToken cancellationToken);
     Task<Result<GitPushOutcome>> PushAsync(string? message, CancellationToken cancellationToken);
     Task<Result<GitPullOutcome>> PullAsync(CancellationToken cancellationToken);
+    Task<Result<GitSyncStatus>> ConfigureAsync(string remoteUrl, string? branch, CancellationToken cancellationToken);
 }
 
-/// <summary>Sync state for the dashboard: remote/branch (credentials stripped), local changes, and ahead/behind counts.</summary>
+/// <summary>
+/// Sync state for the dashboard: remote/branch (credentials stripped), local changes, ahead/behind
+/// counts, plus where the configuration came from — <c>flags</c> (host-pinned, read-only in the UI)
+/// or <c>repository</c> (set from the dashboard, stored in the working copy's own .git/config).
+/// </summary>
 public sealed record GitSyncStatus(
-    bool Configured, string? Remote, string? Branch, bool Dirty, int Ahead, int Behind, string? FetchError);
+    bool Configured, string? Remote, string? Branch, bool Dirty, int Ahead, int Behind, string? FetchError,
+    string? ConfiguredBy = null, string? WorkingCopy = null);
 
 /// <summary>Push result. <c>Reason</c> is <c>pushed</c> or <c>nothing-to-push</c>.</summary>
 public sealed record GitPushOutcome(bool Pushed, string? Commit, string Reason);
@@ -37,6 +43,12 @@ public sealed record GitPushCommand(string? Message) : ICommand<Result<GitPushOu
 
 /// <summary>Fast-forwards to the remote branch after validating every incoming mapping file; all-or-nothing.</summary>
 public sealed record GitPullCommand : ICommand<Result<GitPullOutcome>>;
+
+/// <summary>
+/// Connects the host's working copy to a Git remote from the dashboard (#151). Refused on hosts
+/// whose configuration is pinned by <c>--git-remote</c>. The branch defaults to <c>main</c>.
+/// </summary>
+public sealed record GitConfigureCommand(string RemoteUrl, string? Branch) : ICommand<Result<GitSyncStatus>>;
 
 /// <summary>
 /// The default when no <c>--git-remote</c> is configured: status reports unconfigured (so the
@@ -55,6 +67,10 @@ public sealed class NotConfiguredGitSync : IGitSync
 
     public Task<Result<GitPullOutcome>> PullAsync(CancellationToken cancellationToken) =>
         Task.FromResult<Result<GitPullOutcome>>(NotConfigured);
+
+    public Task<Result<GitSyncStatus>> ConfigureAsync(string remoteUrl, string? branch, CancellationToken cancellationToken) =>
+        Task.FromResult<Result<GitSyncStatus>>(Error.NotFound(
+            "Git.NotSupported", "This host was composed without Git sync support."));
 }
 
 /// <summary>Delegates the status query to the configured <see cref="IGitSync"/>.</summary>
@@ -76,4 +92,11 @@ public sealed class GitPullHandler(IGitSync git) : ICommandHandler<GitPullComman
 {
     public async ValueTask<Result<GitPullOutcome>> Handle(GitPullCommand command, CancellationToken cancellationToken) =>
         await git.PullAsync(cancellationToken);
+}
+
+/// <summary>Delegates the configure command to the configured <see cref="IGitSync"/>.</summary>
+public sealed class GitConfigureHandler(IGitSync git) : ICommandHandler<GitConfigureCommand, Result<GitSyncStatus>>
+{
+    public async ValueTask<Result<GitSyncStatus>> Handle(GitConfigureCommand command, CancellationToken cancellationToken) =>
+        await git.ConfigureAsync(command.RemoteUrl, command.Branch, cancellationToken);
 }

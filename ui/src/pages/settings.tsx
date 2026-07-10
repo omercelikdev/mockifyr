@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { ArrowDownToLine, ArrowUpFromLine, Boxes, Check, Database, GitBranch, Moon, Palette, ShieldCheck, Sun } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
-import { fetchGitStatus, fetchHealth, gitPull, gitPush, persistenceLabel } from '@/lib/api'
+import { fetchGitStatus, fetchHealth, gitConfigure, gitPull, gitPush, persistenceLabel } from '@/lib/api'
 import { LOCALES } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -135,11 +135,43 @@ function GitCard() {
     refresh()
   }
 
+  const [remoteUrl, setRemoteUrl] = useState('')
+  const [branch, setBranch] = useState('main')
+  const [connecting, setConnecting] = useState(false)
+
+  async function connect() {
+    if (!remoteUrl.trim()) return
+    setConnecting(true)
+    const result = await gitConfigure(tenant, remoteUrl.trim(), branch)
+    setConnecting(false)
+    if ('error' in result) toast.error(result.message)
+    else {
+      toast.success(t('git.connected'))
+      setRemoteUrl('')
+    }
+    refresh()
+  }
+
   return (
     <Card icon={GitBranch} title={t('git.title')}>
       <p className="mb-3 text-sm text-muted-foreground">{t('git.hint')}</p>
       {!status?.configured ? (
-        <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 font-mono text-xs text-muted-foreground">{t('git.notConfigured')}</p>
+        // Connect form (#151): remote + branch only — the local working copy resolves host-side, and
+        // credentials never pass through the browser (private HTTPS remotes use MOCKIFYR_GIT_TOKEN).
+        <div className="space-y-2.5">
+          <div className="grid grid-cols-[minmax(0,1fr)_130px] gap-2">
+            <Input value={remoteUrl} onChange={(e) => setRemoteUrl(e.target.value)}
+              placeholder="https://github.com/team/stubs.git" className="font-mono"
+              onKeyDown={(e) => { if (e.key === 'Enter') void connect() }} />
+            <Input value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="main" className="font-mono" />
+          </div>
+          <div className="flex items-center gap-3">
+            <Button size="sm" variant="primary" onClick={() => void connect()} disabled={connecting || !remoteUrl.trim()}>
+              <GitBranch />{connecting ? '…' : t('git.connect')}
+            </Button>
+            <p className="text-xs text-faint">{t('git.tokenHint')}</p>
+          </div>
+        </div>
       ) : (
         <>
           <dl className="mb-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
@@ -148,6 +180,9 @@ function GitCard() {
             <dt className="text-xs text-muted-foreground">{t('git.branch')}</dt>
             <dd className="font-mono text-[12.5px]">{status.branch}</dd>
           </dl>
+          {status.configuredBy === 'flags' && (
+            <p className="mb-3 text-xs text-faint">{t('git.pinnedByFlags')}</p>
+          )}
           <div className="mb-4 flex flex-wrap gap-1.5">
             <Chip tone={status.dirty ? 'warning' : 'success'}>{status.dirty ? t('git.dirty') : t('git.clean')}</Chip>
             {status.ahead > 0 && <Chip tone="info">↑ {t('git.ahead', { count: status.ahead })}</Chip>}

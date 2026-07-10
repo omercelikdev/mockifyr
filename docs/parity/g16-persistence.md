@@ -186,3 +186,21 @@ the same seam.
   possible), non-overlapping local edits surviving a pull, overlapping-edit refusal,
   dirty/ahead/behind status, token/userinfo scrubbing, and the unconfigured default
   (`Git.NotConfigured`).
+
+### Dashboard configuration (#151, amendment)
+
+- `POST /__admin/git/configure {remoteUrl, branch?}` connects an unpinned host from Settings; the
+  configuration persists in the working copy's own `.git/config` (restart-safe, no extra store).
+  The working copy resolves host-side: `--root-dir`, else `<cwd>/mockifyr-data` (`--git-work-dir`
+  overrides), and a flag-less host **adopts** an existing Git working copy at the default location
+  on startup. Connecting a pure in-memory host **snapshots every tenant's stubs** into the working
+  copy and activates file persistence (`SwitchableStubPersistence`) — nothing is lost, and the
+  first push publishes the current state. Flag-pinned hosts refuse (`Git.FlagPinned`), as do
+  DB-persistence hosts without a root-dir (`Git.PersistenceConflict`).
+- **Repo detection never climbs.** Working-copy checks test for `<dir>/.git` directly — `rev-parse
+  --git-dir` climbs to a parent repository, which for a nested default working copy would have
+  adopted (and mutated the origin of!) the enclosing project repo. Caught by the host-level
+  self-test.
+- **Regression cases:** `GitSyncTests` (configure/snapshot/restart-resolution/refusals/invalid
+  input) and `GitSyncConfigureHostTests` (flag-less host: HTTP configure → push → restart adoption
+  serves the synced stub).

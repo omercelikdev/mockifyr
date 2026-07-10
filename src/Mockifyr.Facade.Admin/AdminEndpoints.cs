@@ -227,18 +227,34 @@ public static class AdminEndpoints
         admin.MapGet("/git/status", async (ISender sender) =>
         {
             var result = await sender.Send(new GitStatusQuery());
-            return result.IsSuccess
-                ? Results.Json(new
-                {
-                    configured = result.Value.Configured,
-                    remote = result.Value.Remote,
-                    branch = result.Value.Branch,
-                    dirty = result.Value.Dirty,
-                    ahead = result.Value.Ahead,
-                    behind = result.Value.Behind,
-                    fetchError = result.Value.FetchError,
-                })
-                : GitFailure(result.Error);
+            return result.IsSuccess ? GitStatusJson(result.Value) : GitFailure(result.Error);
+        });
+
+        // Dashboard connect (#151): {"remoteUrl": "...", "branch": "main"?} — the working copy is
+        // resolved host-side (never typed by the operator); flag-pinned hosts refuse.
+        admin.MapPost("/git/configure", async (HttpRequest request, ISender sender) =>
+        {
+            string? remoteUrl = null;
+            string? branch = null;
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(await ReadBody(request));
+                remoteUrl = doc.RootElement.TryGetProperty("remoteUrl", out var r) ? r.GetString() : null;
+                branch = doc.RootElement.TryGetProperty("branch", out var b) ? b.GetString() : null;
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                // fall through to the empty-remote validation below
+            }
+
+            if (string.IsNullOrWhiteSpace(remoteUrl))
+            {
+                return Results.Json(new { error = "Git.InvalidRemote", message = "remoteUrl is required." },
+                    statusCode: StatusCodes.Status422UnprocessableEntity);
+            }
+
+            var result = await sender.Send(new GitConfigureCommand(remoteUrl!, branch));
+            return result.IsSuccess ? GitStatusJson(result.Value) : GitFailure(result.Error);
         });
 
         admin.MapPost("/git/push", async (HttpRequest request, ISender sender) =>
@@ -324,15 +340,30 @@ public static class AdminEndpoints
         }
     }
 
-    // Typed Git errors → HTTP: setup problems are 404, refusals (pull-first/diverged/dirty/branch)
-    // are 409, a rejected remote tree is 422, remote-auth failures are 502 — deliberately NOT 401,
-    // which the dashboard reserves for the host's own admin auth (it would pop the login gate).
+    private static IResult GitStatusJson(GitSyncStatus status) => Results.Json(new
+    {
+        configured = status.Configured,
+        remote = status.Remote,
+        branch = status.Branch,
+        dirty = status.Dirty,
+        ahead = status.Ahead,
+        behind = status.Behind,
+        fetchError = status.FetchError,
+        configuredBy = status.ConfiguredBy,
+        workingCopy = status.WorkingCopy,
+    });
+
+    // Typed Git errors → HTTP: setup problems are 404, refusals (pull-first/diverged/dirty/branch/
+    // pinned/persistence) are 409, invalid input or a rejected remote tree is 422, remote-auth
+    // failures are 502 — deliberately NOT 401, which the dashboard reserves for the host's own
+    // admin auth (it would pop the login gate).
     private static IResult GitFailure(Mediant.Results.Error error) =>
         Results.Json(new { error = error.Code, message = error.Description }, statusCode: error.Code switch
         {
-            "Git.NotConfigured" or "Git.RemoteBranchMissing" => StatusCodes.Status404NotFound,
-            "Git.InvalidMappings" => StatusCodes.Status422UnprocessableEntity,
-            "Git.RemoteAhead" or "Git.Diverged" or "Git.DirtyWorkingTree" or "Git.LocalOverlap" or "Git.WrongBranch" => StatusCodes.Status409Conflict,
+            "Git.NotConfigured" or "Git.NotSupported" or "Git.RemoteBranchMissing" => StatusCodes.Status404NotFound,
+            "Git.InvalidMappings" or "Git.InvalidRemote" or "Git.InvalidBranch" => StatusCodes.Status422UnprocessableEntity,
+            "Git.RemoteAhead" or "Git.Diverged" or "Git.DirtyWorkingTree" or "Git.LocalOverlap"
+                or "Git.WrongBranch" or "Git.FlagPinned" or "Git.PersistenceConflict" => StatusCodes.Status409Conflict,
             "Git.Auth" => StatusCodes.Status502BadGateway,
             _ => StatusCodes.Status500InternalServerError,
         });
