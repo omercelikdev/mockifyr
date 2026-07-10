@@ -2,8 +2,8 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import {
-  Activity, Bug, ChevronsRight, ChevronsUpDown, Disc, Globe, LayoutDashboard, LayoutGrid,
-  ListTree, LogOut, Moon, Search, Settings, UserCircle, Waypoints,
+  Activity, Bug, ChevronsRight, Disc, Globe, LayoutDashboard, LayoutGrid,
+  ListTree, LogOut, Moon, Search, Settings, SlidersHorizontal, Waypoints,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
@@ -12,7 +12,7 @@ import { LOCALES } from '@/lib/i18n'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { TenantSwitcher } from './tenant-switcher'
 import {
-  DropdownMenu, DropdownMenuCheckItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
+  DropdownMenu, DropdownMenuCheckItem, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Switch } from '@/components/ui/switch'
@@ -117,10 +117,10 @@ export function AppSidebar() {
           ))}
         </div>
 
-        {/* Tenant switcher (multi-tenancy) + profile menu (language submenu + dark toggle) */}
+        {/* Tenant switcher (multi-tenancy) + preferences menu (language submenu + dark toggle) */}
         <div className="flex shrink-0 flex-col gap-2 p-3">
           <TenantSwitcher collapsed={collapsed} />
-          <ProfileMenu collapsed={collapsed} />
+          <PreferencesMenu collapsed={collapsed} />
         </div>
       </nav>
     </TooltipProvider>
@@ -166,29 +166,25 @@ function NavRow({ item, collapsed, label, badge }: { item: NavItem; collapsed: b
   )
 }
 
-function ProfileMenu({ collapsed }: { collapsed: boolean }) {
+// There is no per-user identity in the platform (auth is a single host-level admin credential), so the
+// sidebar footer is a neutral preferences menu — the tenant switcher above it carries the context.
+function PreferencesMenu({ collapsed }: { collapsed: boolean }) {
   const { t } = useTranslation()
   const { theme, setTheme, locale, setLocale } = useUi()
   const active = LOCALES.find((l) => l.code === locale) ?? LOCALES[0]
+  // Re-read on every sidebar render; a successful login invalidates all queries (re-render), so the
+  // item appears without a reload. Losing it after sign-out matters less — the login gate covers the app.
+  const authed = hasAdminAuth()
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className={cn('flex w-full items-center gap-2.5 rounded-lg border border-border bg-muted/60 text-start transition-colors hover:border-border-strong', collapsed ? 'justify-center p-1.5' : 'p-2')}>
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">ÖÇ</span>
-          {!collapsed && (
-            <>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold leading-tight">Ömer Çelik</span>
-                <span className="block truncate text-xs leading-tight text-muted-foreground">{t('common.administrator')}</span>
-              </span>
-              <ChevronsUpDown className="size-4 shrink-0 text-faint" />
-            </>
-          )}
+        <button className={cn('flex w-full items-center gap-2.5 rounded-lg border border-border bg-muted/60 text-sm text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground', collapsed ? 'justify-center p-2.5' : 'px-3 py-2')}>
+          <SlidersHorizontal className="size-4 shrink-0" />
+          {!collapsed && <span className="min-w-0 flex-1 truncate text-start">{t('common.preferences')}</span>}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent side="top" align="start" className="w-[--radix-dropdown-menu-trigger-width] min-w-56">
-        <DropdownMenuLabel>omer.celik@omercelik.dev</DropdownMenuLabel>
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <Globe className="size-4 text-muted-foreground" />
@@ -209,22 +205,23 @@ function ProfileMenu({ collapsed }: { collapsed: boolean }) {
           <Switch checked={theme === 'dark'} className="ms-auto" tabIndex={-1} />
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem><Settings className="size-4 text-muted-foreground" />{t('nav.settings')}</DropdownMenuItem>
-        <DropdownMenuItem><UserCircle className="size-4 text-muted-foreground" />{t('common.profile')}</DropdownMenuItem>
-        <DropdownMenuItem><Bug className="size-4 text-muted-foreground" />{t('common.reportIssue')}</DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onSelect={(e) => {
-            e.preventDefault()
-            // Only re-open the login gate when the user actually had admin credentials (i.e. the host
-            // requires auth). On an open host, sign-out is a harmless no-op.
-            const wasAuthed = hasAdminAuth()
-            clearAdminAuth()
-            if (wasAuthed) window.dispatchEvent(new Event('mockifyr-auth-required'))
-          }}
-        >
-          <LogOut className="size-4 text-muted-foreground" />{t('common.signOut')}
+        <DropdownMenuItem asChild>
+          <a href="https://github.com/omercelikdev/mockifyr/issues" target="_blank" rel="noreferrer">
+            <Bug className="size-4 text-muted-foreground" />{t('common.reportIssue')}
+          </a>
         </DropdownMenuItem>
+        {/* Sign out only exists when the host runs with admin credentials; on an open host there is no session to end. */}
+        {authed && (
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault()
+              clearAdminAuth()
+              window.dispatchEvent(new Event('mockifyr-auth-required'))
+            }}
+          >
+            <LogOut className="size-4 text-muted-foreground" />{t('common.signOut')}
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )
