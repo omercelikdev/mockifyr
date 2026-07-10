@@ -26,14 +26,24 @@ public sealed class TemplatingResponseRenderer : IResponseRenderer
 
     // TextEncoder = null disables HTML escaping so output is emitted raw (non-escaping).
     private readonly IHandlebars _handlebars;
+    private readonly bool _globalTemplating;
 
-    public TemplatingResponseRenderer(IEnumerable<TemplateHelperExtension>? extraHelpers = null) =>
+    /// <summary>
+    /// <paramref name="globalTemplating"/> mirrors the reference host's
+    /// <c>--global-response-templating</c>: every response renders through the engine regardless of
+    /// the per-stub <c>transformers</c> list (#148, verified by the differential suite). Off, the
+    /// per-stub opt-in behavior is unchanged.
+    /// </summary>
+    public TemplatingResponseRenderer(IEnumerable<TemplateHelperExtension>? extraHelpers = null, bool globalTemplating = false)
+    {
         _handlebars = HandlebarsFactory.Create(extraHelpers);
+        _globalTemplating = globalTemplating;
+    }
 
     /// <inheritdoc />
     public CanonicalResponse Render(ResponseDefinition definition, RenderContext context)
     {
-        if (!definition.Transformers.Contains(ResponseTemplateTransformer))
+        if (!_globalTemplating && !definition.Transformers.Contains(ResponseTemplateTransformer))
         {
             return new CanonicalResponse
             {

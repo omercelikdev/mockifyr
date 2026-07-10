@@ -317,3 +317,18 @@ type='…'` silently fell back to defaults).
 - **Fix:** serialize `jsonBody` with `JavaScriptEncoder.UnsafeRelaxedJsonEscaping`.
 - **Regression:** `G2jTemplatedJsonBodyTests` — a templated `jsonBody` echoing `request.body` via a
   single-quoted `jsonPath` argument is byte-diffed against the oracle.
+
+## Global response templating (`--global-response-templating`, #148)
+
+- **The flag mirrors the reference host's:** every response renders through the templating engine
+  regardless of the per-stub `transformers` list. This matches the export shape of hosts that run
+  with global templating on — their mappings carry `{{…}}` bodies with **no** transformers entry,
+  which the per-stub opt-in mode would serve as literal text.
+- **Verified differentially:** the oracle container is started with `--global-response-templating`
+  (the harness's `WireMockOracle` now accepts extra command args) and a mapping whose body/headers
+  are templated but transformer-less renders **byte-identically** on both sides.
+- **Off by default:** without the flag the per-stub opt-in behavior is byte-for-byte unchanged
+  (covered by the existing G2 suite; the new test also pins the literal-text case).
+- **Placement:** the flag configures `TemplatingResponseRenderer(globalTemplating: true)` at the
+  host edge; the engine and the per-stub semantics are untouched.
+- **Regression case:** `G2iGlobalTemplatingTests`.
