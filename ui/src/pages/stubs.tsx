@@ -246,7 +246,7 @@ export function StubsPage() {
           <EmptyWorkspace t={t} empty={empty} onNew={() => openBlank('form')} onImport={() => openBlank('json')} />
         ) : (
           <>
-            <div className="flex items-stretch overflow-x-auto border-b border-border bg-muted/30">
+            <div className="scroll-area flex items-stretch overflow-x-auto border-b border-border bg-muted/30">
               {tabs.map((tab) => {
                 const stub = tab.stubId ? stubs.find((s) => s.id === tab.stubId) : null
                 const label = stub ? (stub.name || stub.url) : tab.kind === 'import' ? t('editor.importTitle') : t('editor.newTitle')
