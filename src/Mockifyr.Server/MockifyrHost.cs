@@ -70,6 +70,26 @@ public static class MockifyrHost
             }
         }
 
+        // Git sync (ADR 0007): --git-remote turns the root-dir working copy into a Git-synced stub
+        // set with explicit, validated push/pull over /__admin/git/*. Requires --root-dir (the
+        // working copy). Registered last so it wins over the not-configured default.
+        var gitRemote = builder.Configuration["git-remote"];
+        if (!string.IsNullOrWhiteSpace(gitRemote))
+        {
+            if (string.IsNullOrWhiteSpace(rootDir))
+            {
+                throw new InvalidOperationException("--git-remote requires --root-dir (the Git working copy).");
+            }
+
+            var gitBranch = builder.Configuration["git-branch"] is { Length: > 0 } b ? b : "main";
+            GitSyncService.ValidateConfiguration(gitRemote, gitBranch);
+            builder.Services.AddSingleton<Application.IGitSync>(sp => new GitSyncService(
+                rootDir, gitRemote, gitBranch,
+                sp.GetRequiredService<IStubStore>(),
+                sp.GetServices<IMappingsLoader>(),
+                sp.GetRequiredService<IMatcherRegistry>()));
+        }
+
         // LiteDB persistence (G16b): stubs persist to an embedded single-file database and reload on
         // startup. The LiteDatabase is a DI-created singleton so the container disposes it on shutdown
         // (flushing the file before the next process opens it).

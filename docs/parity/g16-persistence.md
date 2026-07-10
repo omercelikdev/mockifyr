@@ -156,3 +156,28 @@ the same seam.
   resolution is still a placeholder—default tenant—so non-default tenants are written via the persistence
   seam, which is how a tenant-aware peer would.) Coherence infrastructure, so no oracle.
 - **Regression case:** `G16gMultiTenantReloadTests.Reload_Reconciles_All_Tenants_Independently`.
+
+## Validated Git sync over the root-dir (post-G16 / issue #143, ADR 0007)
+
+- **Group / item:** post-roadmap platform feature — **self-tested** (WireMock has no Git surface, so
+  there is no oracle to diff; parity of the *served* stubs is already covered by G16a).
+- **Shape.** `--git-remote <url>` (+ `--git-branch`, default `main`) turns the `--root-dir` working
+  copy into a Git-synced stub set. Sync is explicit: `GET /__admin/git/status`,
+  `POST /__admin/git/push` (`{"message": …}` optional), `POST /__admin/git/pull`. The host shells out
+  to the plain `git` binary — every provider (GitHub/GitLab/Bitbucket/self-hosted, HTTPS or SSH)
+  behaves identically. HTTPS tokens come from `MOCKIFYR_GIT_TOKEN` (+ optional
+  `MOCKIFYR_GIT_USERNAME`) via an inline credential helper — never argv, never disk, and error
+  output is scrubbed of the token and URL userinfo.
+- **Safety invariants (each is a regression case in `GitSyncTests`):**
+  - *Pull validates before it applies*: every `mappings/**/*.json` blob in `FETCH_HEAD` is parsed
+    with the strict admin-path reader **before** the working tree moves; one bad file rejects the
+    pull wholesale (`Git.InvalidMappings` lists the files) and neither the tree nor the served
+    stubs change.
+  - *Fast-forward only*: a dirty working copy refuses to pull (`Git.DirtyWorkingTree` — push
+    first); divergent histories refuse (`Git.Diverged`); push refuses when the remote is ahead
+    (`Git.RemoteAhead` — pull first). Nothing is ever auto-merged or force-pushed.
+  - *Atomic serve-state swap*: an applied pull reconciles the store through the shared
+    change-feed reconciler (upsert-then-prune), so no live request window misses a stub.
+- **Regression cases:** `GitSyncTests` — two-host push→pull round-trip (same stub id served),
+  wholesale invalid-tree rejection, remote-ahead refusal, dirty-tree refusal, dirty/ahead/behind
+  status, token/userinfo scrubbing, and the unconfigured default (`Git.NotConfigured`).

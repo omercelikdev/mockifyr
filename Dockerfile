@@ -29,6 +29,9 @@ RUN case "$TARGETARCH" in \
 
 # ---- Stage 3: runtime (pulled for the target arch automatically) ----
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+# git backs the optional --git-remote sync (ADR 0007); hosts without the flag never invoke it.
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app ./
 COPY --from=ui /ui/dist ./dashboard
