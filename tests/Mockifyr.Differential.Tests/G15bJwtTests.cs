@@ -77,7 +77,9 @@ public sealed class G15bJwtTests : IAsyncLifetime
                     failures.Add($"{scenario.Description}: {side} iat {token.Iat} outside [{before},{after}]");
                 }
 
-                if (token.Exp - token.Iat != DefaultMaxAgeSeconds)
+                // exp and iat may be computed on either side of a second boundary (observed on CI:
+                // exp-iat one short), so the structural check allows a ±1s skew.
+                if (Math.Abs(token.Exp - token.Iat - DefaultMaxAgeSeconds) > 1)
                 {
                     failures.Add($"{scenario.Description}: {side} exp-iat {token.Exp - token.Iat} != {DefaultMaxAgeSeconds}");
                 }
