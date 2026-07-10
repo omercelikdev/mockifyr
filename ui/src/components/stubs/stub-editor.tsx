@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
 import { importMappings, saveStub, type Stub } from '@/lib/api'
-import { BODY_OPS, emptyStub, FAULTS, fromMapping, MATCH_OPS, stubSchema, suggestName, toJson, URL_MATCH, type StubForm } from '@/lib/stub-schema'
+import { BODY_OPS, BODY_SUB_OPS, emptyStub, FAULTS, fromMapping, MATCH_OPS, stubSchema, suggestName, toJson, URL_MATCH, type StubForm } from '@/lib/stub-schema'
 import { Sheet, SheetContent, SheetHeader } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input, Label, NativeSelect, Textarea } from '@/components/ui/field'
@@ -181,11 +181,25 @@ export function StubEditorForm({ editing, initialTab = 'form', prefillUrl, activ
                   <NativeSelect {...register(`headers.${i}.operator`)}>{MATCH_OPS.map((o) => <option key={o}>{o}</option>)}</NativeSelect>
                   <Input {...register(`headers.${i}.value`)} placeholder={t('editor.value')} />
                 </>)} />
-              <Rows label={t('editor.bodyMatchers')} fields={bodyPatterns.fields} onAdd={() => bodyPatterns.append({ operator: 'equalToJson', value: '' })} onRemove={bodyPatterns.remove}
-                render={(i) => (<>
-                  <NativeSelect {...register(`bodyPatterns.${i}.operator`)}>{BODY_OPS.map((o) => <option key={o}>{o}</option>)}</NativeSelect>
-                  <Input {...register(`bodyPatterns.${i}.value`)} placeholder={t('editor.value')} className="font-mono" />
-                </>)} twoCol />
+              <Rows label={t('editor.bodyMatchers')} fields={bodyPatterns.fields} onAdd={() => bodyPatterns.append({ operator: 'equalToJson', value: '', subOperator: '', subValue: '' })} onRemove={bodyPatterns.remove}
+                render={(i) => {
+                  // Path matchers get the object form's fields: expression + optional sub-matcher
+                  // (e.g. $.Header.activityName equalTo "DSL_Change"). Other operators are a single value.
+                  const op = watch(`bodyPatterns.${i}.operator`)
+                  const isPath = op === 'matchesJsonPath' || op === 'matchesXPath'
+                  return (<>
+                    <NativeSelect {...register(`bodyPatterns.${i}.operator`)}>{BODY_OPS.map((o) => <option key={o}>{o}</option>)}</NativeSelect>
+                    {isPath ? (
+                      <div className="grid grid-cols-[minmax(0,1.3fr)_120px_minmax(0,1fr)] gap-2">
+                        <Input {...register(`bodyPatterns.${i}.value`)} placeholder={op === 'matchesXPath' ? '//node' : '$.path.to.field'} className="font-mono" />
+                        <NativeSelect {...register(`bodyPatterns.${i}.subOperator`)}>{BODY_SUB_OPS.map((o) => <option key={o} value={o}>{o || t('editor.none')}</option>)}</NativeSelect>
+                        <Input {...register(`bodyPatterns.${i}.subValue`)} placeholder={t('editor.value')} className="font-mono" />
+                      </div>
+                    ) : (
+                      <Input {...register(`bodyPatterns.${i}.value`)} placeholder={t('editor.value')} className="font-mono" />
+                    )}
+                  </>)
+                }} twoCol />
             </Section>
 
             {/* Response */}
