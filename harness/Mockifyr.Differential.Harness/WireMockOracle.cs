@@ -19,17 +19,24 @@ public sealed class WireMockOracle : IAsyncDisposable
     private const ushort WireMockPort = 8080;
     private const ushort WireMockHttpsPort = 8443;
 
-    private readonly IContainer _container = new ContainerBuilder(Image)
-        .WithPortBinding(WireMockPort, assignRandomHostPort: true)
-        .WithPortBinding(WireMockHttpsPort, assignRandomHostPort: true)
-        // Enable the HTTPS listener too (G11a); WireMock serves it with its default self-signed cert.
-        .WithCommand("--https-port", "8443")
-        // Lets the container reach a host-side webhook receiver (G3) via host.docker.internal on
-        // Linux CI, where — unlike Docker Desktop — it is not resolvable by default.
-        .WithExtraHost("host.docker.internal", "host-gateway")
-        .WithWaitStrategy(Wait.ForUnixContainer()
-            .UntilHttpRequestIsSucceeded(r => r.ForPort(WireMockPort).ForPath("/__admin/mappings")))
-        .Build();
+    private readonly IContainer _container;
+
+    /// <summary>
+    /// Builds the oracle. <paramref name="extraCommandArgs"/> append to the standalone command line
+    /// (e.g. <c>--global-response-templating</c>), so host-flag behaviors can be diffed too.
+    /// </summary>
+    public WireMockOracle(params string[] extraCommandArgs) =>
+        _container = new ContainerBuilder(Image)
+            .WithPortBinding(WireMockPort, assignRandomHostPort: true)
+            .WithPortBinding(WireMockHttpsPort, assignRandomHostPort: true)
+            // Enable the HTTPS listener too (G11a); WireMock serves it with its default self-signed cert.
+            .WithCommand(["--https-port", "8443", .. extraCommandArgs])
+            // Lets the container reach a host-side webhook receiver (G3) via host.docker.internal on
+            // Linux CI, where — unlike Docker Desktop — it is not resolvable by default.
+            .WithExtraHost("host.docker.internal", "host-gateway")
+            .WithWaitStrategy(Wait.ForUnixContainer()
+                .UntilHttpRequestIsSucceeded(r => r.ForPort(WireMockPort).ForPath("/__admin/mappings")))
+            .Build();
 
     private HttpClient? _client;
     private HttpClient? _httpsClient;

@@ -90,6 +90,16 @@ public static class MockifyrHost
                 sp.GetRequiredService<IMatcherRegistry>()));
         }
 
+        // Global response templating (#148): mirrors the reference host's flag — every response
+        // renders through the templating engine regardless of the per-stub transformers list, so
+        // exports from hosts that ran with global templating serve their {{…}} bodies correctly.
+        // Registered last so it wins over AddMockifyr's opt-in default.
+        if (builder.Configuration.GetValue<bool>("global-response-templating"))
+        {
+            builder.Services.AddSingleton<Mockifyr.Core.IResponseRenderer>(
+                new Mockifyr.Templating.TemplatingResponseRenderer(extraHelpers: null, globalTemplating: true));
+        }
+
         // LiteDB persistence (G16b): stubs persist to an embedded single-file database and reload on
         // startup. The LiteDatabase is a DI-created singleton so the container disposes it on shutdown
         // (flushing the file before the next process opens it).
