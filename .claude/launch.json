@@ -1,6 +1,6 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "ui-dev", "runtimeExecutable": "pnpm", "runtimeArgs": ["--dir", "ui", "dev"], "port": 5173 }
+    { "name": "ui-dev", "runtimeExecutable": "pnpm", "runtimeArgs": ["--dir", "ui", "dev", "--port", "5174", "--strictPort"], "port": 5174 }
   ]
 }

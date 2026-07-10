@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ChevronRight, Download, Import, Plus, Trash2, X } from 'lucide-react'
+import { ChevronRight, ChevronsDownUp, ChevronsUpDown, Download, Import, Pin, PinOff, Plus, Trash2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
 import { deleteStub, fetchStubs, type Stub } from '@/lib/api'
@@ -16,6 +16,8 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { PickArt, StubsArt } from '@/components/ui/illustrations'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { applyFilters, clearFacet, countSelected, type FacetDef, facetOptions, type Selections, toggleSelection } from '@/lib/faceted'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { ContextMenu, type ContextMenuAction } from '@/components/ui/context-menu'
 import { StubEditorForm } from '@/components/stubs/stub-editor'
 
 const EMPTY_SET = new Set<string>()
@@ -24,7 +26,10 @@ const FACETS: FacetDef<Stub>[] = [
   { id: 'status', get: (s) => s.status },
 ]
 
-interface Tab { key: string; kind: 'stub' | 'new' | 'import'; stubId?: string; initial: 'form' | 'json'; prefillUrl?: string }
+interface Tab { key: string; kind: 'stub' | 'new' | 'import'; stubId?: string; initial: 'form' | 'json'; prefillUrl?: string; pinned?: boolean }
+
+// Pinned tabs stay at the start of the bar and survive the bulk close actions (Close Others/All/Right/Left).
+const sortPinnedFirst = (tabs: Tab[]) => [...tabs.filter((x) => x.pinned), ...tabs.filter((x) => !x.pinned)]
 
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n))
 
@@ -62,17 +67,22 @@ export function StubsPage() {
     if (isLoading || restored.current === tenant) return
     restored.current = tenant
     try {
-      const saved = JSON.parse(localStorage.getItem(storageKey) ?? 'null') as { ids?: string[]; active?: string } | null
+      const saved = JSON.parse(localStorage.getItem(storageKey) ?? 'null') as { ids?: string[]; active?: string; pinned?: string[] } | null
+      const pinnedIds = new Set(saved?.pinned ?? [])
       const ids = (saved?.ids ?? []).filter((id) => stubs.some((s) => s.id === id))
-      const restoredTabs = ids.map<Tab>((id) => ({ key: `stub:${id}`, kind: 'stub', stubId: id, initial: 'form' }))
+      const restoredTabs = sortPinnedFirst(ids.map<Tab>((id) => ({ key: `stub:${id}`, kind: 'stub', stubId: id, initial: 'form', pinned: pinnedIds.has(id) })))
       setTabs(restoredTabs)
       setActive(restoredTabs.some((x) => x.key === saved?.active) ? saved!.active! : restoredTabs[0]?.key ?? '')
     } catch { /* start clean */ }
   }, [isLoading, tenant, stubs, storageKey])
 
   useEffect(() => {
-    const ids = tabs.filter((x) => x.kind === 'stub' && x.stubId).map((x) => x.stubId!)
-    localStorage.setItem(storageKey, JSON.stringify({ ids, active }))
+    const stubTabs = tabs.filter((x) => x.kind === 'stub' && x.stubId)
+    localStorage.setItem(storageKey, JSON.stringify({
+      ids: stubTabs.map((x) => x.stubId),
+      active,
+      pinned: stubTabs.filter((x) => x.pinned).map((x) => x.stubId),
+    }))
   }, [tabs, active, storageKey])
 
   const openStub = useCallback((stub: Stub) => {
@@ -98,15 +108,37 @@ export function StubsPage() {
     setDirty((d) => { const { [key]: _, ...rest } = d; return rest })
   }, [])
 
+  // Bulk close (context menu actions). If the active tab is among the closed, focus falls back to
+  // `fallback` — the surviving tab the action was invoked from, or the last survivor.
+  const closeMany = useCallback((keys: string[], fallback?: string) => {
+    if (keys.length === 0) return
+    const drop = new Set(keys)
+    setTabs((prev) => {
+      const next = prev.filter((x) => !drop.has(x.key))
+      setActive((cur) => (!drop.has(cur) ? cur : fallback ?? next[next.length - 1]?.key ?? ''))
+      return next
+    })
+    setDirty((d) => Object.fromEntries(Object.entries(d).filter(([k]) => !drop.has(k))))
+  }, [])
+
+  const togglePin = useCallback((key: string) => {
+    setTabs((prev) => sortPinnedFirst(prev.map((x) => (x.key === key ? { ...x, pinned: !x.pinned } : x))))
+  }, [])
+
+  // Right-click context menu on a tab — position + target tab key.
+  const [menu, setMenu] = useState<{ x: number; y: number; key: string } | null>(null)
+
   const [searchParams, setSearchParams] = useSearchParams()
   useEffect(() => {
     if (searchParams.get('new') === '1') { openBlank('form'); setSearchParams({}, { replace: true }) }
     else if (searchParams.get('import') === '1') { openBlank('json'); setSearchParams({}, { replace: true }) }
   }, [searchParams, setSearchParams, openBlank])
 
+  // Exports a bare top-level array (no {"mappings":…} wrapper) — the import path (UI and host) accepts
+  // both shapes, so an export always round-trips unmodified.
   const exportAll = useCallback(() => {
     const mappings = stubs.map((s) => s.raw).filter(Boolean)
-    const blob = new Blob([JSON.stringify({ mappings }, null, 2)], { type: 'application/json' })
+    const blob = new Blob([JSON.stringify(mappings, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -115,7 +147,11 @@ export function StubsPage() {
     URL.revokeObjectURL(url)
   }, [stubs, tenant])
 
+  // Delete asks first: the trash icon only opens the confirmation dialog; the API call happens on
+  // explicit confirm. Cancel/Escape/outside click leave the stub untouched.
+  const [confirmDelete, setConfirmDelete] = useState<Stub | null>(null)
   const remove = useCallback(async (stub: Stub) => {
+    setConfirmDelete(null)
     const { mock } = await deleteStub(tenant, stub.id)
     toast[mock ? 'message' : 'success'](mock ? t('editor.savedSample') : t('editor.deleted'))
     closeTab(`stub:${stub.id}`)
@@ -127,6 +163,11 @@ export function StubsPage() {
     if (saved && tab.kind !== 'stub') closeTab(tab.key)
     else setDirty((d) => ({ ...d, [tab.key]: false }))
   }, [refresh, closeTab])
+
+  // Expand/Collapse All — an epoch'd signal so every tree node applies the latest bulk action once,
+  // while individual chevron toggles keep working afterwards.
+  const [bulk, setBulk] = useState<{ open: boolean; n: number } | null>(null)
+  const setAllOpen = useCallback((open: boolean) => setBulk((b) => ({ open, n: (b?.n ?? 0) + 1 })), [])
 
   const empty = !isLoading && stubs.length === 0
 
@@ -156,6 +197,12 @@ export function StubsPage() {
             <TooltipProvider delayDuration={300}>
               <div className="ms-auto flex gap-0.5">
                 <Tooltip><TooltipTrigger asChild>
+                  <Button variant="ghost" size="iconSm" aria-label={t('stubs.expandAll')} onClick={() => setAllOpen(true)} disabled={!filtered.length}><ChevronsUpDown /></Button>
+                </TooltipTrigger><TooltipContent>{t('stubs.expandAll')}</TooltipContent></Tooltip>
+                <Tooltip><TooltipTrigger asChild>
+                  <Button variant="ghost" size="iconSm" aria-label={t('stubs.collapseAll')} onClick={() => setAllOpen(false)} disabled={!filtered.length}><ChevronsDownUp /></Button>
+                </TooltipTrigger><TooltipContent>{t('stubs.collapseAll')}</TooltipContent></Tooltip>
+                <Tooltip><TooltipTrigger asChild>
                   <Button variant="ghost" size="iconSm" aria-label={t('stubs.export')} onClick={exportAll} disabled={!stubs.length}><Download /></Button>
                 </TooltipTrigger><TooltipContent>{t('stubs.export')}</TooltipContent></Tooltip>
                 <Tooltip><TooltipTrigger asChild>
@@ -182,7 +229,7 @@ export function StubsPage() {
           ) : filtered.length === 0 ? (
             <p className="p-3 text-sm text-faint">{filtering ? t('stubs.empty') : t('dashboard.getStarted')}</p>
           ) : (
-            <TreeView node={tree} depth={0} basePath="" defaultOpen={filtered.length <= 40} forceOpen={filtering} activeStubId={activeStubId} onOpen={openStub} onDelete={remove} onAddUnder={(url) => openBlank('form', url)} />
+            <TreeView node={tree} depth={0} basePath="" defaultOpen={filtered.length <= 40} forceOpen={filtering} bulk={bulk} activeStubId={activeStubId} onOpen={openStub} onDelete={setConfirmDelete} onAddUnder={(url) => openBlank('form', url)} />
           )}
         </div>
         {data?.mock && <div className="p-2 text-center"><span className="rounded-full border border-warning-border bg-warning-bg px-2 py-0.5 text-[11px] font-medium text-warning">{t('stubs.sample')}</span></div>}
@@ -199,14 +246,20 @@ export function StubsPage() {
           <EmptyWorkspace t={t} empty={empty} onNew={() => openBlank('form')} onImport={() => openBlank('json')} />
         ) : (
           <>
-            <div className="flex items-stretch overflow-x-auto border-b border-border bg-muted/30">
+            <div className="scroll-area flex items-stretch overflow-x-auto border-b border-border bg-muted/30">
               {tabs.map((tab) => {
                 const stub = tab.stubId ? stubs.find((s) => s.id === tab.stubId) : null
                 const label = stub ? (stub.name || stub.url) : tab.kind === 'import' ? t('editor.importTitle') : t('editor.newTitle')
                 return (
                   <button key={tab.key} onClick={() => setActive(tab.key)}
+                    // Middle-click closes (browser-tab convention); mousedown is prevented too so the
+                    // browser's autoscroll/paste-on-middle-click never kicks in over a tab.
+                    onMouseDown={(e) => { if (e.button === 1) e.preventDefault() }}
+                    onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); closeTab(tab.key) } }}
+                    onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY, key: tab.key }) }}
                     className={cn('group flex max-w-[220px] shrink-0 items-center gap-2 border-e border-border px-3 py-2 text-[12.5px] transition-colors',
                       active === tab.key ? 'border-b-2 border-b-primary bg-background text-foreground' : 'text-muted-foreground hover:text-foreground')}>
+                    {tab.pinned && <Pin className="size-3 shrink-0 text-faint" aria-label={t('tabs.pin')} />}
                     {stub && <MethodChip method={stub.method} />}
                     <span className="truncate">{label}</span>
                     {dirty[tab.key] && <span className="size-1.5 shrink-0 rounded-full bg-primary" aria-label="unsaved" />}
@@ -223,6 +276,7 @@ export function StubsPage() {
                   editing={tab.stubId ? stubs.find((s) => s.id === tab.stubId) ?? null : null}
                   initialTab={tab.initial}
                   prefillUrl={tab.prefillUrl}
+                  active={active === tab.key}
                   onSaved={(saved) => onTabSaved(tab, saved)}
                   onDirtyChange={(d) => setDirty((prev) => (prev[tab.key] === d ? prev : { ...prev, [tab.key]: d }))}
                 />
@@ -231,8 +285,62 @@ export function StubsPage() {
           </>
         )}
       </section>
+
+      {menu && <TabContextMenu menu={menu} tabs={tabs} onClose={() => setMenu(null)} closeTab={closeTab} closeMany={closeMany} togglePin={togglePin} />}
+
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        onOpenChange={(o) => { if (!o) setConfirmDelete(null) }}
+        title={t('stubs.deleteConfirmTitle')}
+        body={t('stubs.deleteConfirmBody')}
+        confirmLabel={t('stubs.delete')}
+        cancelLabel={t('editor.cancel')}
+        destructive
+        onConfirm={() => { if (confirmDelete) void remove(confirmDelete) }}
+      >
+        {confirmDelete && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
+            <MethodChip method={confirmDelete.method} />
+            <span className="min-w-0 truncate font-mono text-[12.5px]">{confirmDelete.url}</span>
+            {confirmDelete.name && <span className="ms-auto shrink-0 truncate text-muted-foreground">{confirmDelete.name}</span>}
+          </div>
+        )}
+      </ConfirmDialog>
     </div>
   )
+}
+
+// The tab bar's right-click menu: single/bulk close (pinned tabs survive the bulk actions) + pin toggle.
+function TabContextMenu({ menu, tabs, onClose, closeTab, closeMany, togglePin }: {
+  menu: { x: number; y: number; key: string }
+  tabs: Tab[]
+  onClose: () => void
+  closeTab: (key: string) => void
+  closeMany: (keys: string[], fallback?: string) => void
+  togglePin: (key: string) => void
+}) {
+  const { t } = useTranslation()
+  const idx = tabs.findIndex((x) => x.key === menu.key)
+  const target = tabs[idx]
+  if (!target) return null
+  const closable = (list: Tab[]) => list.filter((x) => !x.pinned && x.key !== menu.key).map((x) => x.key)
+  const others = closable(tabs)
+  const right = closable(tabs.slice(idx + 1))
+  const left = closable(tabs.slice(0, idx))
+  const actions: ContextMenuAction[] = [
+    { label: t('tabs.close'), icon: <X className="size-3.5" />, onSelect: () => closeTab(menu.key) },
+    { label: t('tabs.closeOthers'), disabled: others.length === 0, onSelect: () => closeMany(others, menu.key) },
+    { label: t('tabs.closeRight'), disabled: right.length === 0, onSelect: () => closeMany(right, menu.key) },
+    { label: t('tabs.closeLeft'), disabled: left.length === 0, onSelect: () => closeMany(left, menu.key) },
+    { label: t('tabs.closeAll'), disabled: tabs.every((x) => x.pinned), onSelect: () => closeMany(tabs.filter((x) => !x.pinned).map((x) => x.key)) },
+    {
+      label: target.pinned ? t('tabs.unpin') : t('tabs.pin'),
+      icon: target.pinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />,
+      separatorBefore: true,
+      onSelect: () => togglePin(menu.key),
+    },
+  ]
+  return <ContextMenu x={menu.x} y={menu.y} actions={actions} onClose={onClose} />
 }
 
 interface TreeProps {
@@ -241,6 +349,7 @@ interface TreeProps {
   basePath: string
   defaultOpen: boolean
   forceOpen: boolean
+  bulk: { open: boolean; n: number } | null
   activeStubId?: string
   onOpen: (s: Stub) => void
   onDelete: (s: Stub) => void
@@ -265,6 +374,22 @@ function TreeView({ node, depth, basePath, ...shared }: TreeProps) {
   )
 }
 
+// One tree node's expanded state, wired to the sidebar's Expand/Collapse All signal. Children only
+// mount once their parent expands, so a node born after a bulk action seeds from that action's state —
+// this is what makes Expand All reach every depth. Individual chevron toggles keep working in between;
+// the epoch guard stops a stale signal from clobbering them on re-render.
+function useOpenState({ bulk, defaultOpen }: Pick<Shared, 'bulk' | 'defaultOpen'>) {
+  const [open, setOpen] = useState(bulk ? bulk.open : defaultOpen)
+  const applied = useRef(bulk?.n ?? 0)
+  useEffect(() => {
+    if (bulk && bulk.n !== applied.current) {
+      applied.current = bulk.n
+      setOpen(bulk.open)
+    }
+  }, [bulk])
+  return [open, setOpen] as const
+}
+
 // A subtle connector line + breathing room wraps every nested level so the hierarchy reads at a glance.
 // The line sits at 15px — row padding (8) + half a chevron (7) — so it drops straight under the parent's
 // chevron. Padding is kept tight so 3–4 levels deep don't eat the panel's width.
@@ -273,7 +398,7 @@ function Nested({ children }: { children: React.ReactNode }) {
 }
 
 function Folder({ seg, child, depth, basePath, ...shared }: Shared & { seg: string; child: StubTreeNode; depth: number }) {
-  const [open, setOpen] = useState(shared.defaultOpen)
+  const [open, setOpen] = useOpenState(shared)
   const expanded = shared.forceOpen || open
   return (
     <div>
@@ -291,7 +416,7 @@ function Folder({ seg, child, depth, basePath, ...shared }: Shared & { seg: stri
 }
 
 function MethodGroup({ method, stubs, basePath, ...shared }: Shared & { method: string; stubs: Stub[] }) {
-  const [open, setOpen] = useState(shared.defaultOpen)
+  const [open, setOpen] = useOpenState(shared)
   const expanded = shared.forceOpen || open
   // Order cases by status code, then name — so the happy path (2xx) reads first.
   const cases = [...stubs].sort((a, b) => (a.responseStatus ?? 0) - (b.responseStatus ?? 0) || (a.name ?? '').localeCompare(b.name ?? ''))

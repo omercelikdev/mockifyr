@@ -6,6 +6,8 @@ import { z } from 'zod'
 
 export const MATCH_OPS = ['equalTo', 'contains', 'matches', 'doesNotMatch'] as const
 export const BODY_OPS = ['equalTo', 'equalToJson', 'matchesJsonPath', 'matchesXPath', 'contains', 'matches'] as const
+// matchesJsonPath/matchesXPath object form: { expression, <subOp>: value }. '' = plain expression form.
+export const BODY_SUB_OPS = ['', 'equalTo', 'contains', 'matches', 'doesNotMatch'] as const
 export const URL_MATCH = ['urlPath', 'url', 'urlPathPattern', 'urlPattern'] as const
 export const FAULTS = ['', 'EMPTY_RESPONSE', 'MALFORMED_RESPONSE_CHUNK', 'RANDOM_DATA_THEN_CLOSE', 'CONNECTION_RESET_BY_PEER'] as const
 
@@ -27,7 +29,7 @@ export const stubSchema = z.object({
   urlValue: z.string().min(1, 'URL is required'),
   headers: z.array(kvMatcher),
   queryParams: z.array(kvMatcher),
-  bodyPatterns: z.array(z.object({ operator: z.enum(BODY_OPS), value: z.string() })),
+  bodyPatterns: z.array(z.object({ operator: z.enum(BODY_OPS), value: z.string(), subOperator: z.enum(BODY_SUB_OPS), subValue: z.string() })),
   priority: z.coerce.number({ message: 'Priority must be a number' }).int().min(1, 'Priority must be 1–255').max(255, 'Priority must be 1–255'),
   scenarioName: z.string(),
   requiredScenarioState: z.string(),
@@ -77,7 +79,10 @@ export const emptyStub: StubForm = {
   responseStatus: 200,
   responseHeaders: [{ name: 'Content-Type', value: 'application/json' }],
   responseBody: '',
-  useTemplating: false,
+  // Default ON for new stubs: in practice almost every authored body maps request values ({{…}}),
+  // and modern WireMock applies templating globally by default, so OFF surprised operators.
+  // Editing an existing stub still reflects the mapping's own transformers (fromMapping).
+  useTemplating: true,
   fixedDelayMs: '',
   fault: '',
   proxyBaseUrl: '',
@@ -95,7 +100,7 @@ export function toMapping(f: StubForm): Record<string, unknown> {
   if (headerMap) request.headers = headerMap
   const queryMap = matcherMap(f.queryParams)
   if (queryMap) request.queryParameters = queryMap
-  if (f.bodyPatterns.length) request.bodyPatterns = f.bodyPatterns.map((b) => ({ [b.operator]: b.operator === 'equalToJson' ? tryJson(b.value) : b.value }))
+  if (f.bodyPatterns.length) request.bodyPatterns = f.bodyPatterns.map(serializeBodyPattern)
 
   const response: Record<string, unknown> = {}
   if (f.proxyBaseUrl.trim()) {
@@ -165,7 +170,15 @@ export function fromMapping(mapping: Record<string, unknown>): StubForm {
         const entry = obj(p)
         const operator = BODY_OPS.find((o) => o in entry) ?? 'equalToJson'
         const v = entry[operator]
-        return { operator, value: typeof v === 'string' ? v : JSON.stringify(v ?? '', null, 2) }
+        // Object-form path matcher { expression, <subOp>: value } maps onto the row's expression +
+        // sub-matcher fields; any richer shape stays a JSON blob (parsed back on save, never corrupted).
+        if (operator === 'matchesJsonPath' || operator === 'matchesXPath') {
+          const o = obj(v)
+          const subOperator = BODY_SUB_OPS.find((s) => s !== '' && s in o)
+          if (typeof o.expression === 'string' && subOperator && typeof o[subOperator] === 'string' && Object.keys(o).length === 2)
+            return { operator, value: o.expression, subOperator, subValue: o[subOperator] as string }
+        }
+        return { operator, value: typeof v === 'string' ? v : JSON.stringify(v ?? '', null, 2), subOperator: '' as const, subValue: '' }
       })
     : []
 
@@ -199,6 +212,20 @@ export function fromMapping(mapping: Record<string, unknown>): StubForm {
     webhookHeaders: Object.entries(obj(whParams.headers)).map(([name, value]) => ({ name, value: str(value) })),
     webhookDelayMs: typeof whDelay.milliseconds === 'number' ? String(whDelay.milliseconds) : '',
   }
+}
+
+// The two path matchers distinguish a string form (the value IS the path expression) from an object
+// form ({ expression, <subOp>: value }). Everything else serializes the row value as-is.
+function serializeBodyPattern(b: StubForm['bodyPatterns'][number]): Record<string, unknown> {
+  if (b.operator === 'equalToJson') return { equalToJson: tryJson(b.value) }
+  if (b.operator === 'matchesJsonPath' || b.operator === 'matchesXPath') {
+    if (b.subOperator && b.subValue.trim() !== '') return { [b.operator]: { expression: b.value, [b.subOperator]: b.subValue } }
+    // A JSON-blob fallback (an object shape the row fields don't model, kept verbatim by fromMapping)
+    // must parse back to the object — serializing it as a "path expression" string corrupts the matcher.
+    const parsed = tryJson(b.value)
+    if (parsed !== null && typeof parsed === 'object') return { [b.operator]: parsed }
+  }
+  return { [b.operator]: b.value }
 }
 
 function matcherMap(rows: StubForm['headers']): Record<string, unknown> | null {

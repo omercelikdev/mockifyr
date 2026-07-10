@@ -27,7 +27,7 @@ function HelperCard({ h }: { h: Helper }) {
         <span className="font-mono text-[12.5px] font-semibold text-foreground">{h.name}</span>
       </div>
       <p className="mt-1 text-[12.5px] text-muted-foreground">{h.desc}</p>
-      <pre className="mt-2 overflow-x-auto rounded-lg border border-border bg-muted/50 px-2.5 py-1.5 font-mono text-[12px] text-foreground">{h.syntax}</pre>
+      <pre className="scroll-area mt-2 overflow-x-auto rounded-lg border border-border bg-muted/50 px-2.5 py-1.5 font-mono text-[12px] text-foreground">{h.syntax}</pre>
       {h.example && (
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11.5px] text-faint">
           <span className="font-mono">{h.example}</span>

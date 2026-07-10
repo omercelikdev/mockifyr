@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
 import { importMappings, saveStub, type Stub } from '@/lib/api'
-import { BODY_OPS, emptyStub, FAULTS, fromMapping, MATCH_OPS, stubSchema, suggestName, toJson, URL_MATCH, type StubForm } from '@/lib/stub-schema'
+import { BODY_OPS, BODY_SUB_OPS, emptyStub, FAULTS, fromMapping, MATCH_OPS, stubSchema, suggestName, toJson, URL_MATCH, type StubForm } from '@/lib/stub-schema'
 import { Sheet, SheetContent, SheetHeader } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input, Label, NativeSelect, Textarea } from '@/components/ui/field'
@@ -53,10 +53,12 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
  * The stub editor body — Form + JSON tabs, validation, and Save. Renders inline (no Sheet) so the
  * Stubs workspace can host one per open tab. Reports unsaved state via onDirtyChange for the tab dot.
  */
-export function StubEditorForm({ editing, initialTab = 'form', prefillUrl, onSaved, onCancel, onDirtyChange }: {
+export function StubEditorForm({ editing, initialTab = 'form', prefillUrl, active = true, onSaved, onCancel, onDirtyChange }: {
   editing: Stub | null
   initialTab?: 'form' | 'json'
   prefillUrl?: string
+  /** Only the active (visible) tab's editor listens for the save shortcut — every open tab stays mounted. */
+  active?: boolean
   onSaved: (saved: boolean) => void
   onCancel?: () => void
   onDirtyChange?: (dirty: boolean) => void
@@ -128,6 +130,22 @@ export function StubEditorForm({ editing, initialTab = 'form', prefillUrl, onSav
     try { JSON.parse(rawJson); return null } catch { return t('editor.invalidJson') }
   })()
 
+  // Ctrl+S / Cmd+S saves via the same path as the Save button (browser save dialog suppressed). The ref
+  // re-captures the latest closure every render so the window listener binds once per `active` flip.
+  const shortcutSave = useRef(() => {})
+  shortcutSave.current = () => { if (!saving && !jsonError) void handleSubmit(persist, () => setTab('form'))() }
+  useEffect(() => {
+    if (!active) return
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        shortcutSave.current()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [active])
+
   return (
     <div className="flex h-full min-h-0 flex-col">
         <Tabs value={tab} onValueChange={(v) => setTab(v as 'form' | 'json')} className="flex min-h-0 flex-1 flex-col">
@@ -163,11 +181,25 @@ export function StubEditorForm({ editing, initialTab = 'form', prefillUrl, onSav
                   <NativeSelect {...register(`headers.${i}.operator`)}>{MATCH_OPS.map((o) => <option key={o}>{o}</option>)}</NativeSelect>
                   <Input {...register(`headers.${i}.value`)} placeholder={t('editor.value')} />
                 </>)} />
-              <Rows label={t('editor.bodyMatchers')} fields={bodyPatterns.fields} onAdd={() => bodyPatterns.append({ operator: 'equalToJson', value: '' })} onRemove={bodyPatterns.remove}
-                render={(i) => (<>
-                  <NativeSelect {...register(`bodyPatterns.${i}.operator`)}>{BODY_OPS.map((o) => <option key={o}>{o}</option>)}</NativeSelect>
-                  <Input {...register(`bodyPatterns.${i}.value`)} placeholder={t('editor.value')} className="font-mono" />
-                </>)} twoCol />
+              <Rows label={t('editor.bodyMatchers')} fields={bodyPatterns.fields} onAdd={() => bodyPatterns.append({ operator: 'equalToJson', value: '', subOperator: '', subValue: '' })} onRemove={bodyPatterns.remove}
+                render={(i) => {
+                  // Path matchers get the object form's fields: expression + optional sub-matcher
+                  // (e.g. $.Header.activityName equalTo "DSL_Change"). Other operators are a single value.
+                  const op = watch(`bodyPatterns.${i}.operator`)
+                  const isPath = op === 'matchesJsonPath' || op === 'matchesXPath'
+                  return (<>
+                    <NativeSelect {...register(`bodyPatterns.${i}.operator`)}>{BODY_OPS.map((o) => <option key={o}>{o}</option>)}</NativeSelect>
+                    {isPath ? (
+                      <div className="grid grid-cols-[minmax(0,1.3fr)_120px_minmax(0,1fr)] gap-2">
+                        <Input {...register(`bodyPatterns.${i}.value`)} placeholder={op === 'matchesXPath' ? '//node' : '$.path.to.field'} className="font-mono" />
+                        <NativeSelect {...register(`bodyPatterns.${i}.subOperator`)}>{BODY_SUB_OPS.map((o) => <option key={o} value={o}>{o || t('editor.none')}</option>)}</NativeSelect>
+                        <Input {...register(`bodyPatterns.${i}.subValue`)} placeholder={t('editor.value')} className="font-mono" />
+                      </div>
+                    ) : (
+                      <Input {...register(`bodyPatterns.${i}.value`)} placeholder={t('editor.value')} className="font-mono" />
+                    )}
+                  </>)
+                }} twoCol />
             </Section>
 
             {/* Response */}
@@ -182,7 +214,7 @@ export function StubEditorForm({ editing, initialTab = 'form', prefillUrl, onSav
                   <Input {...register(`responseHeaders.${i}.value`)} placeholder={t('editor.value')} />
                 </>)} twoCol />
               <div><Label>{t('editor.body')}</Label>
-                <JsonField value={watch('responseBody') ?? ''} onChange={(v) => form.setValue('responseBody', v, { shouldDirty: true })} height={180} lint={false} minimal />
+                <JsonField value={watch('responseBody') ?? ''} onChange={(v) => form.setValue('responseBody', v, { shouldDirty: true })} height={360} lint={false} minimal />
               </div>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <label className="flex items-center gap-2.5 text-sm">
@@ -221,7 +253,7 @@ export function StubEditorForm({ editing, initialTab = 'form', prefillUrl, onSav
                   <Input {...register(`webhookHeaders.${i}.value`)} placeholder={t('editor.value')} />
                 </>)} twoCol />
               <div><Label>{t('editor.webhookBody')}</Label>
-                <JsonField value={watch('webhookBody') ?? ''} onChange={(v) => form.setValue('webhookBody', v, { shouldDirty: true })} height={140} lint={false} minimal />
+                <JsonField value={watch('webhookBody') ?? ''} onChange={(v) => form.setValue('webhookBody', v, { shouldDirty: true })} height={300} lint={false} minimal />
               </div>
             </Section>
           </TabsContent>
