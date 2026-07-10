@@ -62,7 +62,7 @@
   --accent: #202026;
   --accent-foreground: #fafafa;
 
-  --sidebar: #0f0f13;
+  --sidebar: #0a0a0c;        /* identical to --app (as in light mode) so the sidebar melts into the frame instead of reading as its own panel */
   --sidebar-foreground: #f4f4f5;
   --sidebar-accent: #202026;
   --sidebar-accent-foreground: #fafafa;
