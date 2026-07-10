@@ -79,7 +79,10 @@ export const emptyStub: StubForm = {
   responseStatus: 200,
   responseHeaders: [{ name: 'Content-Type', value: 'application/json' }],
   responseBody: '',
-  useTemplating: false,
+  // Default ON for new stubs: in practice almost every authored body maps request values ({{…}}),
+  // and modern WireMock applies templating globally by default, so OFF surprised operators.
+  // Editing an existing stub still reflects the mapping's own transformers (fromMapping).
+  useTemplating: true,
   fixedDelayMs: '',
   fault: '',
   proxyBaseUrl: '',
