@@ -53,10 +53,12 @@ export function StubEditor({ open, onOpenChange, editing, onSaved, initialTab = 
  * The stub editor body — Form + JSON tabs, validation, and Save. Renders inline (no Sheet) so the
  * Stubs workspace can host one per open tab. Reports unsaved state via onDirtyChange for the tab dot.
  */
-export function StubEditorForm({ editing, initialTab = 'form', prefillUrl, onSaved, onCancel, onDirtyChange }: {
+export function StubEditorForm({ editing, initialTab = 'form', prefillUrl, active = true, onSaved, onCancel, onDirtyChange }: {
   editing: Stub | null
   initialTab?: 'form' | 'json'
   prefillUrl?: string
+  /** Only the active (visible) tab's editor listens for the save shortcut — every open tab stays mounted. */
+  active?: boolean
   onSaved: (saved: boolean) => void
   onCancel?: () => void
   onDirtyChange?: (dirty: boolean) => void
@@ -128,6 +130,22 @@ export function StubEditorForm({ editing, initialTab = 'form', prefillUrl, onSav
     try { JSON.parse(rawJson); return null } catch { return t('editor.invalidJson') }
   })()
 
+  // Ctrl+S / Cmd+S saves via the same path as the Save button (browser save dialog suppressed). The ref
+  // re-captures the latest closure every render so the window listener binds once per `active` flip.
+  const shortcutSave = useRef(() => {})
+  shortcutSave.current = () => { if (!saving && !jsonError) void handleSubmit(persist, () => setTab('form'))() }
+  useEffect(() => {
+    if (!active) return
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        shortcutSave.current()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [active])
+
   return (
     <div className="flex h-full min-h-0 flex-col">
         <Tabs value={tab} onValueChange={(v) => setTab(v as 'form' | 'json')} className="flex min-h-0 flex-1 flex-col">
@@ -182,7 +200,7 @@ export function StubEditorForm({ editing, initialTab = 'form', prefillUrl, onSav
                   <Input {...register(`responseHeaders.${i}.value`)} placeholder={t('editor.value')} />
                 </>)} twoCol />
               <div><Label>{t('editor.body')}</Label>
-                <JsonField value={watch('responseBody') ?? ''} onChange={(v) => form.setValue('responseBody', v, { shouldDirty: true })} height={180} lint={false} minimal />
+                <JsonField value={watch('responseBody') ?? ''} onChange={(v) => form.setValue('responseBody', v, { shouldDirty: true })} height={360} lint={false} minimal />
               </div>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <label className="flex items-center gap-2.5 text-sm">
@@ -221,7 +239,7 @@ export function StubEditorForm({ editing, initialTab = 'form', prefillUrl, onSav
                   <Input {...register(`webhookHeaders.${i}.value`)} placeholder={t('editor.value')} />
                 </>)} twoCol />
               <div><Label>{t('editor.webhookBody')}</Label>
-                <JsonField value={watch('webhookBody') ?? ''} onChange={(v) => form.setValue('webhookBody', v, { shouldDirty: true })} height={140} lint={false} minimal />
+                <JsonField value={watch('webhookBody') ?? ''} onChange={(v) => form.setValue('webhookBody', v, { shouldDirty: true })} height={300} lint={false} minimal />
               </div>
             </Section>
           </TabsContent>

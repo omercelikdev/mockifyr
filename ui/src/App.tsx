@@ -40,7 +40,8 @@ export default function App() {
   return (
     <>
       <RouterProvider router={router} />
-      <Toaster theme={theme} position="bottom-right" toastOptions={{ style: { borderRadius: '10px' } }} />
+      {/* Top-right + short-lived so a toast never covers the editor's Save/Update bar (bottom of the workspace). */}
+      <Toaster theme={theme} position="top-right" toastOptions={{ duration: 2500, style: { borderRadius: '10px' } }} />
     </>
   )
 }
