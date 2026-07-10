@@ -25,16 +25,19 @@ public sealed class GitSyncTests : IDisposable
 
     private sealed record Host(GitSyncService Git, IStubStore Store, IMatcherRegistry Matchers, FileSystemStubPersistence Persistence);
 
-    /// <summary>Mirrors the standalone host's --root-dir + --git-remote wiring, without Kestrel.</summary>
-    private static Host Compose(string root, string remote)
+    /// <summary>Mirrors the standalone host's --root-dir + --git-remote (pinned) wiring, without Kestrel.</summary>
+    private static Host Compose(string root, string remote) =>
+        Compose(new GitSyncEnvironment(root, remote, "main"));
+
+    private static Host Compose(GitSyncEnvironment env)
     {
         var provider = new ServiceCollection().AddMockifyr().BuildServiceProvider();
         var store = provider.GetRequiredService<IStubStore>();
         var matchers = provider.GetRequiredService<IMatcherRegistry>();
-        var mappingsDir = Path.Combine(root, "mappings");
+        var mappingsDir = Path.Combine(env.WorkDir, "mappings");
         var loaders = new IMappingsLoader[] { new DirectoryMappingsLoader(mappingsDir, matchers) };
         return new Host(
-            new GitSyncService(root, remote, "main", store, loaders, matchers),
+            new GitSyncService(env, store, loaders, matchers),
             store, matchers, new FileSystemStubPersistence(mappingsDir));
     }
 
@@ -270,6 +273,92 @@ public sealed class GitSyncTests : IDisposable
         {
             Environment.SetEnvironmentVariable("MOCKIFYR_GIT_TOKEN", null);
         }
+    }
+
+    [Fact]
+    public async Task Configure_OnInMemoryHost_SnapshotsAndSyncsEndToEnd()
+    {
+        var bare = CreateBareRemote();
+
+        // A pure in-memory host (#151): switchable persistence, no pinned remote.
+        var switchable = new SwitchableStubPersistence();
+        var root = NewDir("host-cfg");
+        var host = Compose(new GitSyncEnvironment(root, Activatable: switchable));
+
+        // A stub that existed BEFORE the connect — it must be snapshotted, not lost.
+        var (stub, source) = MappingJsonReader.ReadWithSource(StubJson, TenantId.Default, host.Matchers)[0];
+        host.Store.Put(stub);
+        switchable.Save(stub, source); // no-op until activation, like a live in-memory host
+
+        var status = await host.Git.StatusAsync(CancellationToken.None);
+        Assert.True(status.IsSuccess);
+        Assert.False(status.Value.Configured);
+        Assert.Equal(root, status.Value.WorkingCopy);
+
+        var configured = await host.Git.ConfigureAsync(bare, null, CancellationToken.None);
+        Assert.True(configured.IsSuccess, configured.IsSuccess ? null : configured.Error.Description);
+        Assert.True(configured.Value.Configured);
+        Assert.Equal("repository", configured.Value.ConfiguredBy);
+        Assert.Equal("main", configured.Value.Branch);
+
+        // The snapshot landed in the working copy and persistence is now file-backed.
+        Assert.True(File.Exists(Path.Combine(root, "mappings", $"{stub.Id}.json")));
+        Assert.True(switchable.IsActive);
+
+        // Push publishes it; a second (pinned) host pulls and serves the same stub.
+        var push = await host.Git.PushAsync("connected from the dashboard", CancellationToken.None);
+        Assert.True(push.IsSuccess, push.IsSuccess ? null : push.Error.Description);
+        Assert.True(push.Value.Pushed);
+
+        var peer = Compose(NewDir("host-cfg-peer"), bare);
+        var pull = await peer.Git.PullAsync(CancellationToken.None);
+        Assert.True(pull.IsSuccess);
+        Assert.Equal(stub.Id, Assert.Single(peer.Store.GetStubs(TenantId.Default)).Id);
+    }
+
+    [Fact]
+    public async Task Configure_SurvivesARestart_ViaTheWorkingCopyItself()
+    {
+        var bare = CreateBareRemote();
+        var root = NewDir("host-restart");
+        var first = Compose(new GitSyncEnvironment(root, Activatable: new SwitchableStubPersistence()));
+        Assert.True((await first.Git.ConfigureAsync(bare, "main", CancellationToken.None)).IsSuccess);
+
+        // A "restarted" service over the same working copy resolves the remote from .git/config.
+        var second = Compose(new GitSyncEnvironment(root, Activatable: new SwitchableStubPersistence()));
+        var status = await second.Git.StatusAsync(CancellationToken.None);
+        Assert.True(status.IsSuccess);
+        Assert.True(status.Value.Configured);
+        Assert.Equal("repository", status.Value.ConfiguredBy);
+        Assert.Equal(bare, status.Value.Remote);
+    }
+
+    [Fact]
+    public async Task Configure_RefusesOnFlagPinnedAndDbPersistenceHosts()
+    {
+        var bare = CreateBareRemote();
+
+        var pinned = Compose(NewDir("host-pin"), bare);
+        var onPinned = await pinned.Git.ConfigureAsync(bare, null, CancellationToken.None);
+        Assert.False(onPinned.IsSuccess);
+        Assert.Equal("Git.FlagPinned", onPinned.Error.Code);
+
+        var db = Compose(new GitSyncEnvironment(NewDir("host-db"), PersistenceConflict: true));
+        var onDb = await db.Git.ConfigureAsync(bare, null, CancellationToken.None);
+        Assert.False(onDb.IsSuccess);
+        Assert.Equal("Git.PersistenceConflict", onDb.Error.Code);
+
+        var invalid = Compose(new GitSyncEnvironment(NewDir("host-inv"), Activatable: new SwitchableStubPersistence()));
+        Assert.Equal("Git.InvalidRemote", (await invalid.Git.ConfigureAsync("--evil", null, CancellationToken.None)).Error.Code);
+        Assert.Equal("Git.InvalidBranch", (await invalid.Git.ConfigureAsync(bare, "-bad branch", CancellationToken.None)).Error.Code);
+    }
+
+    [Fact]
+    public async Task UnconfiguredUnpinnedHost_RefusesPushAndPullWithGuidance()
+    {
+        var host = Compose(new GitSyncEnvironment(NewDir("host-unc"), Activatable: new SwitchableStubPersistence()));
+        Assert.Equal("Git.NotConfigured", (await host.Git.PushAsync(null, CancellationToken.None)).Error.Code);
+        Assert.Equal("Git.NotConfigured", (await host.Git.PullAsync(CancellationToken.None)).Error.Code);
     }
 
     [Fact]

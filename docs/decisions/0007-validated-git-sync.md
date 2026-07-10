@@ -1,6 +1,6 @@
 # 0007 — Validated Git sync over the root-dir working copy
 
-**Status:** Accepted · **Date:** 2026-07-10
+**Status:** Accepted · **Date:** 2026-07-10 · **Amended:** 2026-07-10 (#151, dashboard configuration)
 
 ## Context
 
@@ -37,8 +37,20 @@ integration is a thin sync layer, not a new persistence backend:
   would touch a locally modified file is refused as an explicit overlap ("push first"). Divergent
   histories are reported for resolution outside the host. No merge machinery.
 - **Explicit sync only.** Startup never pulls; `POST /__admin/git/push`, `POST /__admin/git/pull`,
-  and `GET /__admin/git/status` are the whole surface (thin Admin routes → Mediant handlers →
-  `IGitSync`). Repo initialization (init / remote add) is lazy and idempotent on first use.
+  `POST /__admin/git/configure`, and `GET /__admin/git/status` are the whole surface (thin Admin
+  routes → Mediant handlers → `IGitSync`). Repo initialization (init / remote add) is lazy and
+  idempotent on first use.
+- **Dashboard configuration (#151, amendment).** Without `--git-remote`, the remote/branch can be
+  connected from Settings: the configuration lives in the working copy's own `.git/config` (no
+  extra store; restart-safe), the working copy resolves host-side (`--root-dir`, else a default
+  the operator never types, `--git-work-dir` as an escape hatch), and a flag-less host that finds
+  a Git working copy at the default location adopts it at startup. Connecting a pure in-memory
+  host snapshots every tenant's current stubs into the working copy and activates file
+  persistence, so from that moment it behaves exactly like a `--root-dir` host. Flag-pinned hosts
+  stay read-only in the UI (`Git.FlagPinned`); DB-persistence hosts without a root-dir refuse
+  with guidance (`Git.PersistenceConflict`). Repo detection is a direct `.git` check — never
+  `rev-parse`, which climbs to (and would let us mutate) a PARENT repository when the working
+  copy nests inside one. Credentials remain env/SSH-only; the form takes URL + branch.
 - **Placement.** The `IGitSync` contract + CQRS operations live in `Mockifyr.Application`
   (management path); the implementation (`GitSyncService`, process + file I/O) lives at the host
   edge in `Mockifyr.Server`, enabled by `--git-remote <url>` (+ optional `--git-branch`, default

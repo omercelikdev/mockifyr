@@ -9,15 +9,38 @@ using Mockifyr.Core;
 namespace Mockifyr.Server;
 
 /// <summary>
-/// Git sync over the root-dir working copy (ADR 0007, issue #143). Shells out to the plain
+/// How the host composed Git sync (ADR 0007, amended for #151):
+/// <list type="bullet">
+/// <item><see cref="PinnedRemote"/>/<see cref="PinnedBranch"/> carry <c>--git-remote</c>/<c>--git-branch</c>
+/// — when set, the configuration is host-pinned and the dashboard's configure endpoint refuses.</item>
+/// <item>Unpinned hosts resolve the remote/branch from the working copy's own <c>.git/config</c>,
+/// which is exactly where <see cref="GitSyncService.ConfigureAsync"/> writes it — so a dashboard
+/// connection needs no extra config store and survives restarts.</item>
+/// <item><see cref="Activatable"/> is the pure-in-memory host's persistence switch: connecting
+/// snapshots the current stubs into the working copy and flips subsequent mutations to file
+/// persistence, making the host behave exactly like a <c>--root-dir</c> host from then on.</item>
+/// <item><see cref="PersistenceConflict"/> marks a DB-persistence host without <c>--root-dir</c>:
+/// configure refuses with guidance instead of inventing dual-persistence semantics.</item>
+/// </list>
+/// </summary>
+public sealed record GitSyncEnvironment(
+    string WorkDir,
+    string? PinnedRemote = null,
+    string PinnedBranch = "main",
+    SwitchableStubPersistence? Activatable = null,
+    bool PersistenceConflict = false);
+
+/// <summary>
+/// Git sync over the host's working copy (ADR 0007, issues #143/#151). Shells out to the plain
 /// <c>git</c> binary so every provider (GitHub, GitLab, Bitbucket, self-hosted) works identically
 /// over HTTPS or SSH. Safety properties, in order of importance:
 /// <list type="bullet">
 /// <item><b>Pull validates before it applies.</b> Every mapping file in the fetched tree is parsed
 /// (straight from the Git objects) with the same strict reader the admin API uses; one bad file
 /// fails the whole pull and nothing changes — not the working tree, not the served stubs.</item>
-/// <item><b>Fast-forward only.</b> Divergence and dirty working trees are refused with guidance,
-/// never auto-resolved. Push refuses when the remote is ahead.</item>
+/// <item><b>Fast-forward only.</b> Push checks the remote before committing; pull keeps
+/// non-overlapping local edits (git's no-clobber guarantee) and refuses overlaps. Divergence is
+/// refused with guidance, never auto-resolved.</item>
 /// <item><b>Credentials never touch disk, argv, or output.</b> HTTPS tokens are read by an inline
 /// credential helper from the host's environment (<c>MOCKIFYR_GIT_TOKEN</c> / optional
 /// <c>MOCKIFYR_GIT_USERNAME</c>); surfaced messages are scrubbed of the token value.</item>
@@ -25,9 +48,7 @@ namespace Mockifyr.Server;
 /// Process + file I/O, so it lives at the host edge — never in Core.
 /// </summary>
 public sealed partial class GitSyncService(
-    string rootDir,
-    string remoteUrl,
-    string branch,
+    GitSyncEnvironment env,
     IStubStore store,
     IEnumerable<IMappingsLoader> loaders,
     IMatcherRegistry matchers) : IGitSync
@@ -37,20 +58,34 @@ public sealed partial class GitSyncService(
 
     // Git operations mutate one working copy; serialize them so concurrent admin calls can't interleave.
     private readonly SemaphoreSlim _gate = new(1, 1);
-    private bool _initialized;
+    private bool _pinnedInitialized;
+
+    // Resolved per operation (a dashboard configure can land between calls on unpinned hosts).
+    private string? _remote;
+    private string _branch = "main";
+    private string? _configuredBy;
+
+    private string RootDir => env.WorkDir;
 
     /// <summary>Validates the host flags up front so a bad configuration fails at startup, not at first use.</summary>
     public static void ValidateConfiguration(string remoteUrl, string branch)
     {
-        if (remoteUrl.StartsWith('-'))
+        if (ValidateInput(remoteUrl, branch) is { } error)
         {
-            throw new InvalidOperationException("--git-remote must be a URL, not an option.");
+            throw new InvalidOperationException($"{error.Code}: {error.Description}");
+        }
+    }
+
+    private static Error? ValidateInput(string remoteUrl, string branch)
+    {
+        if (string.IsNullOrWhiteSpace(remoteUrl) || remoteUrl.StartsWith('-'))
+        {
+            return Error.Validation("Git.InvalidRemote", "The Git remote must be a URL (or local path), not an option.");
         }
 
-        if (!BranchNamePattern().IsMatch(branch))
-        {
-            throw new InvalidOperationException($"--git-branch '{branch}' is not a valid branch name.");
-        }
+        return BranchNamePattern().IsMatch(branch)
+            ? null
+            : Error.Validation("Git.InvalidBranch", $"'{branch}' is not a valid branch name.");
     }
 
     /// <inheritdoc />
@@ -59,26 +94,38 @@ public sealed partial class GitSyncService(
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            var init = await EnsureInitializedAsync(cancellationToken);
-            if (init is { } initError)
-            {
-                return initError;
-            }
-
-            // Best-effort fetch so ahead/behind reflect the remote; a failure (offline, auth) is
-            // reported in the status rather than failing it — status must always answer. A remote
-            // that simply has no branch yet (brand-new repo, push-first flow) is not an error.
-            var fetch = await GitAsync(cancellationToken, "fetch", "--quiet", "origin", branch);
-            var fetchError = fetch.ExitCode == 0 || IsMissingRemoteRef(fetch.StdErr) ? null : Scrub(fetch.StdErr).Trim();
-
-            var dirty = (await GitAsync(cancellationToken, "status", "--porcelain")).StdOut.Length > 0;
-            var (ahead, behind) = await AheadBehindAsync(cancellationToken);
-            return Result.Success(new GitSyncStatus(true, ScrubUserInfo(remoteUrl), branch, dirty, ahead, behind, fetchError));
+            return await StatusCoreAsync(cancellationToken);
         }
         finally
         {
             _gate.Release();
         }
+    }
+
+    /// <summary>The status computation; callers hold the gate.</summary>
+    private async Task<Result<GitSyncStatus>> StatusCoreAsync(CancellationToken cancellationToken)
+    {
+        var (error, configured) = await EnsureReadyAsync(cancellationToken);
+        if (error is { } initError)
+        {
+            return initError;
+        }
+
+        if (!configured)
+        {
+            return Result.Success(new GitSyncStatus(false, null, null, false, 0, 0, null, null, RootDir));
+        }
+
+        // Best-effort fetch so ahead/behind reflect the remote; a failure (offline, auth) is
+        // reported in the status rather than failing it — status must always answer. A remote
+        // that simply has no branch yet (brand-new repo, push-first flow) is not an error.
+        var fetch = await GitAsync(cancellationToken, "fetch", "--quiet", "origin", _branch);
+        var fetchError = fetch.ExitCode == 0 || IsMissingRemoteRef(fetch.StdErr) ? null : Scrub(fetch.StdErr).Trim();
+
+        var dirty = (await GitAsync(cancellationToken, "status", "--porcelain")).StdOut.Length > 0;
+        var (ahead, behind) = await AheadBehindAsync(cancellationToken);
+        return Result.Success(new GitSyncStatus(
+            true, ScrubUserInfo(_remote!), _branch, dirty, ahead, behind, fetchError, _configuredBy, RootDir));
     }
 
     /// <inheritdoc />
@@ -87,16 +134,21 @@ public sealed partial class GitSyncService(
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            var init = await EnsureInitializedAsync(cancellationToken);
-            if (init is { } initError)
+            var (error, configured) = await EnsureReadyAsync(cancellationToken);
+            if (error is { } initError)
             {
                 return initError;
+            }
+
+            if (!configured)
+            {
+                return NotConnected<GitPushOutcome>();
             }
 
             // Refuse a push the remote would reject BEFORE committing anything: the working copy
             // stays untouched, so the operator can still pull (a committed-then-refused push would
             // leave local and remote diverged with no way out short of raw git tooling).
-            var fetch = await GitAsync(cancellationToken, "fetch", "--quiet", "origin", branch);
+            var fetch = await GitAsync(cancellationToken, "fetch", "--quiet", "origin", _branch);
             if (fetch.ExitCode != 0 && !IsMissingRemoteRef(fetch.StdErr))
             {
                 return Failed(fetch); // a brand-new remote branch is fine; auth/network errors are not
@@ -109,7 +161,7 @@ public sealed partial class GitSyncService(
                     $"The remote branch has {behind} commit(s) you don't have — pull first.");
             }
 
-            // Stage everything under the root-dir: the working copy IS the mock definition
+            // Stage everything under the working copy: it IS the mock definition
             // (mappings plus __files/grpc assets referenced by stubs).
             var add = await GitAsync(cancellationToken, "add", "-A");
             if (add.ExitCode != 0)
@@ -136,7 +188,7 @@ public sealed partial class GitSyncService(
                 return Result.Success(new GitPushOutcome(false, await HeadShaAsync(cancellationToken), "nothing-to-push"));
             }
 
-            var push = await GitAsync(cancellationToken, "push", "--quiet", "-u", "origin", branch);
+            var push = await GitAsync(cancellationToken, "push", "--quiet", "-u", "origin", _branch);
             if (push.ExitCode != 0)
             {
                 // Someone pushed between our fetch and this push: same answer as the pre-check.
@@ -160,17 +212,22 @@ public sealed partial class GitSyncService(
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            var init = await EnsureInitializedAsync(cancellationToken);
-            if (init is { } initError)
+            var (error, configured) = await EnsureReadyAsync(cancellationToken);
+            if (error is { } initError)
             {
                 return initError;
             }
 
-            var fetch = await GitAsync(cancellationToken, "fetch", "--quiet", "origin", branch);
+            if (!configured)
+            {
+                return NotConnected<GitPullOutcome>();
+            }
+
+            var fetch = await GitAsync(cancellationToken, "fetch", "--quiet", "origin", _branch);
             if (fetch.ExitCode != 0)
             {
                 return IsMissingRemoteRef(fetch.StdErr)
-                    ? Error.NotFound("Git.RemoteBranchMissing", $"The remote has no branch '{branch}' yet — push first.")
+                    ? Error.NotFound("Git.RemoteBranchMissing", $"The remote has no branch '{_branch}' yet — push first.")
                     : Failed(fetch);
             }
 
@@ -239,55 +296,166 @@ public sealed partial class GitSyncService(
         }
     }
 
-    /// <summary>
-    /// Idempotent first-use setup: verifies the git binary, initializes the working copy on the
-    /// configured branch when it is not a repository yet, and points <c>origin</c> at the remote.
-    /// A pre-existing repository checked out on a different branch is refused, not silently moved.
-    /// </summary>
-    private async Task<Error?> EnsureInitializedAsync(CancellationToken cancellationToken)
+    /// <inheritdoc />
+    public async Task<Result<GitSyncStatus>> ConfigureAsync(string remoteUrl, string? branch, CancellationToken cancellationToken)
     {
-        if (_initialized)
+        await _gate.WaitAsync(cancellationToken);
+        try
         {
-            return null;
-        }
+            if (env.PinnedRemote is not null)
+            {
+                return Error.Conflict("Git.FlagPinned",
+                    "This host's Git configuration is pinned by --git-remote at startup and is read-only here.");
+            }
 
+            if (env.PersistenceConflict)
+            {
+                return Error.Conflict("Git.PersistenceConflict",
+                    "This host persists stubs to a database; run it with --root-dir to combine that with Git sync.");
+            }
+
+            var targetBranch = string.IsNullOrWhiteSpace(branch) ? "main" : branch!.Trim();
+            if (ValidateInput(remoteUrl.Trim(), targetBranch) is { } invalid)
+            {
+                return invalid;
+            }
+
+            var version = await GitAsync(cancellationToken, "--version");
+            if (version.ExitCode != 0)
+            {
+                return Error.Failure("Git.BinaryMissing", "The git binary is not available on the host.");
+            }
+
+            Directory.CreateDirectory(RootDir);
+            if (!Directory.Exists(Path.Combine(RootDir, ".git"))) // no rev-parse: it climbs to parent repos
+            {
+                var init = await GitAsync(cancellationToken, "init", "-b", targetBranch);
+                if (init.ExitCode != 0)
+                {
+                    return Error.Failure("Git.InitFailed", Scrub(init.StdErr).Trim());
+                }
+            }
+
+            var current = (await GitAsync(cancellationToken, "symbolic-ref", "--short", "-q", "HEAD")).StdOut.Trim();
+            if (current.Length > 0 && current != targetBranch)
+            {
+                return Error.Conflict("Git.WrongBranch",
+                    $"The working copy is on branch '{current}'; connect with that branch or check out '{targetBranch}' first.");
+            }
+
+            var setRemote = await SetOriginAsync(remoteUrl.Trim(), cancellationToken);
+            if (setRemote is { } remoteError)
+            {
+                return remoteError;
+            }
+
+            // A pure in-memory host becomes file-backed at the moment it connects: the current stubs
+            // (every tenant) are snapshotted into the working copy so nothing is lost and the first
+            // push publishes them, and subsequent admin mutations persist to files like a --root-dir host.
+            if (env.Activatable is { IsActive: false } switchable)
+            {
+                var persistence = new FileSystemStubPersistence(Path.Combine(RootDir, "mappings"));
+                foreach (var tenant in store.GetTenants())
+                {
+                    foreach (var stub in store.GetStubs(tenant))
+                    {
+                        if (stub.Source is { } source)
+                        {
+                            persistence.Save(stub, source);
+                        }
+                    }
+                }
+
+                switchable.Activate(persistence);
+            }
+
+            return await StatusCoreAsync(cancellationToken);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    private static Error NotConnected<T>() =>
+        Error.NotFound("Git.NotConfigured",
+            "No Git remote is connected. Configure one in Settings → Git sync, or start the host with --git-remote.");
+
+    /// <summary>
+    /// Resolves the working configuration. Pinned hosts initialize the repository from the flags
+    /// (idempotent, cached); unpinned hosts read the working copy's own remote/branch — absent
+    /// either, the host is simply not configured (no error, no side effects).
+    /// </summary>
+    private async Task<(Error? Error, bool Configured)> EnsureReadyAsync(CancellationToken cancellationToken)
+    {
         var version = await GitAsync(cancellationToken, "--version");
         if (version.ExitCode != 0)
         {
-            return Error.Failure("Git.BinaryMissing", "The git binary is not available on the host.");
+            return (Error.Failure("Git.BinaryMissing", "The git binary is not available on the host."), false);
         }
 
-        Directory.CreateDirectory(rootDir);
-        var isRepo = await GitAsync(cancellationToken, "rev-parse", "--git-dir");
-        if (isRepo.ExitCode != 0)
+        if (env.PinnedRemote is { } pinned)
         {
-            var init = await GitAsync(cancellationToken, "init", "-b", branch);
-            if (init.ExitCode != 0)
+            if (!_pinnedInitialized)
             {
-                return Error.Failure("Git.InitFailed", Scrub(init.StdErr).Trim());
+                Directory.CreateDirectory(RootDir);
+                if (!Directory.Exists(Path.Combine(RootDir, ".git"))) // no rev-parse: it climbs to parent repos
+                {
+                    var init = await GitAsync(cancellationToken, "init", "-b", env.PinnedBranch);
+                    if (init.ExitCode != 0)
+                    {
+                        return (Error.Failure("Git.InitFailed", Scrub(init.StdErr).Trim()), false);
+                    }
+                }
+
+                var current = (await GitAsync(cancellationToken, "symbolic-ref", "--short", "-q", "HEAD")).StdOut.Trim();
+                if (current.Length > 0 && current != env.PinnedBranch)
+                {
+                    return (Error.Conflict("Git.WrongBranch",
+                        $"The root-dir repository is on branch '{current}' but --git-branch is '{env.PinnedBranch}'. Check out the configured branch (or change the flag)."), false);
+                }
+
+                if (await SetOriginAsync(pinned, cancellationToken) is { } remoteError)
+                {
+                    return (remoteError, false);
+                }
+
+                _pinnedInitialized = true;
             }
+
+            (_remote, _branch, _configuredBy) = (pinned, env.PinnedBranch, "flags");
+            return (null, true);
         }
 
-        var current = (await GitAsync(cancellationToken, "symbolic-ref", "--short", "-q", "HEAD")).StdOut.Trim();
-        if (current.Length > 0 && current != branch)
+        // Unpinned: the working copy's .git/config is the single source of truth. The check is a
+        // direct .git-directory test, NOT `rev-parse` — which climbs to a parent repository and, when
+        // the working copy nests inside one (e.g. <cwd>/mockifyr-data under a project checkout),
+        // would wrongly adopt (and later mutate!) that parent repo.
+        if (!Directory.Exists(Path.Combine(RootDir, ".git")))
         {
-            return Error.Conflict("Git.WrongBranch",
-                $"The root-dir repository is on branch '{current}' but --git-branch is '{branch}'. Check out the configured branch (or change the flag).");
+            return (null, false);
         }
 
         var origin = await GitAsync(cancellationToken, "remote", "get-url", "origin");
-        var setRemote = origin.ExitCode != 0
-            ? await GitAsync(cancellationToken, "remote", "add", "origin", remoteUrl)
-            : origin.StdOut.Trim() == remoteUrl
-                ? origin
-                : await GitAsync(cancellationToken, "remote", "set-url", "origin", remoteUrl);
-        if (setRemote.ExitCode != 0)
+        if (origin.ExitCode != 0)
         {
-            return Error.Failure("Git.RemoteFailed", Scrub(setRemote.StdErr).Trim());
+            return (null, false);
         }
 
-        _initialized = true;
-        return null;
+        var branch = (await GitAsync(cancellationToken, "symbolic-ref", "--short", "-q", "HEAD")).StdOut.Trim();
+        (_remote, _branch, _configuredBy) = (origin.StdOut.Trim(), branch.Length > 0 ? branch : "main", "repository");
+        return (null, true);
+    }
+
+    private async Task<Error?> SetOriginAsync(string url, CancellationToken cancellationToken)
+    {
+        var origin = await GitAsync(cancellationToken, "remote", "get-url", "origin");
+        var setRemote = origin.ExitCode != 0
+            ? await GitAsync(cancellationToken, "remote", "add", "origin", url)
+            : origin.StdOut.Trim() == url
+                ? origin
+                : await GitAsync(cancellationToken, "remote", "set-url", "origin", url);
+        return setRemote.ExitCode == 0 ? null : Error.Failure("Git.RemoteFailed", Scrub(setRemote.StdErr).Trim());
     }
 
     /// <summary>Parses every <c>mappings/**/*.json</c> blob in the given tree; returns per-file failures.</summary>
@@ -328,7 +496,7 @@ public sealed partial class GitSyncService(
 
     private async Task<(int Ahead, int Behind)> AheadBehindAsync(CancellationToken cancellationToken)
     {
-        var remoteRef = await GitAsync(cancellationToken, "rev-parse", "--verify", "-q", $"refs/remotes/origin/{branch}");
+        var remoteRef = await GitAsync(cancellationToken, "rev-parse", "--verify", "-q", $"refs/remotes/origin/{_branch}");
         var head = await HeadShaAsync(cancellationToken);
         if (remoteRef.ExitCode != 0)
         {
@@ -344,11 +512,11 @@ public sealed partial class GitSyncService(
 
         if (head is null)
         {
-            var remoteOnly = await GitAsync(cancellationToken, "rev-list", "--count", $"origin/{branch}");
+            var remoteOnly = await GitAsync(cancellationToken, "rev-list", "--count", $"origin/{_branch}");
             return (0, int.TryParse(remoteOnly.StdOut.Trim(), out var count) ? count : 0);
         }
 
-        var counts = await GitAsync(cancellationToken, "rev-list", "--left-right", "--count", $"origin/{branch}...HEAD");
+        var counts = await GitAsync(cancellationToken, "rev-list", "--left-right", "--count", $"origin/{_branch}...HEAD");
         var parts = counts.StdOut.Trim().Split('\t', ' ', StringSplitOptions.RemoveEmptyEntries);
         return parts.Length == 2 && int.TryParse(parts[0], out var behind) && int.TryParse(parts[1], out var ahead)
             ? (ahead, behind)
@@ -408,7 +576,7 @@ public sealed partial class GitSyncService(
         var info = new ProcessStartInfo
         {
             FileName = "git",
-            WorkingDirectory = Directory.Exists(rootDir) ? rootDir : Environment.CurrentDirectory,
+            WorkingDirectory = Directory.Exists(RootDir) ? RootDir : Path.GetTempPath(),
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,

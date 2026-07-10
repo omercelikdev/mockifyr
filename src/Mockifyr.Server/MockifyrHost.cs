@@ -42,6 +42,20 @@ public static class MockifyrHost
         // A root-dir registers a directory loader for <root-dir>/mappings, resolved after the matcher
         // registry exists (customMatcher references in files resolve against it).
         var rootDir = builder.Configuration["root-dir"];
+
+        // Git working copy resolution (#151): the flagged root-dir when given, else a default the
+        // operator never has to type (overridable via --git-work-dir as an escape hatch). A flag-less
+        // host that finds a Git working copy at the default location ADOPTS it as its root-dir — a
+        // dashboard-connected setup therefore survives restarts with no flags at all. The directory
+        // only exists if the operator connected before, so untouched setups see no behavior change.
+        var gitWorkDir = builder.Configuration["git-work-dir"] is { Length: > 0 } w
+            ? w
+            : Path.Combine(Environment.CurrentDirectory, "mockifyr-data");
+        if (string.IsNullOrWhiteSpace(rootDir) && Directory.Exists(Path.Combine(gitWorkDir, ".git")))
+        {
+            rootDir = gitWorkDir;
+        }
+
         var grpcEnabled = false;
         if (!string.IsNullOrWhiteSpace(rootDir))
         {
@@ -70,10 +84,18 @@ public static class MockifyrHost
             }
         }
 
-        // Git sync (ADR 0007): --git-remote turns the root-dir working copy into a Git-synced stub
-        // set with explicit, validated push/pull over /__admin/git/*. Requires --root-dir (the
-        // working copy). Registered last so it wins over the not-configured default.
+        // Git sync (ADR 0007 + #151). Two modes, registered last so they win over the default:
+        //  - Pinned: --git-remote (+ --git-branch) fixes the configuration at startup; the dashboard
+        //    shows it read-only. Requires --root-dir (the working copy).
+        //  - Dashboard-configurable: without the flag, POST /__admin/git/configure connects a remote
+        //    from Settings. A root-dir (given or adopted) host syncs its existing working copy; a pure
+        //    in-memory host gets a switchable persistence that connect activates (snapshotting the
+        //    current stubs); a DB-persistence host refuses configure with guidance.
         var gitRemote = builder.Configuration["git-remote"];
+        var liteDb = builder.Configuration["litedb"];
+        var postgresConn = builder.Configuration["postgres"];
+        var redisConn = builder.Configuration["redis"];
+        var dbPersistence = !string.IsNullOrWhiteSpace(liteDb) || !string.IsNullOrWhiteSpace(postgresConn) || !string.IsNullOrWhiteSpace(redisConn);
         if (!string.IsNullOrWhiteSpace(gitRemote))
         {
             if (string.IsNullOrWhiteSpace(rootDir))
@@ -84,9 +106,31 @@ public static class MockifyrHost
             var gitBranch = builder.Configuration["git-branch"] is { Length: > 0 } b ? b : "main";
             GitSyncService.ValidateConfiguration(gitRemote, gitBranch);
             builder.Services.AddSingleton<Application.IGitSync>(sp => new GitSyncService(
-                rootDir, gitRemote, gitBranch,
+                new GitSyncEnvironment(rootDir, gitRemote, gitBranch),
                 sp.GetRequiredService<IStubStore>(),
                 sp.GetServices<IMappingsLoader>(),
+                sp.GetRequiredService<IMatcherRegistry>()));
+        }
+        else
+        {
+            var hasFilePersistence = !string.IsNullOrWhiteSpace(rootDir);
+            var workDir = hasFilePersistence ? rootDir! : gitWorkDir;
+            if (!hasFilePersistence && !dbPersistence)
+            {
+                // Pure in-memory host: connecting from the dashboard flips this to file persistence.
+                builder.Services.AddSingleton<SwitchableStubPersistence>();
+                builder.Services.AddSingleton<IStubPersistence>(sp => sp.GetRequiredService<SwitchableStubPersistence>());
+            }
+
+            builder.Services.AddSingleton<Application.IGitSync>(sp => new GitSyncService(
+                new GitSyncEnvironment(
+                    workDir,
+                    Activatable: hasFilePersistence || dbPersistence ? null : sp.GetRequiredService<SwitchableStubPersistence>(),
+                    PersistenceConflict: dbPersistence && !hasFilePersistence),
+                sp.GetRequiredService<IStubStore>(),
+                hasFilePersistence
+                    ? sp.GetServices<IMappingsLoader>()
+                    : [new DirectoryMappingsLoader(Path.Combine(workDir, "mappings"), sp.GetRequiredService<IMatcherRegistry>())],
                 sp.GetRequiredService<IMatcherRegistry>()));
         }
 

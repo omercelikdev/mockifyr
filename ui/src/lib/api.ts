@@ -424,6 +424,9 @@ export interface GitStatus {
   ahead: number
   behind: number
   fetchError: string | null
+  /** 'flags' = pinned by host flags (read-only in the UI); 'repository' = connected from the dashboard. */
+  configuredBy: 'flags' | 'repository' | null
+  workingCopy: string | null
 }
 
 export async function fetchGitStatus(tenant: string): Promise<GitStatus | null> {
@@ -448,6 +451,24 @@ export const gitPush = (tenant: string, message?: string): Promise<GitSyncResult
   gitOp('/git/push', tenant, message?.trim() ? JSON.stringify({ message: message.trim() }) : undefined)
 
 export const gitPull = (tenant: string): Promise<GitSyncResult> => gitOp('/git/pull', tenant)
+
+/**
+ * Connects the host's working copy to a Git remote (#151). The local directory is resolved
+ * host-side; credentials never pass through here (private HTTPS remotes use MOCKIFYR_GIT_TOKEN).
+ */
+export async function gitConfigure(tenant: string, remoteUrl: string, branch?: string): Promise<GitStatus | { error: string; message: string }> {
+  try {
+    const res = await adminFetch('/git/configure', tenant, {
+      method: 'POST',
+      body: JSON.stringify({ remoteUrl, ...(branch?.trim() ? { branch: branch.trim() } : {}) }),
+    })
+    const json = (await res.json().catch(() => ({}))) as Record<string, unknown>
+    if (res.ok) return json as unknown as GitStatus
+    return { error: String(json.error ?? res.status), message: String(json.message ?? 'Configuration failed.') }
+  } catch {
+    return { error: 'network', message: 'No host reachable.' }
+  }
+}
 
 async function gitOp(path: string, tenant: string, body?: string): Promise<GitSyncResult> {
   try {
