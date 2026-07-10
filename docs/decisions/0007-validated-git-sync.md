@@ -31,9 +31,11 @@ integration is a thin sync layer, not a new persistence backend:
   error report and **nothing changes** — not the working tree, not the served stubs. Only a fully
   valid tree is fast-forwarded and then reconciled into the store via the change-feed reconciler
   (upsert-then-prune, no empty window).
-- **Fast-forward only; conflicts are refused, never resolved.** Pull requires a clean working tree
-  ("push first") and an ancestor relationship; push refuses when the remote is ahead ("pull
-  first"). Divergent histories are reported for resolution outside the host. No merge machinery.
+- **Fast-forward only; conflicts are refused, never resolved.** Push checks the remote **before**
+  committing, so a "pull first" refusal leaves the working copy untouched. Pull fast-forwards and
+  leans on git's own no-clobber guarantee: non-overlapping local edits survive; an update that
+  would touch a locally modified file is refused as an explicit overlap ("push first"). Divergent
+  histories are reported for resolution outside the host. No merge machinery.
 - **Explicit sync only.** Startup never pulls; `POST /__admin/git/push`, `POST /__admin/git/pull`,
   and `GET /__admin/git/status` are the whole surface (thin Admin routes → Mediant handlers →
   `IGitSync`). Repo initialization (init / remote add) is lazy and idempotent on first use.
