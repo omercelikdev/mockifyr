@@ -221,6 +221,42 @@ public static class AdminEndpoints
 
         admin.MapPost("/recordings/stop", (RecordingSession session) => Mappings(session.Stop()));
 
+        // Git sync (ADR 0007) — host-level, not tenant-scoped: the host has one root-dir working
+        // copy. Status always answers (configured=false when the flag is absent); push/pull refuse
+        // with a typed error the dashboard can surface (conflict / validation / auth / not set up).
+        admin.MapGet("/git/status", async (ISender sender) =>
+        {
+            var result = await sender.Send(new GitStatusQuery());
+            return result.IsSuccess
+                ? Results.Json(new
+                {
+                    configured = result.Value.Configured,
+                    remote = result.Value.Remote,
+                    branch = result.Value.Branch,
+                    dirty = result.Value.Dirty,
+                    ahead = result.Value.Ahead,
+                    behind = result.Value.Behind,
+                    fetchError = result.Value.FetchError,
+                })
+                : GitFailure(result.Error);
+        });
+
+        admin.MapPost("/git/push", async (HttpRequest request, ISender sender) =>
+        {
+            var result = await sender.Send(new GitPushCommand(await ReadGitMessage(request)));
+            return result.IsSuccess
+                ? Results.Json(new { pushed = result.Value.Pushed, commit = result.Value.Commit, reason = result.Value.Reason })
+                : GitFailure(result.Error);
+        });
+
+        admin.MapPost("/git/pull", async (ISender sender) =>
+        {
+            var result = await sender.Send(new GitPullCommand());
+            return result.IsSuccess
+                ? Results.Json(new { updated = result.Value.Updated, commit = result.Value.Commit, stubsLoaded = result.Value.StubsLoaded, reason = result.Value.Reason })
+                : GitFailure(result.Error);
+        });
+
         // Custom admin API extensions (G12e): any request under /__admin/ext/<prefix>/… is dispatched
         // to the extension whose RoutePrefix is that first segment. The extension owns everything below
         // it and never sees an HttpContext — the request is lowered to a transport-agnostic shape.
@@ -267,6 +303,39 @@ public static class AdminEndpoints
         using var reader = new StreamReader(request.Body);
         return await reader.ReadToEndAsync();
     }
+
+    /// <summary>Reads the optional <c>{"message": "…"}</c> commit message from a push body (empty body is fine).</summary>
+    private static async Task<string?> ReadGitMessage(HttpRequest request)
+    {
+        var body = await ReadBody(request);
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(body);
+            return doc.RootElement.TryGetProperty("message", out var m) ? m.GetString() : null;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
+
+    // Typed Git errors → HTTP: setup problems are 404, refusals (pull-first/diverged/dirty/branch)
+    // are 409, a rejected remote tree is 422, remote-auth failures are 502 — deliberately NOT 401,
+    // which the dashboard reserves for the host's own admin auth (it would pop the login gate).
+    private static IResult GitFailure(Mediant.Results.Error error) =>
+        Results.Json(new { error = error.Code, message = error.Description }, statusCode: error.Code switch
+        {
+            "Git.NotConfigured" or "Git.RemoteBranchMissing" => StatusCodes.Status404NotFound,
+            "Git.InvalidMappings" => StatusCodes.Status422UnprocessableEntity,
+            "Git.RemoteAhead" or "Git.Diverged" or "Git.DirtyWorkingTree" or "Git.WrongBranch" => StatusCodes.Status409Conflict,
+            "Git.Auth" => StatusCodes.Status502BadGateway,
+            _ => StatusCodes.Status500InternalServerError,
+        });
 
     // The full mapping for GET /mappings: the stub's own source JSON with its id/uuid stamped
     // in, so the dashboard can display and faithfully round-trip an edit (not just see an id).
