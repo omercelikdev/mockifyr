@@ -71,3 +71,17 @@ token the harness rewrites per side. Driven by `WebhookScenarios` + `G3WebhookTe
 - **Regression case:** `G3WebhookDelayTests.Webhook_WaitsTheConfiguredDelayBeforeFiring` — an injected
   handler records when the outbound call actually lands and asserts it is `>= ~delay`.
 - **Still deferred:** **sub-event recording** — the only remaining webhook gap.
+
+## `serveEventListeners` webhook form (#147)
+
+- **Both envelopes are accepted.** WireMock 2.x declares webhooks as `postServeActions`; WireMock 3
+  moved them to `serveEventListeners` (same `{"name":"webhook","parameters":{…}}` entry shape) while
+  still accepting the old key. Mockifyr's reader previously only read `postServeActions`, so a
+  WireMock 3 export **silently lost its callbacks** — the raw JSON round-tripped, but no
+  `WebhookDefinition` materialized and nothing fired. The reader now collects webhook entries from
+  both keys.
+- **Validated against the oracle:** the `webhook[serve-event-listeners]` scenario loads the same
+  `serveEventListeners` mapping into both sides and diffs the captured delivery (method, path,
+  declared headers, body). It failed on the old reader ("mockifyr fired no webhook") and is green
+  after the fix.
+- **Regression case:** `G3WebhookTests.Webhook_Delivery` (the `webhook[serve-event-listeners]` scenario).
