@@ -139,6 +139,12 @@ public interface IMultiTenantMappingsLoader
 /// </summary>
 public interface IStubPersistence : IExtension
 {
+    /// <summary>
+    /// The provider name surfaced by diagnostics (the admin health endpoint / dashboard). Defaults
+    /// to the implementing type's name; a delegating provider reports its EFFECTIVE inner provider.
+    /// </summary>
+    string ProviderName => GetType().Name;
+
     /// <summary>Persists a stub. <paramref name="mappingJson"/> is its source JSON in the imported stub dialect (single mapping).</summary>
     void Save(StubMapping stub, string mappingJson);
 

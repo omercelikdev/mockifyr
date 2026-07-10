@@ -16,6 +16,9 @@ public sealed class SwitchableStubPersistence : IStubPersistence
     /// <summary>Whether a real persistence has been activated (connect happened).</summary>
     public bool IsActive => _inner is not NullStubPersistence;
 
+    /// <summary>Diagnostics see the EFFECTIVE provider (in-memory until connect, file-backed after) — never this wrapper.</summary>
+    public string ProviderName => _inner.ProviderName;
+
     /// <summary>Swaps the no-op for a real persistence; the caller has already snapshotted the store.</summary>
     public void Activate(IStubPersistence inner) => _inner = inner;
 

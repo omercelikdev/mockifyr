@@ -48,7 +48,7 @@ public static class AdminEndpoints
             {
                 name = "Mockifyr",
                 version = "1.0",
-                persistence = persistence.GetType().Name,
+                persistence = persistence.ProviderName,
                 tenants = tenants.Count,
                 totalStubs = tenants.Sum(t => store.GetStubs(t).Count),
             });
