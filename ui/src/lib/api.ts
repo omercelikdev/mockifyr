@@ -410,3 +410,56 @@ function sampleStubs(tenant: string): Stub[] {
   if (tenant === 'default') return base.slice(0, 3)
   return base
 }
+
+// ---------------------------------------------------------------------------
+// Git sync (ADR 0007): host-level, explicit push/pull of the root-dir working
+// copy. Status is null when no host answers (sample mode) — the UI hides the
+// controls; a host without --git-remote answers configured:false.
+
+export interface GitStatus {
+  configured: boolean
+  remote: string | null
+  branch: string | null
+  dirty: boolean
+  ahead: number
+  behind: number
+  fetchError: string | null
+}
+
+export async function fetchGitStatus(tenant: string): Promise<GitStatus | null> {
+  try {
+    const res = await adminFetch('/git/status', tenant)
+    if (!res.ok) return null
+    return (await res.json()) as GitStatus
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Push/pull outcome. Failures carry the host's typed error code and human message
+ * (e.g. Git.RemoteAhead → "pull first"), which the UI surfaces verbatim in a toast.
+ */
+export type GitSyncResult =
+  | { ok: true; reason: string; commit?: string | null; pushed?: boolean; updated?: boolean; stubsLoaded?: number }
+  | { ok: false; error: string; message: string }
+
+export const gitPush = (tenant: string, message?: string): Promise<GitSyncResult> =>
+  gitOp('/git/push', tenant, message?.trim() ? JSON.stringify({ message: message.trim() }) : undefined)
+
+export const gitPull = (tenant: string): Promise<GitSyncResult> => gitOp('/git/pull', tenant)
+
+async function gitOp(path: string, tenant: string, body?: string): Promise<GitSyncResult> {
+  try {
+    const res = await adminFetch(path, tenant, { method: 'POST', ...(body ? { body } : {}) })
+    const json = (await res.json().catch(() => ({}))) as Record<string, unknown>
+    if (res.ok) return { ok: true, reason: String(json.reason ?? 'ok'), ...json }
+    return {
+      ok: false,
+      error: String(json.error ?? res.status),
+      message: String(json.message ?? 'Git operation failed.'),
+    }
+  } catch {
+    return { ok: false, error: 'network', message: 'No host reachable.' }
+  }
+}

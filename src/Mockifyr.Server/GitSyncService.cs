@@ -66,9 +66,10 @@ public sealed partial class GitSyncService(
             }
 
             // Best-effort fetch so ahead/behind reflect the remote; a failure (offline, auth) is
-            // reported in the status rather than failing it — status must always answer.
+            // reported in the status rather than failing it — status must always answer. A remote
+            // that simply has no branch yet (brand-new repo, push-first flow) is not an error.
             var fetch = await GitAsync(cancellationToken, "fetch", "--quiet", "origin", branch);
-            var fetchError = fetch.ExitCode == 0 ? null : Scrub(fetch.StdErr).Trim();
+            var fetchError = fetch.ExitCode == 0 || IsMissingRemoteRef(fetch.StdErr) ? null : Scrub(fetch.StdErr).Trim();
 
             var dirty = (await GitAsync(cancellationToken, "status", "--porcelain")).StdOut.Length > 0;
             var (ahead, behind) = await AheadBehindAsync(cancellationToken);
@@ -92,6 +93,22 @@ public sealed partial class GitSyncService(
                 return initError;
             }
 
+            // Refuse a push the remote would reject BEFORE committing anything: the working copy
+            // stays untouched, so the operator can still pull (a committed-then-refused push would
+            // leave local and remote diverged with no way out short of raw git tooling).
+            var fetch = await GitAsync(cancellationToken, "fetch", "--quiet", "origin", branch);
+            if (fetch.ExitCode != 0 && !IsMissingRemoteRef(fetch.StdErr))
+            {
+                return Failed(fetch); // a brand-new remote branch is fine; auth/network errors are not
+            }
+
+            var (_, behind) = await AheadBehindAsync(cancellationToken);
+            if (behind > 0)
+            {
+                return Error.Conflict("Git.RemoteAhead",
+                    $"The remote branch has {behind} commit(s) you don't have — pull first.");
+            }
+
             // Stage everything under the root-dir: the working copy IS the mock definition
             // (mappings plus __files/grpc assets referenced by stubs).
             var add = await GitAsync(cancellationToken, "add", "-A");
@@ -112,19 +129,7 @@ public sealed partial class GitSyncService(
                 }
             }
 
-            // Refuse a push the remote would reject (or that would need a merge): pull first.
-            var fetch = await GitAsync(cancellationToken, "fetch", "--quiet", "origin", branch);
-            if (fetch.ExitCode != 0 && !IsMissingRemoteRef(fetch.StdErr))
-            {
-                return Failed(fetch); // a brand-new remote branch is fine; auth/network errors are not
-            }
-
-            var (ahead, behind) = await AheadBehindAsync(cancellationToken);
-            if (behind > 0)
-            {
-                return Error.Conflict("Git.RemoteAhead",
-                    $"The remote branch has {behind} commit(s) you don't have — pull first.");
-            }
+            var (ahead, _) = await AheadBehindAsync(cancellationToken);
 
             if (ahead == 0)
             {
@@ -134,7 +139,11 @@ public sealed partial class GitSyncService(
             var push = await GitAsync(cancellationToken, "push", "--quiet", "-u", "origin", branch);
             if (push.ExitCode != 0)
             {
-                return Failed(push);
+                // Someone pushed between our fetch and this push: same answer as the pre-check.
+                return push.StdErr.Contains("non-fast-forward", StringComparison.OrdinalIgnoreCase) ||
+                       push.StdErr.Contains("fetch first", StringComparison.OrdinalIgnoreCase)
+                    ? Error.Conflict("Git.RemoteAhead", "The remote branch moved while pushing — pull first.")
+                    : Failed(push);
             }
 
             return Result.Success(new GitPushOutcome(true, await HeadShaAsync(cancellationToken), "pushed"));
@@ -155,15 +164,6 @@ public sealed partial class GitSyncService(
             if (init is { } initError)
             {
                 return initError;
-            }
-
-            // Uncommitted local changes would be clobbered or conflict mid-merge — refuse up front.
-            // Admin mutations write straight to the working copy, so "dirty" simply means unpushed edits.
-            var status = await GitAsync(cancellationToken, "status", "--porcelain");
-            if (status.StdOut.Length > 0)
-            {
-                return Error.Conflict("Git.DirtyWorkingTree",
-                    "The working copy has local changes that are not committed — push first.");
             }
 
             var fetch = await GitAsync(cancellationToken, "fetch", "--quiet", "origin", branch);
@@ -202,12 +202,30 @@ public sealed partial class GitSyncService(
                     $"The remote tree contains invalid mapping file(s); nothing was applied. {listed}{suffix}");
             }
 
+            // Uncommitted local edits are the working norm (admin mutations write straight to the
+            // working copy). A fast-forward merge is attempted anyway: git's own no-clobber guarantee
+            // keeps non-overlapping local edits intact and refuses when the update would overwrite a
+            // locally modified file — which we surface as an explicit overlap, never a silent loss.
+            // The unborn-HEAD first sync has no merge to lean on, so there a dirty tree refuses.
+            if (head is null)
+            {
+                var status = await GitAsync(cancellationToken, "status", "--porcelain");
+                if (status.StdOut.Length > 0)
+                {
+                    return Error.Conflict("Git.DirtyWorkingTree",
+                        "First sync into a working copy with local changes would overwrite them — push first.");
+                }
+            }
+
             var apply = head is null
                 ? await GitAsync(cancellationToken, "reset", "--hard", "FETCH_HEAD")
                 : await GitAsync(cancellationToken, "merge", "--ff-only", "FETCH_HEAD");
             if (apply.ExitCode != 0)
             {
-                return Failed(apply);
+                return apply.StdErr.Contains("would be overwritten", StringComparison.OrdinalIgnoreCase)
+                    ? Error.Conflict("Git.LocalOverlap",
+                        "Local uncommitted changes overlap files the pull would update — push them first (nothing was applied).")
+                    : Failed(apply);
             }
 
             // Reconcile the live store from the updated working copy: upsert-then-prune per tenant,

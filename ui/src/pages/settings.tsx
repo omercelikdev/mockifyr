@@ -1,11 +1,15 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
-import { Boxes, Check, Database, Moon, Palette, ShieldCheck, Sun } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { ArrowDownToLine, ArrowUpFromLine, Boxes, Check, Database, GitBranch, Moon, Palette, ShieldCheck, Sun } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
-import { fetchHealth, persistenceLabel } from '@/lib/api'
+import { fetchGitStatus, fetchHealth, gitPull, gitPush, persistenceLabel } from '@/lib/api'
 import { LOCALES } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { Input } from '@/components/ui/field'
 
 export function SettingsPage() {
   const { t } = useTranslation()
@@ -50,6 +54,9 @@ export function SettingsPage() {
           </div>
         </Card>
 
+        {/* Git sync (ADR 0007): status + explicit push/pull against the host's configured remote */}
+        <GitCard />
+
         {/* Transport (host-config, read-only) */}
         <Card icon={ShieldCheck} title={t('settings.transport')}>
           <p className="mb-3 text-sm text-muted-foreground">{t('settings.transportHint')}</p>
@@ -81,6 +88,103 @@ export function SettingsPage() {
       </div>
     </div>
   )
+}
+
+/**
+ * Git sync card: the host's sync state (remote/branch/dirty/ahead/behind) plus explicit Pull and
+ * Push actions. Push opens a small dialog for an optional commit message. Typed host errors
+ * (pull-first, diverged, invalid remote tree, auth) surface verbatim in an error toast. Hidden
+ * behaviors: unconfigured hosts get the setup hint; unreachable hosts (sample mode) show nothing.
+ */
+function GitCard() {
+  const { t } = useTranslation()
+  const { tenant } = useUi()
+  const queryClient = useQueryClient()
+  // No refetch interval: the host's status endpoint fetches from the remote, so polling would
+  // hammer the Git server. It refreshes after every action instead.
+  const { data: status } = useQuery({ queryKey: ['gitStatus'], queryFn: () => fetchGitStatus(tenant), refetchOnWindowFocus: false })
+  const [busy, setBusy] = useState<'push' | 'pull' | null>(null)
+  const [pushOpen, setPushOpen] = useState(false)
+  const [message, setMessage] = useState('')
+
+  const refresh = () => void queryClient.invalidateQueries({ queryKey: ['gitStatus'] })
+
+  async function pull() {
+    setBusy('pull')
+    const result = await gitPull(tenant)
+    setBusy(null)
+    if (!result.ok) toast.error(result.message)
+    else if (result.reason === 'up-to-date') toast.message(t('git.upToDate'))
+    else {
+      toast.success(t('git.pulled', { count: result.stubsLoaded ?? 0 }))
+      // The served stub set changed — every tenant-scoped view refetches.
+      void queryClient.invalidateQueries()
+    }
+    refresh()
+  }
+
+  async function push() {
+    setPushOpen(false)
+    setBusy('push')
+    const result = await gitPush(tenant, message)
+    setBusy(null)
+    setMessage('')
+    if (!result.ok) toast.error(result.message)
+    else toast[result.reason === 'nothing-to-push' ? 'message' : 'success'](
+      result.reason === 'nothing-to-push' ? t('git.nothingToPush') : t('git.pushed'))
+    refresh()
+  }
+
+  return (
+    <Card icon={GitBranch} title={t('git.title')}>
+      <p className="mb-3 text-sm text-muted-foreground">{t('git.hint')}</p>
+      {!status?.configured ? (
+        <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 font-mono text-xs text-muted-foreground">{t('git.notConfigured')}</p>
+      ) : (
+        <>
+          <dl className="mb-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+            <dt className="text-xs text-muted-foreground">{t('git.remote')}</dt>
+            <dd className="min-w-0 truncate font-mono text-[12.5px]">{status.remote}</dd>
+            <dt className="text-xs text-muted-foreground">{t('git.branch')}</dt>
+            <dd className="font-mono text-[12.5px]">{status.branch}</dd>
+          </dl>
+          <div className="mb-4 flex flex-wrap gap-1.5">
+            <Chip tone={status.dirty ? 'warning' : 'success'}>{status.dirty ? t('git.dirty') : t('git.clean')}</Chip>
+            {status.ahead > 0 && <Chip tone="info">↑ {t('git.ahead', { count: status.ahead })}</Chip>}
+            {status.behind > 0 && <Chip tone="info">↓ {t('git.behind', { count: status.behind })}</Chip>}
+            {status.fetchError && <Chip tone="danger">{t('git.fetchError')}</Chip>}
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => void pull()} disabled={busy !== null}>
+              <ArrowDownToLine />{busy === 'pull' ? '…' : t('git.pull')}
+            </Button>
+            <Button size="sm" variant="primary" onClick={() => setPushOpen(true)} disabled={busy !== null}>
+              <ArrowUpFromLine />{busy === 'push' ? '…' : t('git.push')}
+            </Button>
+          </div>
+          <ConfirmDialog
+            open={pushOpen} onOpenChange={setPushOpen}
+            title={t('git.pushTitle')} body={t('git.pushHint')}
+            confirmLabel={t('git.push')} cancelLabel={t('editor.cancel')}
+            onConfirm={() => void push()}
+          >
+            <Input className="mt-3" value={message} onChange={(e) => setMessage(e.target.value)}
+              placeholder={t('git.messagePlaceholder')} onKeyDown={(e) => { if (e.key === 'Enter') void push() }} />
+          </ConfirmDialog>
+        </>
+      )}
+    </Card>
+  )
+}
+
+function Chip({ tone, children }: { tone: 'success' | 'warning' | 'info' | 'danger'; children: React.ReactNode }) {
+  const tones = {
+    success: 'border-success-border bg-success-bg text-success',
+    warning: 'border-warning-border bg-warning-bg text-warning',
+    info: 'border-info-border bg-info-bg text-info',
+    danger: 'border-danger-border bg-danger-bg text-danger',
+  }
+  return <span className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11.5px] font-medium', tones[tone])}>{children}</span>
 }
 
 function Card({ icon: Icon, title, children }: { icon: React.ComponentType<{ className?: string }>; title: string; children: React.ReactNode }) {

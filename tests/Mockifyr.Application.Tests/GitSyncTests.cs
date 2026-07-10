@@ -174,10 +174,18 @@ public sealed class GitSyncTests : IDisposable
 
         Assert.False(push.IsSuccess);
         Assert.Equal("Git.RemoteAhead", push.Error.Code);
+
+        // The refusal happened BEFORE anything was committed, so the operator can still pull:
+        // the local edit is untouched (dirty) and survives the non-overlapping fast-forward.
+        var status = await host.Git.StatusAsync(CancellationToken.None);
+        Assert.True(status.Value.Dirty);
+        var pull = await host.Git.PullAsync(CancellationToken.None);
+        Assert.True(pull.IsSuccess, pull.IsSuccess ? null : pull.Error.Description);
+        Assert.Equal(3, pull.Value.StubsLoaded); // pushed + remote's + the local unpushed edit
     }
 
     [Fact]
-    public async Task Pull_WithUncommittedLocalChanges_Refuses()
+    public async Task Pull_KeepsNonOverlappingLocalEdits()
     {
         var bare = CreateBareRemote();
         var host = Compose(NewDir("host-d"), bare);
@@ -187,12 +195,38 @@ public sealed class GitSyncTests : IDisposable
         SeedRemote(bare, ("mappings/other.json",
             """{"request":{"method":"GET","url":"/other"},"response":{"status":200}}"""));
 
-        // A local admin mutation dirties the working copy; pull must refuse rather than clobber it.
+        // A local unpushed stub (its own file) does not overlap the incoming update: the pull
+        // fast-forwards around it and both the remote's stub and the local edit end up served.
         AddStub(host, """{"request":{"method":"GET","url":"/unpushed"},"response":{"status":200}}""");
         var pull = await host.Git.PullAsync(CancellationToken.None);
 
+        Assert.True(pull.IsSuccess, pull.IsSuccess ? null : pull.Error.Description);
+        Assert.Equal(3, pull.Value.StubsLoaded);
+        Assert.True((await host.Git.StatusAsync(CancellationToken.None)).Value.Dirty); // the local edit is still unpushed
+    }
+
+    [Fact]
+    public async Task Pull_WithOverlappingLocalEdits_RefusesWithoutApplyingAnything()
+    {
+        var bare = CreateBareRemote();
+        var host = Compose(NewDir("host-o"), bare);
+        var stub = AddStub(host, StubJson);
+        Assert.True((await host.Git.PushAsync(null, CancellationToken.None)).IsSuccess);
+
+        // The remote AND the local working copy both modify the same stub file.
+        SeedRemote(bare, ($"mappings/{stub.Id}.json",
+            """{"request":{"method":"GET","url":"/synced"},"response":{"status":200,"body":"remote-edit"}}"""));
+        var localEdit = MappingJsonReader.ReadWithSource(
+            """{"request":{"method":"GET","url":"/synced"},"response":{"status":200,"body":"local-edit"}}""",
+            TenantId.Default, host.Matchers)[0];
+        host.Persistence.Save(localEdit.Stub with { Id = stub.Id }, localEdit.Source);
+
+        var pull = await host.Git.PullAsync(CancellationToken.None);
+
         Assert.False(pull.IsSuccess);
-        Assert.Equal("Git.DirtyWorkingTree", pull.Error.Code);
+        Assert.Equal("Git.LocalOverlap", pull.Error.Code);
+        // Nothing was applied — the local edit is exactly as it was.
+        Assert.Contains("local-edit", File.ReadAllText(Path.Combine(_base.FullName, "host-o", "mappings", $"{stub.Id}.json")));
     }
 
     [Fact]

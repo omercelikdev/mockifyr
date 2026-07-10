@@ -173,11 +173,16 @@ the same seam.
     with the strict admin-path reader **before** the working tree moves; one bad file rejects the
     pull wholesale (`Git.InvalidMappings` lists the files) and neither the tree nor the served
     stubs change.
-  - *Fast-forward only*: a dirty working copy refuses to pull (`Git.DirtyWorkingTree` — push
-    first); divergent histories refuse (`Git.Diverged`); push refuses when the remote is ahead
-    (`Git.RemoteAhead` — pull first). Nothing is ever auto-merged or force-pushed.
+  - *Fast-forward only*: push checks the remote **before** committing, so `Git.RemoteAhead`
+    ("pull first") leaves the working copy untouched and a pull stays possible; pull keeps
+    non-overlapping local edits (git's no-clobber guarantee) and refuses an update that would
+    touch a locally modified file (`Git.LocalOverlap`); divergent histories refuse
+    (`Git.Diverged`); the unborn-HEAD first sync refuses a dirty tree (`Git.DirtyWorkingTree`).
+    Nothing is ever auto-merged or force-pushed.
   - *Atomic serve-state swap*: an applied pull reconciles the store through the shared
     change-feed reconciler (upsert-then-prune), so no live request window misses a stub.
 - **Regression cases:** `GitSyncTests` — two-host push→pull round-trip (same stub id served),
-  wholesale invalid-tree rejection, remote-ahead refusal, dirty-tree refusal, dirty/ahead/behind
-  status, token/userinfo scrubbing, and the unconfigured default (`Git.NotConfigured`).
+  wholesale invalid-tree rejection, remote-ahead refusal (working copy untouched, pull still
+  possible), non-overlapping local edits surviving a pull, overlapping-edit refusal,
+  dirty/ahead/behind status, token/userinfo scrubbing, and the unconfigured default
+  (`Git.NotConfigured`).

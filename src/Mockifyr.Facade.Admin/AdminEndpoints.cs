@@ -332,7 +332,7 @@ public static class AdminEndpoints
         {
             "Git.NotConfigured" or "Git.RemoteBranchMissing" => StatusCodes.Status404NotFound,
             "Git.InvalidMappings" => StatusCodes.Status422UnprocessableEntity,
-            "Git.RemoteAhead" or "Git.Diverged" or "Git.DirtyWorkingTree" or "Git.WrongBranch" => StatusCodes.Status409Conflict,
+            "Git.RemoteAhead" or "Git.Diverged" or "Git.DirtyWorkingTree" or "Git.LocalOverlap" or "Git.WrongBranch" => StatusCodes.Status409Conflict,
             "Git.Auth" => StatusCodes.Status502BadGateway,
             _ => StatusCodes.Status500InternalServerError,
         });
