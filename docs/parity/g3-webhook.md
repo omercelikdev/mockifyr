@@ -70,7 +70,7 @@ token the harness rewrites per side. Driven by `WebhookScenarios` + `G3WebhookTe
   wait honours the cancellation token, so shutting down mid-delay cancels the delivery).
 - **Regression case:** `G3WebhookDelayTests.Webhook_WaitsTheConfiguredDelayBeforeFiring` — an injected
   handler records when the outbound call actually lands and asserts it is `>= ~delay`.
-- **Still deferred:** **sub-event recording** — the only remaining webhook gap.
+- **Sub-event recording** — closed; see the section below.
 
 ## `serveEventListeners` webhook form (#147)
 
@@ -85,3 +85,21 @@ token the harness rewrites per side. Driven by `WebhookScenarios` + `G3WebhookTe
   declared headers, body). It failed on the old reader ("mockifyr fired no webhook") and is green
   after the fix.
 - **Regression case:** `G3WebhookTests.Webhook_Delivery` (the `webhook[serve-event-listeners]` scenario).
+
+## Sub-event recording (structural)
+
+- **Gap closed.** WireMock 3 records each webhook delivery on the serve event as correlated
+  `subEvents` — a `WEBHOOK_REQUEST` entry (the outbound request *as actually sent*, i.e. after
+  templating) and a `WEBHOOK_RESPONSE` entry (the status/headers/body the target returned).
+  `WebhookServeEventListener` now does the same: it appends a `WEBHOOK_REQUEST` sub-event with the
+  rendered method/URL/headers/body right before sending, then a `WEBHOOK_RESPONSE` with the target's
+  actual response. A failed delivery (unreachable target, or a template that throws at render time —
+  previously a *silent* fire-and-forget loss) is recorded as an `ERROR` sub-event carrying the message.
+- **Self-tested, not diffed.** Delivery is fire-and-forget and sub-events land asynchronously, so
+  their timing/offsets are racy against a live oracle; like webhook `delay`, this is validated
+  structurally with an injected handler.
+- **Consumer:** the dashboard's journal detail (`GET /__admin/requests/{id}`) projects the sub-events
+  into its `webhooks` array (rendered request + `response`/`error`, `delivered` flag), falling back to
+  the stub's configured template for a delivery not yet recorded (in flight / delayed).
+- **Regression cases:** `G3WebhookSubEventTests.Webhook_RecordsRenderedRequestAndResponseAsSubEvents`,
+  `G3WebhookSubEventTests.Webhook_RecordsAnErrorSubEventWhenDeliveryFails`.

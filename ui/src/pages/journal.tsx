@@ -6,7 +6,7 @@ import {
   getSortedRowModel, type SortingState, useReactTable,
 } from '@tanstack/react-table'
 import { ArrowUpDown, CheckCircle2, ChevronLeft, ChevronRight, Clock, Rows2, Rows3, XCircle } from 'lucide-react'
-import { cn, timeAgo } from '@/lib/utils'
+import { cn, formatDateTime, timeAgo } from '@/lib/utils'
 import { useUi } from '@/components/providers'
 import { fetchJournal, type JournalEntry } from '@/lib/api'
 import { MethodChip } from '@/components/ui/badges'
@@ -82,8 +82,18 @@ export function JournalPage() {
         : <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-warning"><XCircle className="size-3.5" />{t('journal.unmatched')}</span>,
     },
     {
+      // Full date-time first; the compact relative time trails it so at-a-glance recency stays.
       accessorKey: 'loggedDate', header: () => t('journal.when'),
-      cell: ({ getValue }) => <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[12px] text-muted-foreground"><Clock className="size-3.5" />{timeAgo(getValue<string | null>())}</span>,
+      cell: ({ getValue }) => {
+        const iso = getValue<string | null>()
+        return (
+          <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[12px] text-muted-foreground">
+            <Clock className="size-3.5" />
+            <span className="font-mono tabular-nums text-foreground">{formatDateTime(iso)}</span>
+            <span className="text-faint">{timeAgo(iso)}</span>
+          </span>
+        )
+      },
     },
   ], [t])
 

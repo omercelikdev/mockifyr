@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { AlertTriangle, Clock } from 'lucide-react'
 import { fetchJournalDetail, type HeaderPair, type JournalWebhook } from '@/lib/api'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { MethodChip } from '@/components/ui/badges'
+import { JsonField } from '@/components/ui/json-editor'
 import { cn } from '@/lib/utils'
 
 // Pretty-print a body when it parses as JSON; otherwise show it verbatim.
@@ -16,6 +18,12 @@ function statusTone(status: number): string {
   if (status >= 500) return 'text-danger bg-danger-bg border-danger-border'
   if (status >= 400) return 'text-warning bg-warning-bg border-warning-border'
   return 'text-success bg-success-bg border-success-border'
+}
+
+function StatusChip({ status }: { status: number }) {
+  return (
+    <span className={cn('inline-flex shrink-0 rounded-md border px-2 py-0.5 font-mono text-[11px] font-bold', statusTone(status))}>{status}</span>
+  )
 }
 
 function Headers({ headers, label }: { headers: HeaderPair[]; label: string }) {
@@ -38,12 +46,16 @@ function Headers({ headers, label }: { headers: HeaderPair[]; label: string }) {
   )
 }
 
+// A read-only body pane: the CodeMirror JSON field (syntax highlighting, folding, copy) over the
+// pretty-printed body. Height hugs the content up to a cap so short bodies don't leave a void.
 function Body({ body, label, empty }: { body: string; label: string; empty: string }) {
+  const value = pretty(body)
+  const height = Math.min(340, Math.max(60, (value.split('\n').length + 1) * 20 + 16))
   return (
     <div>
       <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-faint">{label}</h4>
       {body ? (
-        <pre className="scroll-area max-h-[340px] overflow-auto rounded-lg border border-border bg-muted/40 p-3 font-mono text-[12.5px] leading-relaxed text-foreground">{pretty(body)}</pre>
+        <JsonField value={value} readOnly lint={false} minimal height={height} />
       ) : (
         <p className="text-xs text-faint">{empty}</p>
       )}
@@ -51,15 +63,41 @@ function Body({ body, label, empty }: { body: string; label: string; empty: stri
   )
 }
 
+/**
+ * One callback delivery: the outbound request as actually sent (templates rendered) and, when the
+ * target answered, its response. A callback not yet recorded (in flight / delayed) shows the
+ * configured template with a "pending" note; a failed delivery shows the error.
+ */
 function WebhookCard({ webhook, t }: { webhook: JournalWebhook; t: (k: string) => string }) {
   return (
     <div className="space-y-4 rounded-xl border border-border p-4">
       <div className="flex items-center gap-2">
         <MethodChip method={webhook.method} />
-        <span className="break-all font-mono text-[12.5px] text-foreground">{webhook.url}</span>
+        <span className="min-w-0 flex-1 break-all font-mono text-[12.5px] text-foreground">{webhook.url}</span>
+        {webhook.response && <StatusChip status={webhook.response.status} />}
       </div>
+
+      {!webhook.delivered && !webhook.error && (
+        <p className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          <Clock className="size-3.5 shrink-0" />{t('journal.callbackPending')}
+        </p>
+      )}
+      {webhook.error && (
+        <p className="flex items-center gap-1.5 rounded-lg border border-danger-border bg-danger-bg px-3 py-2 text-xs text-danger">
+          <AlertTriangle className="size-3.5 shrink-0" />{t('journal.callbackFailed')}: {webhook.error}
+        </p>
+      )}
+
       <Headers headers={webhook.headers} label={t('journal.headers')} />
       <Body body={webhook.body ?? ''} label={t('journal.body')} empty={t('journal.noBody')} />
+
+      {webhook.response && (
+        <div className="space-y-4 border-t border-border pt-4">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-faint">{t('journal.callbackResponse')}</h4>
+          <Headers headers={webhook.response.headers} label={t('journal.headers')} />
+          <Body body={webhook.response.body ?? ''} label={t('journal.body')} empty={t('journal.noBody')} />
+        </div>
+      )}
     </div>
   )
 }
@@ -74,6 +112,12 @@ export function JournalDetailSheet({ id, tenant, onClose }: { id: string | null;
     queryKey: ['journal-detail', tenant, id],
     queryFn: () => fetchJournalDetail(tenant, id!),
     enabled: !!id,
+    // A callback fires after its serve event is journaled (and may be delayed); keep the open sheet
+    // fresh until every configured callback has a recorded outcome.
+    refetchInterval: (query) => {
+      const d = query.state.data
+      return d && d.webhooks.some((w) => w.delivered ? !w.response && !w.error : !w.error) ? 2000 : false
+    },
   })
 
   return (
@@ -86,9 +130,7 @@ export function JournalDetailSheet({ id, tenant, onClose }: { id: string | null;
             <div className="flex items-center gap-2.5 border-b border-border px-6 py-4 pe-14">
               <MethodChip method={data.request.method} />
               <span className="min-w-0 flex-1 truncate font-mono text-[13px] font-medium">{data.request.url}</span>
-              {data.response && (
-                <span className={cn('inline-flex shrink-0 rounded-md border px-2 py-0.5 font-mono text-[11px] font-bold', statusTone(data.response.status))}>{data.response.status}</span>
-              )}
+              {data.response && <StatusChip status={data.response.status} />}
             </div>
             <Tabs defaultValue="request" className="flex min-h-0 flex-1 flex-col">
               <div className="px-6 pt-4">
