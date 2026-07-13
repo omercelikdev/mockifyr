@@ -133,7 +133,6 @@ public sealed class StubEngine
             Request = request,
             MatchedStub = matchedStub,
             Response = response,
-            SubEvents = [],
             Timestamp = DateTimeOffset.UtcNow,
         };
 
@@ -282,7 +281,6 @@ public sealed class StubEngine
             Request = request,
             MatchedStub = stub,
             Response = response,
-            SubEvents = [],
         };
 
         foreach (var transformer in _responseTransformers)

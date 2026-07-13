@@ -299,7 +299,21 @@ export interface JournalEntry {
 }
 
 export interface HeaderPair { name: string; value: string }
-export interface JournalWebhook { method: string; url: string; headers: HeaderPair[]; body: string | null }
+/**
+ * One callback of a journal entry. `delivered: true` means this is the actual outbound request as
+ * sent (templates rendered) plus the target's `response`; `delivered: false` means the delivery has
+ * not been recorded (in flight / delayed) and the fields show the configured template. `error` holds
+ * the failure when the delivery could not complete (unreachable target, template render error).
+ */
+export interface JournalWebhook {
+  method: string
+  url: string
+  headers: HeaderPair[]
+  body: string | null
+  delivered: boolean
+  response: { status: number; headers: HeaderPair[]; body: string | null } | null
+  error: string | null
+}
 /** Full detail for one journal entry (GET /__admin/requests/{id}) — backs the detail drawer's tabs. */
 export interface JournalDetail {
   id: string
@@ -372,7 +386,18 @@ function sampleDetail(id: string): JournalDetail {
       headers: [{ name: 'Content-Type', value: 'application/json' }, { name: 'Matched-Stub-Id', value: 'stub-1' }],
       body: JSON.stringify({ ok: true, id: 'pay_9' }, null, 2),
     } : { status: 404, statusMessage: 'Not Found', headers: [{ name: 'Content-Type', value: 'application/json' }], body: JSON.stringify({ error: 'no stub matched' }, null, 2) },
-    webhooks: matched ? [{ method: 'POST', url: 'https://callback.example.com/hook', headers: [{ name: 'Content-Type', value: 'application/json' }], body: JSON.stringify({ event: 'payment.captured' }, null, 2) }] : [],
+    webhooks: matched ? [{
+      method: 'POST', url: 'https://callback.example.com/hook',
+      headers: [{ name: 'Content-Type', value: 'application/json' }],
+      body: JSON.stringify({ event: 'payment.captured', paymentId: 'pay_9' }, null, 2),
+      delivered: true,
+      response: {
+        status: 200,
+        headers: [{ name: 'Content-Type', value: 'application/json' }],
+        body: JSON.stringify({ received: true }, null, 2),
+      },
+      error: null,
+    }] : [],
   }
 }
 

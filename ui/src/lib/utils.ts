@@ -6,6 +6,15 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/** Full local date-time for an ISO timestamp (e.g. "2026-07-13 14:32:05") — the journal's date column. */
+export function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const then = new Date(iso)
+  if (Number.isNaN(then.getTime())) return '—'
+  const p = (n: number, w = 2) => String(n).padStart(w, '0')
+  return `${then.getFullYear()}-${p(then.getMonth() + 1)}-${p(then.getDate())} ${p(then.getHours())}:${p(then.getMinutes())}:${p(then.getSeconds())}`
+}
+
 /** Compact human-readable "time ago" for an ISO timestamp (e.g. "just now", "5m ago", "2h ago", "3d ago"). */
 export function timeAgo(iso: string | null | undefined): string {
   if (!iso) return '—'

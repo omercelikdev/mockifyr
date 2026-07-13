@@ -332,11 +332,36 @@ public sealed record MatchInput
 }
 
 /// <summary>A correlated sub-event recorded during serving (e.g. a webhook request/response).</summary>
-public sealed record SubEvent(string Type, long TimeOffsetNanos, object? Data);
+public sealed record SubEvent(string Type, long TimeOffsetNanos, object? Data)
+{
+    /// <summary>The upstream-compatible sub-event type for an outbound webhook request.</summary>
+    public const string WebhookRequestType = "WEBHOOK_REQUEST";
+
+    /// <summary>The upstream-compatible sub-event type for the response a webhook target returned.</summary>
+    public const string WebhookResponseType = "WEBHOOK_RESPONSE";
+
+    /// <summary>The sub-event type for a failed delivery (render error or unreachable target).</summary>
+    public const string ErrorType = "ERROR";
+}
+
+/// <summary>The rendered outbound webhook request as actually sent (the data of a WEBHOOK_REQUEST sub-event).</summary>
+public sealed record WebhookRequestData(
+    string Method, string Url, IReadOnlyList<KeyValuePair<string, string>> Headers, byte[]? Body);
+
+/// <summary>The response a webhook target returned (the data of a WEBHOOK_RESPONSE sub-event).</summary>
+public sealed record WebhookResponseData(
+    int Status, IReadOnlyList<KeyValuePair<string, string>> Headers, byte[]? Body);
+
+/// <summary>Why a webhook delivery failed (the data of an ERROR sub-event).</summary>
+public sealed record WebhookErrorData(string Message);
 
 /// <summary>The record of a single served request: what came in, what stub matched, what went out.</summary>
 public sealed record ServeEvent
 {
+    // Sub-events arrive after the event is journaled (webhook delivery is fire-and-forget), so this
+    // is the one mutable, lock-guarded corner of the otherwise immutable record.
+    private readonly List<SubEvent> _subEvents = [];
+
     /// <summary>Unique event id.</summary>
     public required Guid Id { get; init; }
 
@@ -352,8 +377,21 @@ public sealed record ServeEvent
     /// <summary>The response produced, if any.</summary>
     public CanonicalResponse? Response { get; init; }
 
-    /// <summary>Correlated sub-events (e.g. webhook request/response).</summary>
-    public required IReadOnlyList<SubEvent> SubEvents { get; init; }
+    /// <summary>A snapshot of the correlated sub-events (e.g. webhook request/response).</summary>
+    public IReadOnlyList<SubEvent> SubEvents
+    {
+        get { lock (_subEvents) { return [.. _subEvents]; } }
+    }
+
+    /// <summary>
+    /// Appends a correlated sub-event. Called from the serve-event listeners at the edge (e.g. the
+    /// webhook listener recording what it actually sent and what came back), which run concurrently
+    /// with journal reads — hence the lock.
+    /// </summary>
+    public void AppendSubEvent(SubEvent subEvent)
+    {
+        lock (_subEvents) { _subEvents.Add(subEvent); }
+    }
 
     /// <summary>
     /// When the event was recorded. Stamped at dispatch by the (already non-deterministic) serve path,

@@ -34,6 +34,102 @@ public static class AdminEndpoints
     /// <summary>Decodes a body for display; bodies in the journal are already materialised in memory.</summary>
     private static string Utf8(byte[] body) => System.Text.Encoding.UTF8.GetString(body);
 
+    /// <summary>
+    /// Projects a serve event's callbacks for the journal detail. Deliveries recorded as sub-events
+    /// (WEBHOOK_REQUEST + the paired WEBHOOK_RESPONSE / ERROR, in append order — the listener sends the
+    /// stub's webhooks sequentially) win over the configured definitions; a definition beyond the
+    /// recorded deliveries (still in flight or delayed) is shown as-configured with <c>delivered: false</c>.
+    /// </summary>
+    private static IReadOnlyList<object> JournalWebhooks(ServeEvent e)
+    {
+        var definitions = e.MatchedStub?.Webhooks ?? [];
+        var items = new List<object>();
+        WebhookRequestData? pendingRequest = null;
+
+        void Flush(object? response, string? error)
+        {
+            if (pendingRequest is not { } req)
+            {
+                return;
+            }
+
+            items.Add(new
+            {
+                method = req.Method,
+                url = req.Url,
+                headers = req.Headers.Select(h => new { name = h.Key, value = h.Value }),
+                body = req.Body is null ? null : Utf8(req.Body),
+                delivered = true,
+                response,
+                error,
+            });
+            pendingRequest = null;
+        }
+
+        foreach (var sub in e.SubEvents)
+        {
+            switch (sub.Type, sub.Data)
+            {
+                case (SubEvent.WebhookRequestType, WebhookRequestData request):
+                    Flush(response: null, error: null); // a request with no outcome yet (in flight)
+                    pendingRequest = request;
+                    break;
+                case (SubEvent.WebhookResponseType, WebhookResponseData response):
+                    Flush(
+                        response: new
+                        {
+                            status = response.Status,
+                            headers = response.Headers.Select(h => new { name = h.Key, value = h.Value }),
+                            body = response.Body is null ? null : Utf8(response.Body),
+                        },
+                        error: null);
+                    break;
+                case (SubEvent.ErrorType, WebhookErrorData failure):
+                    if (pendingRequest is not null)
+                    {
+                        Flush(response: null, error: failure.Message);
+                    }
+                    else if (items.Count < definitions.Count)
+                    {
+                        // The delivery died before a request was even built (e.g. the template failed
+                        // to render): show the configured definition carrying the error.
+                        var w = definitions[items.Count];
+                        items.Add(new
+                        {
+                            method = w.Method,
+                            url = w.Url,
+                            headers = w.Headers.Select(h => new { name = h.Key, value = h.Value }),
+                            body = w.Body is null ? null : Utf8(w.Body),
+                            delivered = false,
+                            response = (object?)null,
+                            error = failure.Message,
+                        });
+                    }
+
+                    break;
+            }
+        }
+
+        Flush(response: null, error: null);
+
+        // Definitions beyond the recorded deliveries have not fired yet — show the configured template.
+        foreach (var w in definitions.Skip(items.Count))
+        {
+            items.Add(new
+            {
+                method = w.Method,
+                url = w.Url,
+                headers = w.Headers.Select(h => new { name = h.Key, value = h.Value }),
+                body = w.Body is null ? null : Utf8(w.Body),
+                delivered = false,
+                response = (object?)null,
+                error = (string?)null,
+            });
+        }
+
+        return items;
+    }
+
     public static IEndpointRouteBuilder MapAdminEndpoints(this IEndpointRouteBuilder endpoints)
     {
         var admin = endpoints.MapGroup("/__admin");
@@ -134,8 +230,10 @@ public static class AdminEndpoints
         });
 
         // Full detail for one journal entry (backs the dashboard's Request/Response/Callback tabs). The
-        // list stays lean; headers + bodies are fetched on demand here. Webhooks show the matched stub's
-        // configured callbacks (the intent), since outbound firing happens fire-and-forget at the edge.
+        // list stays lean; headers + bodies are fetched on demand here. Webhooks show the actual
+        // deliveries recorded as sub-events (rendered request + the target's response or the delivery
+        // error); a callback not yet fired (in flight, delayed) falls back to the stub's configured
+        // template, flagged `delivered: false`.
         admin.MapGet("/requests/{id}", async (string id, HttpRequest request, ISender sender) =>
         {
             var result = await sender.Send(new GetServeEventsQuery(TenantOf(request), UnmatchedOnly: false));
@@ -165,13 +263,7 @@ public static class AdminEndpoints
                     headers = HeaderPairs(e.Response.Headers),
                     body = Utf8(e.Response.Body),
                 },
-                webhooks = (e.MatchedStub?.Webhooks ?? []).Select(w => new
-                {
-                    method = w.Method,
-                    url = w.Url,
-                    headers = w.Headers.Select(h => new { name = h.Key, value = h.Value }),
-                    body = w.Body is null ? null : Utf8(w.Body),
-                }),
+                webhooks = JournalWebhooks(e),
             });
         });
 
