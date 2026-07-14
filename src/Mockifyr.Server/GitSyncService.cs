@@ -54,7 +54,13 @@ public sealed partial class GitSyncService(
     IMatcherRegistry matchers) : IGitSync
 {
     private const string TokenVariable = "MOCKIFYR_GIT_TOKEN";
+    private const string UsernameVariable = "MOCKIFYR_GIT_USERNAME";
     private const int CommandTimeoutSeconds = 120;
+
+    // Dashboard-provided HTTPS credentials (#153). Process memory only — never written to disk,
+    // never echoed back; they take precedence over the host environment variables.
+    private volatile string? _dashboardToken;
+    private volatile string? _dashboardUsername;
 
     // Git operations mutate one working copy; serialize them so concurrent admin calls can't interleave.
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -113,7 +119,7 @@ public sealed partial class GitSyncService(
 
         if (!configured)
         {
-            return Result.Success(new GitSyncStatus(false, null, null, false, 0, 0, null, null, RootDir));
+            return Result.Success(new GitSyncStatus(false, null, null, false, 0, 0, null, null, RootDir, CredentialsSource));
         }
 
         // Best-effort fetch so ahead/behind reflect the remote; a failure (offline, auth) is
@@ -125,7 +131,7 @@ public sealed partial class GitSyncService(
         var dirty = (await GitAsync(cancellationToken, "status", "--porcelain")).StdOut.Length > 0;
         var (ahead, behind) = await AheadBehindAsync(cancellationToken);
         return Result.Success(new GitSyncStatus(
-            true, ScrubUserInfo(_remote!), _branch, dirty, ahead, behind, fetchError, _configuredBy, RootDir));
+            true, ScrubUserInfo(_remote!), _branch, dirty, ahead, behind, fetchError, _configuredBy, RootDir, CredentialsSource));
     }
 
     /// <inheritdoc />
@@ -377,6 +383,34 @@ public sealed partial class GitSyncService(
         }
     }
 
+    /// <inheritdoc />
+    public async Task<Result<GitSyncStatus>> SetCredentialsAsync(string? username, string? token, CancellationToken cancellationToken)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            var trimmed = token?.Trim();
+            _dashboardToken = string.IsNullOrEmpty(trimmed) ? null : trimmed;
+            _dashboardUsername = string.IsNullOrWhiteSpace(username) ? null : username!.Trim();
+            return await StatusCoreAsync(cancellationToken);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    private string? EffectiveToken => _dashboardToken ?? NullIfEmpty(Environment.GetEnvironmentVariable(TokenVariable));
+
+    private string? EffectiveUsername => _dashboardUsername ?? NullIfEmpty(Environment.GetEnvironmentVariable(UsernameVariable));
+
+    private string CredentialsSource =>
+        _dashboardToken is not null ? "dashboard"
+        : !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(TokenVariable)) ? "environment"
+        : "none";
+
+    private static string? NullIfEmpty(string? value) => string.IsNullOrEmpty(value) ? null : value;
+
     private static Error NotConnected<T>() =>
         Error.NotFound("Git.NotConfigured",
             "No Git remote is connected. Configure one in Settings → Git sync, or start the host with --git-remote.");
@@ -536,7 +570,7 @@ public sealed partial class GitSyncService(
         var detail = Scrub(result.StdErr.Length > 0 ? result.StdErr : result.StdOut).Trim();
         return IsAuthFailure(detail)
             ? Error.Unauthorized("Git.Auth",
-                $"The remote rejected the credentials. Set {TokenVariable} (HTTPS) or provide an SSH key. Detail: {detail}")
+                $"The remote rejected the credentials. Set an HTTPS access token under Settings → Git sync (or {TokenVariable} / an SSH key on the host). Detail: {detail}")
             : Error.Failure("Git.Failed", detail.Length > 0 ? detail : "git command failed.");
     }
 
@@ -550,13 +584,15 @@ public sealed partial class GitSyncService(
     private static bool IsMissingRemoteRef(string stdErr) =>
         stdErr.Contains("couldn't find remote ref", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Removes the token value (and any URL userinfo) from text before it can be surfaced.</summary>
-    private static string Scrub(string text)
+    /// <summary>Removes the token value (env or dashboard-set, plus any URL userinfo) from text before it can be surfaced.</summary>
+    private string Scrub(string text)
     {
-        var token = Environment.GetEnvironmentVariable(TokenVariable);
-        if (!string.IsNullOrEmpty(token))
+        foreach (var token in (string?[])[Environment.GetEnvironmentVariable(TokenVariable), _dashboardToken])
         {
-            text = text.Replace(token, "***");
+            if (!string.IsNullOrEmpty(token))
+            {
+                text = text.Replace(token, "***");
+            }
         }
 
         return UserInfoPattern().Replace(text, "$1***@");
@@ -583,10 +619,18 @@ public sealed partial class GitSyncService(
         };
         info.Environment["GIT_TERMINAL_PROMPT"] = "0";
 
-        if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable(TokenVariable)))
+        if (EffectiveToken is { } effectiveToken)
         {
-            // First -c clears any configured helpers (OS keychains could prompt or interfere); the
-            // inline helper echoes the env-held credentials without them ever entering argv.
+            // Dashboard-set credentials win over the host environment; both reach git the same way —
+            // through the child process environment, read by an inline credential helper, so the
+            // secret never enters argv. The first -c clears any configured helpers (OS keychains
+            // could prompt or interfere).
+            info.Environment[TokenVariable] = effectiveToken;
+            if (EffectiveUsername is { } effectiveUsername)
+            {
+                info.Environment[UsernameVariable] = effectiveUsername;
+            }
+
             info.ArgumentList.Add("-c");
             info.ArgumentList.Add("credential.helper=");
             info.ArgumentList.Add("-c");

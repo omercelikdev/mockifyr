@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ArrowDownToLine, ArrowUpFromLine, Boxes, Check, Database, GitBranch, Moon, Palette, ShieldCheck, Sun } from 'lucide-react'
+import { ArrowDownToLine, ArrowUpFromLine, Boxes, Check, Database, GitBranch, KeyRound, Moon, Palette, ShieldCheck, Sun } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
-import { fetchGitStatus, fetchHealth, gitConfigure, gitPull, gitPush, persistenceLabel } from '@/lib/api'
+import { fetchGitStatus, fetchHealth, gitConfigure, gitPull, gitPush, gitSetCredentials, persistenceLabel } from '@/lib/api'
 import { LOCALES } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -139,9 +139,35 @@ function GitCard() {
   const [branch, setBranch] = useState('main')
   const [connecting, setConnecting] = useState(false)
 
+  // Credentials (#153): sent once to the host, held in its process memory only — never persisted,
+  // never echoed back. The status only reports the source (none/environment/dashboard).
+  const [token, setToken] = useState('')
+  const [username, setUsername] = useState('')
+  const [savingCreds, setSavingCreds] = useState(false)
+
+  async function saveCredentials() {
+    setSavingCreds(true)
+    const result = await gitSetCredentials(tenant, token.trim(), username)
+    setSavingCreds(false)
+    if ('error' in result) toast.error(result.message)
+    else {
+      toast.success(token.trim() ? t('git.credentialsSaved') : t('git.credentialsCleared'))
+      setToken('')
+      setUsername('')
+    }
+    refresh()
+  }
+
   async function connect() {
     if (!remoteUrl.trim()) return
     setConnecting(true)
+    // Save the optional token first, so the connect's own status fetch already authenticates.
+    if (token.trim()) {
+      const creds = await gitSetCredentials(tenant, token.trim(), username)
+      if ('error' in creds) { toast.error(creds.message); setConnecting(false); return }
+      setToken('')
+      setUsername('')
+    }
     const result = await gitConfigure(tenant, remoteUrl.trim(), branch)
     setConnecting(false)
     if ('error' in result) toast.error(result.message)
@@ -164,6 +190,11 @@ function GitCard() {
               placeholder="https://github.com/team/stubs.git" className="font-mono"
               onKeyDown={(e) => { if (e.key === 'Enter') void connect() }} />
             <Input value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="main" className="font-mono" />
+          </div>
+          <div className="grid grid-cols-[minmax(0,1fr)_130px] gap-2">
+            <Input type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)}
+              placeholder={t('git.tokenPlaceholder')} className="font-mono" />
+            <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder={t('git.usernamePlaceholder')} className="font-mono" />
           </div>
           <div className="flex items-center gap-3">
             <Button size="sm" variant="primary" onClick={() => void connect()} disabled={connecting || !remoteUrl.trim()}>
@@ -188,6 +219,25 @@ function GitCard() {
             {status.ahead > 0 && <Chip tone="info">↑ {t('git.ahead', { count: status.ahead })}</Chip>}
             {status.behind > 0 && <Chip tone="info">↓ {t('git.behind', { count: status.behind })}</Chip>}
             {status.fetchError && <Chip tone="danger">{t('git.fetchError')}</Chip>}
+          </div>
+          <div className="mb-4 space-y-2">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <KeyRound className="size-3.5" />
+              <span>{t('git.credentials')}</span>
+              {status.credentialsSource === 'dashboard' && <Chip tone="success">{t('git.credsDashboard')}</Chip>}
+              {status.credentialsSource === 'environment' && <Chip tone="info">{t('git.credsEnv')}</Chip>}
+            </div>
+            <div className="grid grid-cols-[minmax(0,1fr)_130px_auto] gap-2">
+              <Input type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)}
+                placeholder={status.credentialsSource === 'dashboard' ? '••••••••' : t('git.tokenPlaceholder')} className="font-mono"
+                onKeyDown={(e) => { if (e.key === 'Enter' && token.trim()) void saveCredentials() }} />
+              <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder={t('git.usernamePlaceholder')} className="font-mono" />
+              <Button size="sm" variant="outline" onClick={() => void saveCredentials()}
+                disabled={savingCreds || (!token.trim() && status.credentialsSource !== 'dashboard')}>
+                {savingCreds ? '…' : token.trim() ? t('git.saveCredentials') : t('git.clearCredentials')}
+              </Button>
+            </div>
+            <p className="text-xs text-faint">{t('git.credentialsHint')}</p>
           </div>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={() => void pull()} disabled={busy !== null}>

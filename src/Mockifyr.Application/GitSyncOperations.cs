@@ -18,6 +18,12 @@ public interface IGitSync
     Task<Result<GitPushOutcome>> PushAsync(string? message, CancellationToken cancellationToken);
     Task<Result<GitPullOutcome>> PullAsync(CancellationToken cancellationToken);
     Task<Result<GitSyncStatus>> ConfigureAsync(string remoteUrl, string? branch, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Sets (or, with an empty token, clears) the HTTPS credentials used for remote operations (#153).
+    /// Implementations hold them in process memory only — never on disk, never in results or errors.
+    /// </summary>
+    Task<Result<GitSyncStatus>> SetCredentialsAsync(string? username, string? token, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -27,7 +33,7 @@ public interface IGitSync
 /// </summary>
 public sealed record GitSyncStatus(
     bool Configured, string? Remote, string? Branch, bool Dirty, int Ahead, int Behind, string? FetchError,
-    string? ConfiguredBy = null, string? WorkingCopy = null);
+    string? ConfiguredBy = null, string? WorkingCopy = null, string CredentialsSource = "none");
 
 /// <summary>Push result. <c>Reason</c> is <c>pushed</c> or <c>nothing-to-push</c>.</summary>
 public sealed record GitPushOutcome(bool Pushed, string? Commit, string Reason);
@@ -51,6 +57,12 @@ public sealed record GitPullCommand : ICommand<Result<GitPullOutcome>>;
 public sealed record GitConfigureCommand(string RemoteUrl, string? Branch) : ICommand<Result<GitSyncStatus>>;
 
 /// <summary>
+/// Sets the HTTPS access token (and optional username) used for pull/push against a private remote,
+/// from the dashboard (#153). An empty token clears dashboard-held credentials. Never persisted.
+/// </summary>
+public sealed record GitSetCredentialsCommand(string? Username, string? Token) : ICommand<Result<GitSyncStatus>>;
+
+/// <summary>
 /// The default when no <c>--git-remote</c> is configured: status reports unconfigured (so the
 /// dashboard can hide/disable the controls), mutations fail with <c>Git.NotConfigured</c>.
 /// </summary>
@@ -69,6 +81,10 @@ public sealed class NotConfiguredGitSync : IGitSync
         Task.FromResult<Result<GitPullOutcome>>(NotConfigured);
 
     public Task<Result<GitSyncStatus>> ConfigureAsync(string remoteUrl, string? branch, CancellationToken cancellationToken) =>
+        Task.FromResult<Result<GitSyncStatus>>(Error.NotFound(
+            "Git.NotSupported", "This host was composed without Git sync support."));
+
+    public Task<Result<GitSyncStatus>> SetCredentialsAsync(string? username, string? token, CancellationToken cancellationToken) =>
         Task.FromResult<Result<GitSyncStatus>>(Error.NotFound(
             "Git.NotSupported", "This host was composed without Git sync support."));
 }
@@ -99,4 +115,11 @@ public sealed class GitConfigureHandler(IGitSync git) : ICommandHandler<GitConfi
 {
     public async ValueTask<Result<GitSyncStatus>> Handle(GitConfigureCommand command, CancellationToken cancellationToken) =>
         await git.ConfigureAsync(command.RemoteUrl, command.Branch, cancellationToken);
+}
+
+/// <summary>Delegates the set-credentials command to the configured <see cref="IGitSync"/>.</summary>
+public sealed class GitSetCredentialsHandler(IGitSync git) : ICommandHandler<GitSetCredentialsCommand, Result<GitSyncStatus>>
+{
+    public async ValueTask<Result<GitSyncStatus>> Handle(GitSetCredentialsCommand command, CancellationToken cancellationToken) =>
+        await git.SetCredentialsAsync(command.Username, command.Token, cancellationToken);
 }

@@ -380,4 +380,43 @@ public sealed class GitSyncTests : IDisposable
         Assert.False(pull.IsSuccess);
         Assert.Equal("Git.NotConfigured", pull.Error.Code);
     }
+
+    [Fact]
+    public async Task SetCredentials_ReportsDashboardSource_AndClearReverts()
+    {
+        var remote = CreateBareRemote();
+        var host = Compose(NewDir("creds-host"), remote);
+
+        var initial = await host.Git.StatusAsync(CancellationToken.None);
+        Assert.True(initial.IsSuccess);
+        Assert.NotEqual("dashboard", initial.Value.CredentialsSource);
+
+        var set = await host.Git.SetCredentialsAsync("bot", "s3cret-token", CancellationToken.None);
+        Assert.True(set.IsSuccess);
+        Assert.Equal("dashboard", set.Value.CredentialsSource);
+
+        // A local-path remote needs no auth, so operations still succeed with credentials present.
+        AddStub(host, StubJson);
+        var push = await host.Git.PushAsync("with credentials", CancellationToken.None);
+        Assert.True(push.IsSuccess, push.IsSuccess ? null : push.Error.Description);
+
+        var cleared = await host.Git.SetCredentialsAsync(null, "", CancellationToken.None);
+        Assert.True(cleared.IsSuccess);
+        Assert.NotEqual("dashboard", cleared.Value.CredentialsSource);
+    }
+
+    [Fact]
+    public async Task AuthFailureMessage_NeverContainsTheDashboardToken()
+    {
+        // An https remote to a closed port fails fast; the surfaced error must not leak the token.
+        var host = Compose(NewDir("scrub-host"), "https://localhost:1/private/repo.git");
+        const string token = "super-secret-token-value";
+        var set = await host.Git.SetCredentialsAsync(null, token, CancellationToken.None);
+        Assert.True(set.IsSuccess);
+
+        AddStub(host, StubJson);
+        var push = await host.Git.PushAsync(null, CancellationToken.None);
+        Assert.False(push.IsSuccess);
+        Assert.DoesNotContain(token, push.Error.Description, StringComparison.Ordinal);
+    }
 }
