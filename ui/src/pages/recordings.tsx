@@ -5,6 +5,7 @@ import { Camera, Circle, Play, Square } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
+import { resolveUrl, useEnvironments } from '@/lib/environments'
 import {
   fetchRecordingStatus, snapshotRecording, startRecording, stopRecording, type CapturedStub,
 } from '@/lib/api'
@@ -27,6 +28,10 @@ export function RecordingsPage() {
   const { tenant } = useUi()
   const queryClient = useQueryClient()
   const [target, setTarget] = useState('https://api.example.com')
+  // Environments (#157): {{name}} in the target resolves when recording starts; a live preview
+  // shows the resolution, unknown variables are flagged.
+  const environments = useEnvironments()
+  const targetResolution = resolveUrl(target, environments)
   const [captured, setCaptured] = useState<CapturedStub[]>([])
   const [selected, setSelected] = useState<Selections>({})
   const [search, setSearch] = useState('')
@@ -38,7 +43,7 @@ export function RecordingsPage() {
   const refreshStatus = () => void queryClient.invalidateQueries({ queryKey: ['recording-status', tenant] })
 
   const start = useMutation({
-    mutationFn: () => startRecording(tenant, target.trim()),
+    mutationFn: () => startRecording(tenant, targetResolution.resolved.trim()),
     onSuccess: ({ mock }) => { toast[mock ? 'message' : 'success'](mock ? t('editor.savedSample') : t('recordings.started')); refreshStatus() },
   })
   const snapshot = useMutation({
@@ -74,6 +79,10 @@ export function RecordingsPage() {
           <div className="min-w-[280px] flex-1">
             <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">{t('recordings.target')}</label>
             <Input value={target} onChange={(e) => setTarget(e.target.value)} disabled={recording} className="font-mono" placeholder="https://api.example.com" />
+            {targetResolution.changed && <p className="mt-1 break-all font-mono text-[11.5px] text-success">→ {targetResolution.resolved}</p>}
+            {targetResolution.unknown.map((name) => (
+              <p key={name} className="mt-1 text-[11.5px] text-warning">{t('env.unknown', { name })}</p>
+            ))}
           </div>
           {recording ? (
             <div className="flex gap-2">

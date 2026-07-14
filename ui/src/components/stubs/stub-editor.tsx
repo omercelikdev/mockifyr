@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
 import { importMappings, saveStub, type Stub } from '@/lib/api'
 import { BODY_OPS, BODY_SUB_OPS, emptyStub, FAULTS, fromMapping, MATCH_OPS, stubSchema, suggestName, toJson, URL_MATCH, type StubForm } from '@/lib/stub-schema'
+import { resolveUrl, useEnvironments, type EnvironmentState } from '@/lib/environments'
 import { Sheet, SheetContent, SheetHeader } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input, Label, NativeSelect, Textarea } from '@/components/ui/field'
@@ -22,6 +23,24 @@ function seedFrom(stub: Stub | null, prefillUrl?: string): StubForm {
   // the projected fields when only those are available (e.g. sample mode).
   if (stub.raw) return fromMapping(stub.raw)
   return { ...emptyStub, name: stub.name ?? '', method: stub.method === 'ANY' ? 'GET' : stub.method, urlValue: stub.url, priority: stub.priority, scenarioName: stub.scenario ?? '' }
+}
+
+/**
+ * Live resolution preview for a URL field that may reference environments (#157): shows what
+ * {{name}} variables resolve to right now, and flags unknown ones. Nothing renders for a URL
+ * without environment-style variables.
+ */
+function EnvPreview({ url, environments, t }: { url: string; environments: EnvironmentState; t: (k: string, o?: Record<string, unknown>) => string }) {
+  const { resolved, unknown, changed } = resolveUrl(url ?? '', environments)
+  if (!changed && unknown.length === 0) return null
+  return (
+    <div className="mt-1 space-y-0.5">
+      {changed && <p className="break-all font-mono text-[11.5px] text-success">→ {resolved}</p>}
+      {unknown.map((name) => (
+        <p key={name} className="text-[11.5px] text-warning">{t('env.unknown', { name })}</p>
+      ))}
+    </div>
+  )
 }
 
 /**
@@ -65,6 +84,7 @@ export function StubEditorForm({ editing, initialTab = 'form', prefillUrl, activ
 }) {
   const { t } = useTranslation()
   const { tenant } = useUi()
+  const environments = useEnvironments()
   const [tab, setTab] = useState(initialTab)
   const [rawJson, setRawJson] = useState('')
   const [saving, setSaving] = useState(false)
@@ -104,7 +124,19 @@ export function StubEditorForm({ editing, initialTab = 'form', prefillUrl, activ
 
   async function persist() {
     let json = rawJson
-    if (tab === 'form') json = toJson(getValues())
+    if (tab === 'form') {
+      // Environments (#157) resolve at save time, so the stored mapping carries plain, portable
+      // URLs — a {{name}} left in the mapping would collide with server-side Handlebars templating.
+      const values = { ...getValues() }
+      for (const field of ['webhookUrl', 'proxyBaseUrl'] as const) {
+        const { resolved, unknown } = resolveUrl(values[field], environments)
+        values[field] = resolved
+        // Unresolved variables are flagged, never silently sent: they stay literal in the mapping
+        // (Handlebars may legitimately own them), but the operator is told.
+        for (const name of unknown) toast.warning(t('env.unknown', { name }))
+      }
+      json = toJson(values)
+    }
     let parsed: unknown
     try { parsed = JSON.parse(json) } catch { toast.error(t('editor.invalidJson')); return }
     // A bundle export — either a {"mappings":[…]} wrapper or a bare top-level array — goes through the
@@ -231,7 +263,10 @@ export function StubEditorForm({ editing, initialTab = 'form', prefillUrl, activ
                 <div><Label>{t('editor.delay')}</Label><Input type="number" {...register('fixedDelayMs')} placeholder="0" className={cn(errors.fixedDelayMs && 'border-danger')} /><FieldError msg={errors.fixedDelayMs?.message} /></div>
                 <div><Label>{t('editor.fault')}</Label><NativeSelect {...register('fault')}>{FAULTS.map((f) => <option key={f} value={f}>{f || t('editor.none')}</option>)}</NativeSelect></div>
               </div>
-              <div><Label>{t('editor.proxy')}</Label><Input {...register('proxyBaseUrl')} placeholder="https://upstream.example.com" className="font-mono" /></div>
+              <div>
+                <Label>{t('editor.proxy')}</Label><Input {...register('proxyBaseUrl')} placeholder="https://upstream.example.com" className="font-mono" />
+                <EnvPreview url={watch('proxyBaseUrl')} environments={environments} t={t} />
+              </div>
               <div className="grid grid-cols-3 gap-3">
                 <div><Label>{t('stubs.scenario')}</Label><Input {...register('scenarioName')} placeholder="Checkout" className={cn(errors.scenarioName && 'border-danger')} /><FieldError msg={errors.scenarioName?.message} /></div>
                 <div><Label>{t('editor.requiredState')}</Label><Input {...register('requiredScenarioState')} placeholder="Started" /></div>
@@ -244,7 +279,10 @@ export function StubEditorForm({ editing, initialTab = 'form', prefillUrl, activ
               <p className="-mt-1 text-xs text-muted-foreground">{t('editor.webhookHint')}</p>
               <div className="grid grid-cols-[110px_1fr_120px] gap-3">
                 <div><Label>{t('stubs.method')}</Label><NativeSelect {...register('webhookMethod')}>{['POST', 'PUT', 'GET', 'DELETE', 'PATCH'].map((m) => <option key={m}>{m}</option>)}</NativeSelect></div>
-                <div><Label>{t('editor.webhookUrl')}</Label><Input {...register('webhookUrl')} placeholder="https://callback.example.com/hook" className="font-mono" /></div>
+                <div>
+                  <Label>{t('editor.webhookUrl')}</Label><Input {...register('webhookUrl')} placeholder="https://callback.example.com/hook" className="font-mono" />
+                  <EnvPreview url={watch('webhookUrl')} environments={environments} t={t} />
+                </div>
                 <div><Label>{t('editor.delay')}</Label><Input type="number" {...register('webhookDelayMs')} placeholder="0" className={cn(errors.webhookDelayMs && 'border-danger')} /><FieldError msg={errors.webhookDelayMs?.message} /></div>
               </div>
               <Rows label={t('editor.webhookHeaders')} fields={webhookHeaders.fields} onAdd={() => webhookHeaders.append({ name: '', value: '' })} onRemove={webhookHeaders.remove}

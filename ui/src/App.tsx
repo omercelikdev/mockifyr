@@ -10,6 +10,7 @@ const StubsPage = lazy(() => import('@/pages/stubs').then((m) => ({ default: m.S
 const JournalPage = lazy(() => import('@/pages/journal').then((m) => ({ default: m.JournalPage })))
 const ScenariosPage = lazy(() => import('@/pages/scenarios').then((m) => ({ default: m.ScenariosPage })))
 const RecordingsPage = lazy(() => import('@/pages/recordings').then((m) => ({ default: m.RecordingsPage })))
+const EnvironmentsPage = lazy(() => import('@/pages/environments').then((m) => ({ default: m.EnvironmentsPage })))
 const ExtensionsPage = lazy(() => import('@/pages/extensions').then((m) => ({ default: m.ExtensionsPage })))
 const SettingsPage = lazy(() => import('@/pages/settings').then((m) => ({ default: m.SettingsPage })))
 
@@ -29,6 +30,7 @@ const router = createBrowserRouter([
       { path: 'journal', element: <Page><JournalPage /></Page> },
       { path: 'scenarios', element: <Page><ScenariosPage /></Page> },
       { path: 'recordings', element: <Page><RecordingsPage /></Page> },
+      { path: 'environments', element: <Page><EnvironmentsPage /></Page> },
       { path: 'extensions', element: <Page><ExtensionsPage /></Page> },
       { path: 'settings', element: <Page><SettingsPage /></Page> },
     ],
