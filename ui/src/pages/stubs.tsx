@@ -132,7 +132,17 @@ export function StubsPage() {
   useEffect(() => {
     if (searchParams.get('new') === '1') { openBlank('form'); setSearchParams({}, { replace: true }) }
     else if (searchParams.get('import') === '1') { openBlank('json'); setSearchParams({}, { replace: true }) }
-  }, [searchParams, setSearchParams, openBlank])
+    else if (searchParams.get('open')) {
+      // Deep-link from the journal's "matched stub" reference: open that exact stub (by id, since many
+      // stubs can share a URL and differ only by header/body matchers). Wait for the stub list so a
+      // slow load isn't mistaken for a deleted stub.
+      if (isLoading) return
+      const stub = stubs.find((s) => s.id === searchParams.get('open'))
+      if (stub) openStub(stub)
+      else toast.warning(t('stubs.openMissing'))
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, setSearchParams, openBlank, openStub, stubs, isLoading, t])
 
   // Exports a bare top-level array (no {"mappings":…} wrapper) — the import path (UI and host) accepts
   // both shapes, so an export always round-trips unmodified.

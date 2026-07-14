@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, Clock } from 'lucide-react'
-import { fetchJournalDetail, type HeaderPair, type JournalWebhook } from '@/lib/api'
+import { useNavigate } from 'react-router-dom'
+import { AlertTriangle, ArrowUpRight, Clock } from 'lucide-react'
+import { fetchJournalDetail, fetchStubs, type HeaderPair, type JournalWebhook } from '@/lib/api'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { MethodChip } from '@/components/ui/badges'
@@ -103,11 +104,50 @@ function WebhookCard({ webhook, t }: { webhook: JournalWebhook; t: (k: string) =
 }
 
 /**
+ * The "which stub answered this?" strip under the sheet header (#156). Resolved by stub id — never by
+ * URL, since many stubs share a URL and differ only by header/body matchers. Three states: a clickable
+ * reference that opens the exact stub in the Stubs editor, a "no longer exists" note when the stub was
+ * deleted after the request was logged, and a "no stub matched" note for unmatched requests.
+ */
+function MatchedStubRow({ stubId, stubs, onOpen, t }: {
+  stubId: string | null
+  /** The tenant's stubs for name resolution, or null while loading / in sample mode (can't verify existence). */
+  stubs: { id: string; name: string | null; url: string }[] | null
+  onOpen: (stubId: string) => void
+  t: (k: string) => string
+}) {
+  const matched = stubId && stubs ? stubs.find((s) => s.id === stubId) : undefined
+  const gone = !!stubId && !!stubs && !matched
+  return (
+    <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-6 py-2">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-faint">{t('journal.matchedStub')}</span>
+      {!stubId ? (
+        <span className="text-xs text-muted-foreground">{t('journal.noStubMatched')}</span>
+      ) : gone ? (
+        <span className="text-xs text-muted-foreground">{t('journal.stubGone')}</span>
+      ) : (
+        <button
+          onClick={() => onOpen(stubId)}
+          className="inline-flex min-w-0 items-center gap-1 text-xs font-medium text-info hover:underline"
+        >
+          <span className="truncate font-mono">{matched?.name || matched?.url || stubId}</span>
+          <ArrowUpRight className="size-3.5 shrink-0" />
+        </button>
+      )}
+    </div>
+  )
+}
+
+/**
  * Slide-over detail for one journal entry: Request / Response / Callback tabs with headers + bodies
  * (#122). Opens when `id` is set; the detail is fetched on demand so the list stays lean.
  */
 export function JournalDetailSheet({ id, tenant, onClose }: { id: string | null; tenant: string; onClose: () => void }) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
+  // The stub list resolves the matched stub's display name and whether it still exists (#156). It is
+  // the same cached query the Stubs page uses, so this is usually a cache hit.
+  const { data: stubsData } = useQuery({ queryKey: ['stubs', tenant], queryFn: () => fetchStubs(tenant), enabled: !!id })
   const { data, isLoading } = useQuery({
     queryKey: ['journal-detail', tenant, id],
     queryFn: () => fetchJournalDetail(tenant, id!),
@@ -132,6 +172,12 @@ export function JournalDetailSheet({ id, tenant, onClose }: { id: string | null;
               <span className="min-w-0 flex-1 truncate font-mono text-[13px] font-medium">{data.request.url}</span>
               {data.response && <StatusChip status={data.response.status} />}
             </div>
+            <MatchedStubRow
+              stubId={data.wasMatched ? data.stubId : null}
+              stubs={stubsData?.mock ? null : stubsData?.stubs ?? null}
+              onOpen={(sid) => { onClose(); void navigate(`/stubs?open=${sid}`) }}
+              t={t}
+            />
             <Tabs defaultValue="request" className="flex min-h-0 flex-1 flex-col">
               <div className="px-6 pt-4">
                 <TabsList>
