@@ -349,6 +349,28 @@ public static class AdminEndpoints
             return result.IsSuccess ? GitStatusJson(result.Value) : GitFailure(result.Error);
         });
 
+        // Dashboard credentials (#153): {"token": "...", "username": "..."?} — held in host process
+        // memory only (never persisted, never echoed back); an empty token clears them. The status
+        // response reports only the source (none/environment/dashboard), never the value.
+        admin.MapPost("/git/credentials", async (HttpRequest request, ISender sender) =>
+        {
+            string? username = null;
+            string? token = null;
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(await ReadBody(request));
+                username = doc.RootElement.TryGetProperty("username", out var u) ? u.GetString() : null;
+                token = doc.RootElement.TryGetProperty("token", out var k) ? k.GetString() : null;
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                // an empty/invalid body clears the credentials
+            }
+
+            var result = await sender.Send(new GitSetCredentialsCommand(username, token));
+            return result.IsSuccess ? GitStatusJson(result.Value) : GitFailure(result.Error);
+        });
+
         admin.MapPost("/git/push", async (HttpRequest request, ISender sender) =>
         {
             var result = await sender.Send(new GitPushCommand(await ReadGitMessage(request)));
@@ -443,6 +465,7 @@ public static class AdminEndpoints
         fetchError = status.FetchError,
         configuredBy = status.ConfiguredBy,
         workingCopy = status.WorkingCopy,
+        credentialsSource = status.CredentialsSource,
     });
 
     // Typed Git errors → HTTP: setup problems are 404, refusals (pull-first/diverged/dirty/branch/

@@ -452,6 +452,8 @@ export interface GitStatus {
   /** 'flags' = pinned by host flags (read-only in the UI); 'repository' = connected from the dashboard. */
   configuredBy: 'flags' | 'repository' | null
   workingCopy: string | null
+  /** Where HTTPS credentials come from: dashboard-set, the host environment, or nowhere yet (#153). */
+  credentialsSource: 'none' | 'environment' | 'dashboard'
 }
 
 export async function fetchGitStatus(tenant: string): Promise<GitStatus | null> {
@@ -490,6 +492,25 @@ export async function gitConfigure(tenant: string, remoteUrl: string, branch?: s
     const json = (await res.json().catch(() => ({}))) as Record<string, unknown>
     if (res.ok) return json as unknown as GitStatus
     return { error: String(json.error ?? res.status), message: String(json.message ?? 'Configuration failed.') }
+  } catch {
+    return { error: 'network', message: 'No host reachable.' }
+  }
+}
+
+/**
+ * Sets (or, with an empty token, clears) the HTTPS credentials used for pull/push (#153). The token
+ * is sent once over the admin API and held in host process memory only — the status echoes just its
+ * source (none/environment/dashboard), never the value.
+ */
+export async function gitSetCredentials(tenant: string, token: string, username?: string): Promise<GitStatus | { error: string; message: string }> {
+  try {
+    const res = await adminFetch('/git/credentials', tenant, {
+      method: 'POST',
+      body: JSON.stringify({ token, ...(username?.trim() ? { username: username.trim() } : {}) }),
+    })
+    const json = (await res.json().catch(() => ({}))) as Record<string, unknown>
+    if (res.ok) return json as unknown as GitStatus
+    return { error: String(json.error ?? res.status), message: String(json.message ?? 'Saving credentials failed.') }
   } catch {
     return { error: 'network', message: 'No host reachable.' }
   }
