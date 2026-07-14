@@ -5,7 +5,7 @@ import {
   type ColumnDef, flexRender, getCoreRowModel, getPaginationRowModel,
   getSortedRowModel, type SortingState, useReactTable,
 } from '@tanstack/react-table'
-import { ArrowUpDown, CheckCircle2, ChevronLeft, ChevronRight, Clock, Rows2, Rows3, XCircle } from 'lucide-react'
+import { ArrowUpDown, CheckCircle2, ChevronLeft, ChevronRight, Clock, RefreshCw, Rows2, Rows3, XCircle } from 'lucide-react'
 import { cn, formatDateTime, timeAgo } from '@/lib/utils'
 import { useUi } from '@/components/providers'
 import { fetchJournal, type JournalEntry } from '@/lib/api'
@@ -50,12 +50,16 @@ export function JournalPage() {
   const { t } = useTranslation()
   const { tenant } = useUi()
   const [unmatchedOnly, setUnmatchedOnly] = useState(false)
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['journal', tenant, unmatchedOnly],
     queryFn: () => fetchJournal(tenant, unmatchedOnly),
-    // Poll only when a host is actually answering; in sample mode (no host) fetch once and stop, so we
-    // don't hammer a dead endpoint.
-    refetchInterval: (query) => (query.state.data?.mock ? false : 5000),
+    // Poll for new requests. Sample mode (no host answering) polls slower instead of stopping: a
+    // single failed fetch used to switch the interval off permanently, freezing the table until a
+    // full page reload even after the host came back (#155).
+    refetchInterval: (query) => (query.state.data?.mock ? 15000 : 5000),
+    // Keep polling when the window is unfocused — the typical flow is driving requests from a
+    // terminal while watching this table in a background browser window (#155).
+    refetchIntervalInBackground: true,
   })
 
   const [selected, setSelected] = useState<Selections>({})
@@ -145,7 +149,10 @@ export function JournalPage() {
           {activeCount > 0 && (
             <Button variant="ghost" size="sm" onClick={() => setSelected({})}>{t('common.clear')}</Button>
           )}
-          <Button variant="outline" className="ms-auto" onClick={() => setDense((d) => !d)}>
+          <Button variant="outline" className="ms-auto" onClick={() => refetch()} disabled={isFetching}>
+            <RefreshCw className={cn(isFetching && 'animate-spin')} />{t('common.refresh')}
+          </Button>
+          <Button variant="outline" onClick={() => setDense((d) => !d)}>
             {dense ? <Rows3 /> : <Rows2 />}{t('stubs.density')}
           </Button>
         </div>
