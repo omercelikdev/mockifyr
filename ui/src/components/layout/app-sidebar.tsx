@@ -26,6 +26,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
     { to: '/journal', key: 'nav.journal', icon: Activity },
     { to: '/scenarios', key: 'nav.scenarios', icon: Waypoints },
     { to: '/recordings', key: 'nav.recordings', icon: Disc },
+    { to: '/environments', key: 'nav.environments', icon: Globe },
   ] },
   { label: 'nav.platform', items: [
     { to: '/extensions', key: 'nav.extensions', icon: LayoutGrid },

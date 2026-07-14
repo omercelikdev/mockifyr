@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Command } from 'cmdk'
-import {
+import { Globe,
   Activity, BookOpen, Disc, LayoutDashboard, LayoutGrid, ListTree, Moon, Plus, Search, Settings, Sun, Waypoints,
 } from 'lucide-react'
 import { useUi } from '@/components/providers'
@@ -14,6 +14,7 @@ const NAV = [
   { to: '/journal', key: 'nav.journal', icon: Activity },
   { to: '/scenarios', key: 'nav.scenarios', icon: Waypoints },
   { to: '/recordings', key: 'nav.recordings', icon: Disc },
+  { to: '/environments', key: 'nav.environments', icon: Globe },
   { to: '/extensions', key: 'nav.extensions', icon: LayoutGrid },
   { to: '/settings', key: 'nav.settings', icon: Settings },
 ]
