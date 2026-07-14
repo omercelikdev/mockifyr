@@ -173,10 +173,17 @@ export function fromMapping(mapping: Record<string, unknown>): StubForm {
         // Object-form path matcher { expression, <subOp>: value } maps onto the row's expression +
         // sub-matcher fields; any richer shape stays a JSON blob (parsed back on save, never corrupted).
         if (operator === 'matchesJsonPath' || operator === 'matchesXPath') {
-          const o = obj(v)
+          // Some exporters string-encode the object form ("{ \"expression\": …, \"equalTo\": … }");
+          // save already normalizes it via tryJson, so parse it here too — otherwise an imported stub
+          // shows the whole JSON dumped into the expression field until the first manual save (#158).
+          const parsed = typeof v === 'string' && v.trim().startsWith('{') ? tryJson(v) : v
+          const o = obj(parsed)
           const subOperator = BODY_SUB_OPS.find((s) => s !== '' && s in o)
           if (typeof o.expression === 'string' && subOperator && typeof o[subOperator] === 'string' && Object.keys(o).length === 2)
             return { operator, value: o.expression, subOperator, subValue: o[subOperator] as string }
+          // A string-encoded richer shape keeps the blob convention (pretty JSON, round-tripped on save).
+          if (parsed !== v && parsed !== null && typeof parsed === 'object')
+            return { operator, value: JSON.stringify(parsed, null, 2), subOperator: '' as const, subValue: '' }
         }
         return { operator, value: typeof v === 'string' ? v : JSON.stringify(v ?? '', null, 2), subOperator: '' as const, subValue: '' }
       })
