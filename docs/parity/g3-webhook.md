@@ -103,3 +103,49 @@ token the harness rewrites per side. Driven by `WebhookScenarios` + `G3WebhookTe
   the stub's configured template for a delivery not yet recorded (in flight / delayed).
 - **Regression cases:** `G3WebhookSubEventTests.Webhook_RecordsRenderedRequestAndResponseAsSubEvents`,
   `G3WebhookSubEventTests.Webhook_RecordsAnErrorSubEventWhenDeliveryFails`.
+
+## Callbacks to loopback from inside a container (#170)
+
+- **Group / item:** post-G3 defect fix. **No oracle**: this is an environment-dependent networking
+  behavior, not a WireMock semantic, so it is validated by reproduction against the published Docker
+  image plus unit coverage of the decision logic.
+- **The report.** A callback failed with `Delivery failed: Connection Refused` while the identical
+  URL and body succeeded from Postman. That asymmetry is the whole clue: Postman runs on the host.
+- **Reproduced, not assumed.** Against `ghcr.io/omercelikdev/mockifyr:0.8.0` with a listener on the
+  host at `:5999` — the failing case and the working one differ only in the host name:
+
+  | webhook URL | journal | target process |
+  |---|---|---|
+  | `http://localhost:5999/callback` | `Connection refused (localhost:5999)` | received nothing |
+  | `http://host.docker.internal:5999/callback` | `200 {"ack":true}` | received the request |
+
+  Inside the container `localhost` is the container's own loopback, so nothing is listening there.
+  The request never leaves. Not a Mockifyr defect in itself — but a trap Mockifyr can defuse.
+- **Learned: a fallback is safe where a rewrite is not.** Rewriting `localhost` →
+  `host.docker.internal` up front would break the legitimate case of a service listening inside the
+  same container, and silently sends the request somewhere the operator did not name. Retrying *only
+  after* the connection is **refused** inverts that: a real in-container listener answers the first
+  attempt, so the fallback never runs; the failing case is a hard error today, so a retry can only
+  improve it. The fallback is regression-free by construction, not by testing.
+- **Learned: the retry trigger must be `ECONNREFUSED` specifically.** A timeout, a DNS failure or a
+  TLS error says nothing about *which host* was addressed, so retrying a different one would be
+  guessing. Only "nothing accepted the connection" implies the address itself was wrong.
+- **Learned: the diagnosis must not be gated on the retry's own error.** When
+  `host.docker.internal` does not resolve (plain Linux Docker without
+  `--add-host=host.docker.internal:host-gateway`), the retry fails with **"Network is unreachable"`,
+  not "refused". An early implementation re-tested that error before explaining, and so dropped the
+  container diagnosis exactly where it mattered — leaving a message that reads like the target being
+  down. The explanation is now driven by the *original* attempt's eligibility. Caught by running the
+  fix in a container, not by the unit tests.
+- **Container detection** uses three independent signals, since none is universal:
+  `DOTNET_RUNNING_IN_CONTAINER` (set by the .NET base images), `/.dockerenv` (Docker),
+  `/run/.containerenv` (Podman).
+- **Both attempts are journaled**, so the retry is visible in the dashboard rather than magic, and the
+  error text keeps the raw transport message and appends the diagnosis.
+- **Off switch:** `--webhook-host-fallback false`. Applied as `WebhookOptions` in DI rather than by
+  re-registering `IServeEventListener` — listeners are resolved with `GetServices`, so a second
+  registration would have delivered every webhook **twice**.
+- **Deferred (tracked):** proxy targets (`proxyBaseUrl`) have the identical trap and do **not** get
+  this fallback; the issue is scoped to callbacks.
+- **Regression cases:** `G3WebhookHostFallbackTests` (retry triggers, non-triggers, the off switch,
+  the failed-retry message, and that a successful first attempt never retries).

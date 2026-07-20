@@ -24,11 +24,22 @@ public sealed class WebhookServeEventListener : IServeEventListener
 
     private readonly HttpClient _client;
     private readonly IServeEventTemplateRenderer? _renderer;
+    private readonly bool _hostFallback;
 
-    public WebhookServeEventListener(HttpClient? client = null, IServeEventTemplateRenderer? renderer = null)
+    /// <summary>
+    /// <paramref name="hostFallback"/> enables the container-localhost retry (#170): a callback aimed
+    /// at loopback that is <em>refused</em> while running in a container is retried once against the
+    /// host gateway. On by default because the failure it fixes is a hard, silent one; disable with
+    /// <c>--webhook-host-fallback false</c> to keep delivery to exactly the address as written.
+    /// </summary>
+    public WebhookServeEventListener(
+        HttpClient? client = null,
+        IServeEventTemplateRenderer? renderer = null,
+        bool hostFallback = true)
     {
         _client = client ?? new HttpClient();
         _renderer = renderer;
+        _hostFallback = hostFallback;
     }
 
     /// <inheritdoc />
@@ -54,32 +65,91 @@ public sealed class WebhookServeEventListener : IServeEventListener
         }
 
         var originalRequest = serveEvent.Request;
+        string url;
+        byte[]? renderedBody = null;
+        List<KeyValuePair<string, string>> renderedHeaders;
         try
         {
-            var url = Render(webhook.Url, originalRequest, serveEvent.TenantId);
-            using var request = new HttpRequestMessage(new HttpMethod(webhook.Method), url);
-
-            byte[]? renderedBody = null;
+            url = Render(webhook.Url, originalRequest, serveEvent.TenantId);
             if (webhook.Body is { } body)
             {
                 renderedBody = RenderBody(body, originalRequest, serveEvent.TenantId);
+            }
+
+            renderedHeaders = [.. webhook.Headers.Select(h =>
+                new KeyValuePair<string, string>(h.Key, Render(h.Value, originalRequest, serveEvent.TenantId)))];
+        }
+        catch (Exception exception)
+        {
+            // A template that fails to render dies before any request exists, so there is nothing to
+            // report but the error itself.
+            Append(serveEvent, SubEvent.ErrorType, new WebhookErrorData(exception.Message));
+            return;
+        }
+
+        var failure = await AttemptAsync(webhook, url, renderedHeaders, renderedBody, serveEvent, cancellationToken)
+            .ConfigureAwait(false);
+        if (failure is null)
+        {
+            return;
+        }
+
+        // The container-localhost trap (#170): the target refused the connection and we are in a
+        // container aimed at loopback, which means "nothing is listening on the container itself" —
+        // the operator almost certainly meant a service on their machine. Retry once via the host
+        // gateway. Anything else (timeout, DNS, TLS) is reported as-is; see ContainerHostFallback.
+        var retryUrl = _hostFallback ? ContainerHostFallback.RetryTargetFor(url) : null;
+        if (retryUrl is null || !ContainerHostFallback.IsConnectionRefused(failure))
+        {
+            Append(serveEvent, SubEvent.ErrorType,
+                new WebhookErrorData(ContainerHostFallback.Explain(url, failure, fallbackAttempted: false)));
+            return;
+        }
+
+        // Both attempts are journaled, so the retry is visible rather than magic.
+        Append(serveEvent, SubEvent.ErrorType, new WebhookErrorData(
+            $"{failure.Message} Retrying via {ContainerHostFallback.HostGateway} (#170)."));
+
+        var retryFailure = await AttemptAsync(webhook, retryUrl, renderedHeaders, renderedBody, serveEvent, cancellationToken)
+            .ConfigureAwait(false);
+        if (retryFailure is not null)
+        {
+            Append(serveEvent, SubEvent.ErrorType,
+                new WebhookErrorData(ContainerHostFallback.Explain(url, retryFailure, fallbackAttempted: true)));
+        }
+    }
+
+    /// <summary>
+    /// Journals the outbound request, sends it, and journals the response. Returns the exception on
+    /// failure instead of throwing, so the caller can decide whether it is worth another address.
+    /// </summary>
+    private async Task<Exception?> AttemptAsync(
+        WebhookDefinition webhook,
+        string url,
+        List<KeyValuePair<string, string>> renderedHeaders,
+        byte[]? renderedBody,
+        ServeEvent serveEvent,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(new HttpMethod(webhook.Method), url);
+            if (renderedBody is not null)
+            {
                 request.Content = new ByteArrayContent(renderedBody);
             }
 
-            var renderedHeaders = new List<KeyValuePair<string, string>>();
-            foreach (var (name, value) in webhook.Headers)
+            foreach (var (name, value) in renderedHeaders)
             {
-                var rendered = Render(value, originalRequest, serveEvent.TenantId);
-                renderedHeaders.Add(new(name, rendered));
                 if (ContentHeaders.Contains(name))
                 {
                     // A content header needs an HttpContent to hang off of.
                     request.Content ??= new ByteArrayContent([]);
-                    request.Content.Headers.TryAddWithoutValidation(name, rendered);
+                    request.Content.Headers.TryAddWithoutValidation(name, value);
                 }
                 else
                 {
-                    request.Headers.TryAddWithoutValidation(name, rendered);
+                    request.Headers.TryAddWithoutValidation(name, value);
                 }
             }
 
@@ -93,12 +163,12 @@ public sealed class WebhookServeEventListener : IServeEventListener
                 .ToList();
             Append(serveEvent, SubEvent.WebhookResponseType,
                 new WebhookResponseData((int)response.StatusCode, responseHeaders, responseBody.Length > 0 ? responseBody : null));
+            return null;
         }
         catch (Exception exception)
         {
-            // Best-effort delivery: neither an unreachable target nor a template that fails to render
-            // may surface into request serving — but both must show up in the journal.
-            Append(serveEvent, SubEvent.ErrorType, new WebhookErrorData(exception.Message));
+            // Best-effort delivery: an unreachable target may never surface into request serving.
+            return exception;
         }
     }
 

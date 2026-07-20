@@ -4,4 +4,11 @@
     <ProjectReference Include="..\Mockifyr.Core\Mockifyr.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- ContainerHostFallback (#170) is an implementation detail, not public API, but its decision
+         logic — what counts as "refused", which targets are eligible — is exactly what must be
+         pinned. Exposed to the test assembly rather than widened to public. -->
+    <InternalsVisibleTo Include="Mockifyr.Application.Tests" />
+  </ItemGroup>
+
 </Project>
