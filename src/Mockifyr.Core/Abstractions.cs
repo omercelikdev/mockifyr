@@ -54,6 +54,48 @@ public interface IScenarioStateStore
     void SetState(TenantId tenant, string scenario, string state);
 }
 
+/// <summary>
+/// Tenant-scoped store of environment keys (G17). An environment key carries several named values and
+/// one of them is active, so <c>{{key}}</c> in a stub resolves to whichever value is active *at the
+/// moment the stub is served* — never baked in when the stub is saved. There is deliberately no
+/// tenant-less overload: one tenant must not see, resolve, or edit another's keys (see docs/decisions
+/// /0003 and issue #166).
+/// </summary>
+public interface IEnvironmentStore
+{
+    /// <summary>Returns the environment keys owned by <paramref name="tenant"/>.</summary>
+    IReadOnlyList<EnvironmentKey> GetKeys(TenantId tenant);
+
+    /// <summary>
+    /// Returns every tenant that currently owns at least one key. Used by change-feed reload (G16g),
+    /// including pruning a tenant whose last key was deleted elsewhere.
+    /// </summary>
+    IReadOnlyCollection<TenantId> GetTenants();
+
+    /// <summary>Adds or replaces a key.</summary>
+    void Put(TenantId tenant, EnvironmentKey key);
+
+    /// <summary>Removes a key from a tenant. Returns false when the tenant does not own it.</summary>
+    bool Remove(TenantId tenant, string key);
+
+    /// <summary>Removes every key owned by a tenant.</summary>
+    void Clear(TenantId tenant);
+}
+
+/// <summary>
+/// The serve-path view of <see cref="IEnvironmentStore"/>: the narrow, allocation-free lookup the
+/// renderer needs on every request. Kept separate from the store so the hot path cannot accidentally
+/// enumerate or mutate, and so a facade with no environments configured can supply a null resolver.
+/// </summary>
+public interface IEnvironmentResolver
+{
+    /// <summary>True when <paramref name="tenant"/> has at least one key — the fast-path guard.</summary>
+    bool HasKeys(TenantId tenant);
+
+    /// <summary>Resolves a key to its currently active value.</summary>
+    bool TryResolve(TenantId tenant, string key, out string value);
+}
+
 /// <summary>Tenant-scoped request journal, used by verification and near-miss diagnostics.</summary>
 public interface IRequestJournal
 {
@@ -82,8 +124,12 @@ public interface IServeEventListener
 /// </summary>
 public interface IServeEventTemplateRenderer
 {
-    /// <summary>Renders <paramref name="template"/> with the original request exposed as <c>originalRequest</c>.</summary>
-    string Render(string template, CanonicalRequest originalRequest);
+    /// <summary>
+    /// Renders <paramref name="template"/> with the original request exposed as <c>originalRequest</c>.
+    /// The tenant is carried because environment keys (G17) resolve per tenant, and a webhook URL or
+    /// body is exactly the kind of field that references one.
+    /// </summary>
+    string Render(string template, CanonicalRequest originalRequest, TenantId tenant);
 }
 
 /// <summary>

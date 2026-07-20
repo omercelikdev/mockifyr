@@ -426,6 +426,13 @@ public sealed record RenderContext
     /// <summary>The current request (the <c>request</c> template model).</summary>
     public required CanonicalRequest Request { get; init; }
 
+    /// <summary>
+    /// The tenant the request is being served for. Required, not defaulted: environment keys (G17)
+    /// resolve per tenant, and silently falling back to the default tenant would leak one tenant's
+    /// values into another's response. Forgetting the scope must be a compile error.
+    /// </summary>
+    public required TenantId Tenant { get; init; }
+
     /// <summary>The originating request (the <c>originalRequest</c> model), for webhooks.</summary>
     public CanonicalRequest? OriginalRequest { get; init; }
 

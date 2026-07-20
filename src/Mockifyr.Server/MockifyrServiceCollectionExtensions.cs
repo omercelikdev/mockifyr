@@ -27,11 +27,18 @@ public static class MockifyrServiceCollectionExtensions
         services.AddSingleton<InMemoryStubStore>();
         services.AddSingleton<IStubStore>(sp => sp.GetRequiredService<InMemoryStubStore>());
         services.AddSingleton<IScenarioStateStore, InMemoryScenarioStateStore>();
+
+        // Environments (G17): one instance serves both the admin store and the serve-path resolver, so
+        // a change to a key's active value is visible to the very next request without a reload.
+        services.AddSingleton<InMemoryEnvironmentStore>();
+        services.AddSingleton<IEnvironmentStore>(sp => sp.GetRequiredService<InMemoryEnvironmentStore>());
+        services.AddSingleton<IEnvironmentResolver>(sp => sp.GetRequiredService<InMemoryEnvironmentStore>());
         services.AddSingleton<IRequestJournal, InMemoryRequestJournal>();
 
         // Persistence (G16): no-op by default (purely in-memory). A file/db-backed provider is
         // registered on top (e.g. by MockifyrHost when --root-dir is set) and wins the resolution.
         services.AddSingleton<IStubPersistence, NullStubPersistence>();
+        services.AddSingleton<IEnvironmentPersistence, NullEnvironmentPersistence>();
 
         // Git sync (ADR 0007): unconfigured by default; MockifyrHost registers the real service on
         // top when --git-remote is set and it wins the resolution.
@@ -47,10 +54,13 @@ public static class MockifyrServiceCollectionExtensions
         services.AddSingleton<IMatcherRegistry>(registry);
 
         // The renderer gets the user's template helpers (G10).
-        services.AddSingleton<IResponseRenderer>(_ => new TemplatingResponseRenderer(extensions.TemplateHelpers));
+        services.AddSingleton<IResponseRenderer>(sp => new TemplatingResponseRenderer(
+            extensions.TemplateHelpers,
+            environments: sp.GetRequiredService<IEnvironmentResolver>()));
 
         // Serve-event listeners: the built-in webhook plus any user extensions.
-        services.AddSingleton<IServeEventTemplateRenderer, WebhookTemplateRenderer>();
+        services.AddSingleton<IServeEventTemplateRenderer>(sp =>
+            new WebhookTemplateRenderer(sp.GetRequiredService<IEnvironmentResolver>()));
         services.AddSingleton<IServeEventListener>(sp =>
             new WebhookServeEventListener(client: null, sp.GetRequiredService<IServeEventTemplateRenderer>()));
         foreach (var listener in extensions.ServeEventListeners)

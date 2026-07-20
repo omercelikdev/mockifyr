@@ -67,6 +67,11 @@ public static class MockifyrHost
             // directory the loader reads on startup. Registered last so it wins over the no-op default.
             builder.Services.AddSingleton<IStubPersistence>(new FileSystemStubPersistence(mappingsDir));
 
+            // Environments persist alongside the mappings (G17), under <root-dir>/environments/<tenant>/.
+            var environmentsDir = Path.Combine(rootDir, "environments");
+            builder.Services.AddSingleton<IEnvironmentPersistence>(new FileSystemEnvironmentPersistence(environmentsDir));
+            builder.Services.AddSingleton<IEnvironmentsLoader>(new FileSystemEnvironmentsLoader(environmentsDir));
+
             // gRPC serving (G13, verified by the differential suite): compiled proto descriptors live in
             // the conventional <root-dir>/grpc/*.dsc location. When present, the gRPC middleware is enabled.
             var grpcDir = Path.Combine(rootDir, "grpc");
@@ -140,8 +145,14 @@ public static class MockifyrHost
         // Registered last so it wins over AddMockifyr's opt-in default.
         if (builder.Configuration.GetValue<bool>("global-response-templating"))
         {
-            builder.Services.AddSingleton<Mockifyr.Core.IResponseRenderer>(
-                new Mockifyr.Templating.TemplatingResponseRenderer(extraHelpers: null, globalTemplating: true));
+            // Resolved from the container, not constructed standalone: this registration REPLACES the
+            // one AddMockifyr made, so building it without the environment resolver would silently
+            // turn {{key}} substitution (G17) off for anyone running with global templating.
+            builder.Services.AddSingleton<Mockifyr.Core.IResponseRenderer>(sp =>
+                new Mockifyr.Templating.TemplatingResponseRenderer(
+                    extraHelpers: null,
+                    globalTemplating: true,
+                    environments: sp.GetRequiredService<Mockifyr.Core.IEnvironmentResolver>()));
         }
 
         // LiteDB persistence (G16b): stubs persist to an embedded single-file database and reload on
@@ -155,6 +166,10 @@ public static class MockifyrHost
                 new LiteDbStubPersistence(sp.GetRequiredService<LiteDB.LiteDatabase>()));
             builder.Services.AddSingleton<IMappingsLoader>(sp =>
                 new LiteDbMappingsLoader(sp.GetRequiredService<LiteDB.LiteDatabase>(), sp.GetRequiredService<IMatcherRegistry>()));
+            builder.Services.AddSingleton<IEnvironmentPersistence>(sp =>
+                new LiteDbEnvironmentPersistence(sp.GetRequiredService<LiteDB.LiteDatabase>()));
+            builder.Services.AddSingleton<IEnvironmentsLoader>(sp =>
+                new LiteDbEnvironmentsLoader(sp.GetRequiredService<LiteDB.LiteDatabase>()));
         }
 
         // PostgreSQL persistence (G16c): stubs persist to a SQL table and reload on startup.
@@ -164,6 +179,8 @@ public static class MockifyrHost
             builder.Services.AddSingleton<IStubPersistence>(new PostgresStubPersistence(postgres));
             builder.Services.AddSingleton<IMappingsLoader>(sp =>
                 new PostgresMappingsLoader(postgres, sp.GetRequiredService<IMatcherRegistry>()));
+            builder.Services.AddSingleton<IEnvironmentPersistence>(new PostgresEnvironmentPersistence(postgres));
+            builder.Services.AddSingleton<IEnvironmentsLoader>(new PostgresEnvironmentsLoader(postgres));
 
             // Change-feed reload (G16f): opt-in multi-instance coherence via Postgres LISTEN/NOTIFY —
             // the same seam as Redis (G16e). Each host listens for change announcements and reconciles
@@ -187,6 +204,10 @@ public static class MockifyrHost
                 new RedisStubPersistence(sp.GetRequiredService<StackExchange.Redis.IConnectionMultiplexer>()));
             builder.Services.AddSingleton<IMappingsLoader>(sp =>
                 new RedisMappingsLoader(sp.GetRequiredService<StackExchange.Redis.IConnectionMultiplexer>(), sp.GetRequiredService<IMatcherRegistry>()));
+            builder.Services.AddSingleton<IEnvironmentPersistence>(sp =>
+                new RedisEnvironmentPersistence(sp.GetRequiredService<StackExchange.Redis.IConnectionMultiplexer>()));
+            builder.Services.AddSingleton<IEnvironmentsLoader>(sp =>
+                new RedisEnvironmentsLoader(sp.GetRequiredService<StackExchange.Redis.IConnectionMultiplexer>()));
 
             // Change-feed reload (G16e): opt-in multi-instance coherence. Each host subscribes to Redis
             // change announcements and reloads its in-memory store, so a mutation on one instance is
@@ -305,7 +326,28 @@ public static class MockifyrHost
         app.MapMockServing();
 
         ApplyStartupMappings(app);
+        ApplyStartupEnvironments(app);
         return app;
+    }
+
+    /// <summary>
+    /// Restores persisted environment keys (G17). Unlike mappings — which load only the default tenant
+    /// at startup — this restores <b>every</b> tenant, because a key that failed to come back would not
+    /// fail loudly: the stub referencing it would serve the literal <c>{{key}}</c> instead.
+    /// </summary>
+    private static void ApplyStartupEnvironments(WebApplication app)
+    {
+        var store = app.Services.GetRequiredService<IEnvironmentStore>();
+        foreach (var loader in app.Services.GetServices<IEnvironmentsLoader>())
+        {
+            foreach (var (tenant, keys) in loader.LoadAll())
+            {
+                foreach (var key in keys)
+                {
+                    store.Put(tenant, key);
+                }
+            }
+        }
     }
 
     /// <summary>Loads every registered <see cref="IMappingsLoader"/> into the store for the default tenant.</summary>

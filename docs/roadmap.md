@@ -439,3 +439,16 @@ is now end-to-end: engine + platform + dashboard.
   prefix (static + SPA fallback), scoped so mock-serving is untouched (`G12gDashboardTests`);
   `pnpm build:embedded` (base `/__mockifyr/`); a multi-stage **Dockerfile** builds one image serving the
   engine + admin + dashboard; **CI** now also builds the dashboard on every PR.
+
+## G17 — Environments (post-UI)
+
+- [x] **G17 Environments** (#165, #166) — tenant-scoped keys, each with several values and one active,
+  referenced from stubs as `{{key}}` and resolved **at serve time** rather than baked in at save time.
+  Replaces the UI-only localStorage design of #157, which froze the value into the mapping and leaked
+  across tenants. `IEnvironmentStore`/`IEnvironmentResolver` in Core (every method tenant-scoped;
+  `RenderContext.Tenant` is `required` so forgetting the scope is a compile error), a pre-Handlebars
+  substitution pass that touches only defined keys, `/__admin/environments` CQRS + REST, persistence
+  across file/LiteDB/Postgres/Redis, and a rewritten dashboard page. Keys named after a built-in helper
+  are refused (`Environment.ReservedKey`). No WireMock oracle exists for this, so it is validated by
+  unit + behavioral self-tests and a 26-check end-to-end script including a restart; see
+  `docs/parity/g17-environments.md` and ADR 0008. `dotnet`/`pnpm` green; verified in-browser.

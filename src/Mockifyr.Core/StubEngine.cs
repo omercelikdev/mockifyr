@@ -78,7 +78,12 @@ public sealed class StubEngine
             var winner = exact.OrderBy(x => x.Stub.Priority).ThenByDescending(x => x.Index).First().Stub;
             var response = _renderer.Render(
                 winner.Response,
-                new RenderContext { Request = request, UrlPathTemplate = winner.Request.UrlPathTemplate });
+                new RenderContext
+                {
+                    Request = request,
+                    Tenant = tenant,
+                    UrlPathTemplate = winner.Request.UrlPathTemplate,
+                });
             response = ApplyResponseTransformers(response, tenant, request, winner);
 
             ApplyTransition(tenant, winner);

@@ -157,8 +157,8 @@ the unit tests on every PR.
 
 ## 7. Current status
 
-All roadmap groups **G1–G16 are complete** (see [docs/roadmap.md](docs/roadmap.md)); only the
-post-phase **UI / dashboard** remains. Delivered across 17 projects: matching (G1 — URL/method,
+All roadmap groups **G1–G17 are complete** (see [docs/roadmap.md](docs/roadmap.md)), including the
+post-phase **UI / dashboard**. Delivered across 17 projects: matching (G1 — URL/method,
 header/query/cookie/body value matchers, `equalToJson`/`matchesJsonPath`/`matchesJsonSchema` incl.
 `format` + networknt `typeLoose` + `$ref`, `equalToXml`/`matchesXPath` incl. XMLUnit placeholders +
 namespaces + XPath functions, date/time, logic/basicAuth/multipart/priority); response + templating
@@ -167,8 +167,9 @@ namespaces + XPath functions, date/time, logic/basicAuth/multipart/priority); re
 (G9); extensibility (G10); HTTPS + HTTP/2 (G11); the transport HTTP facade + standalone/config (G12);
 gRPC (G13 — unary, codec incl. enum/map/repeated/oneof/wrappers, error status, admin-managed stubs);
 GraphQL (G14 — query/variables/operationName matching + response templating); message-based extras
-(G15 — Faker, JWT, multi-domain host/port/scheme, WebSocket message serving); and persistence
-(G16 — FileBased/LiteDB/Postgres/Redis + change-feed reload). Correctness is proven **differentially
+(G15 — Faker, JWT, multi-domain host/port/scheme, WebSocket message serving); persistence
+(G16 — FileBased/LiteDB/Postgres/Redis + change-feed reload); and environments (G17 — tenant-scoped
+`{{key}}` config resolved at serve time, across all four persistence providers). Correctness is proven **differentially
 against the Java WireMock oracle** except where no stable oracle exists — racy helpers (Faker/JWT/
 random/`now`) use structural/content validation, and WebSocket (WireMock beta) uses a self-test —
 each such case is stated in `docs/parity/`. Remaining work is documented **deferred edges** (per group

@@ -10,13 +10,22 @@ namespace Mockifyr.Templating;
 /// set as response templating — so <c>{{jsonPath originalRequest.body '$.id'}}</c>,
 /// <c>{{originalRequest.headers.X}}</c>, etc. all work. See docs/parity/g3-webhook.md.
 /// </summary>
-public sealed class WebhookTemplateRenderer : IServeEventTemplateRenderer
+public sealed class WebhookTemplateRenderer(IEnvironmentResolver? environments = null) : IServeEventTemplateRenderer
 {
     private readonly IHandlebars _handlebars = HandlebarsFactory.Create();
 
     /// <inheritdoc />
-    public string Render(string template, CanonicalRequest originalRequest)
+    public string Render(string template, CanonicalRequest originalRequest, TenantId tenant)
     {
+        // Same ordering as response rendering: environment keys resolve before Handlebars, against the
+        // tenant that owns the stub which fired the webhook (G17, issue #166).
+        if (environments is { } resolver && resolver.HasKeys(tenant))
+        {
+            template = EnvironmentSubstitution.Apply(
+                template,
+                (string key, out string value) => resolver.TryResolve(tenant, key, out value));
+        }
+
         var model = new Dictionary<string, object?> { ["originalRequest"] = RequestModel.Build(originalRequest) };
         return _handlebars.Compile(template)(model);
     }
