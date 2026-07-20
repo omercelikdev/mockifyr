@@ -239,3 +239,124 @@ public sealed class ResetScenariosHandler(IStubStore store, IScenarioStateStore 
         return ValueTask.FromResult(Result.Success());
     }
 }
+
+// Environment key handlers (G17, issues #165/#166). Every one reads the tenant off the command and
+// passes it to the store, so a request for tenant A can only ever touch tenant A's keys.
+
+/// <summary>Lists the tenant's environment keys.</summary>
+public sealed class GetEnvironmentsHandler(IEnvironmentStore store)
+    : IQueryHandler<GetEnvironmentsQuery, Result<IReadOnlyList<EnvironmentKey>>>
+{
+    public ValueTask<Result<IReadOnlyList<EnvironmentKey>>> Handle(GetEnvironmentsQuery query, CancellationToken cancellationToken) =>
+        ValueTask.FromResult(Result.Success(store.GetKeys(query.Tenant)));
+}
+
+/// <summary>
+/// Creates or replaces an environment key. Validation is the load-bearing part: a key that is
+/// malformed would be stored but never substituted, and a key named after a built-in helper would
+/// silently shadow it in every stub of the tenant — so both are refused rather than accepted.
+/// </summary>
+public sealed class PutEnvironmentKeyHandler(IEnvironmentStore store, IEnvironmentPersistence persistence)
+    : ICommandHandler<PutEnvironmentKeyCommand, Result>
+{
+    public ValueTask<Result> Handle(PutEnvironmentKeyCommand command, CancellationToken cancellationToken)
+    {
+        var key = command.Key;
+
+        if (!ReservedEnvironmentKeys.IsWellFormed(key.Key))
+        {
+            return ValueTask.FromResult(Result.Failure(Error.Validation(
+                "Environment.InvalidKey",
+                "A key must start with a letter or underscore and contain only letters, digits, underscores or hyphens.")));
+        }
+
+        if (ReservedEnvironmentKeys.IsReserved(key.Key))
+        {
+            return ValueTask.FromResult(Result.Failure(Error.Validation(
+                "Environment.ReservedKey",
+                $"'{key.Key}' is a built-in templating helper; a key of that name would shadow it in every stub.")));
+        }
+
+        if (key.Values.Count == 0)
+        {
+            return ValueTask.FromResult(Result.Failure(Error.Validation(
+                "Environment.NoValues", "A key must define at least one value.")));
+        }
+
+        if (key.Values.Select(v => v.Name).Distinct(StringComparer.Ordinal).Count() != key.Values.Count)
+        {
+            return ValueTask.FromResult(Result.Failure(Error.Validation(
+                "Environment.DuplicateValue", "Value names must be unique within a key.")));
+        }
+
+        if (key.Resolve() is null)
+        {
+            return ValueTask.FromResult(Result.Failure(Error.Validation(
+                "Environment.UnknownActiveValue", $"'{key.ActiveValue}' does not name any of the key's values.")));
+        }
+
+        store.Put(command.Tenant, key);
+        persistence.Save(command.Tenant, key);
+        return ValueTask.FromResult(Result.Success());
+    }
+}
+
+/// <summary>
+/// Switches which value is active for a key. This is the operation issue #165 is really about: it
+/// changes what every stub referencing the key resolves to, on the next request, with no re-save.
+/// </summary>
+public sealed class SetEnvironmentActiveValueHandler(IEnvironmentStore store, IEnvironmentPersistence persistence)
+    : ICommandHandler<SetEnvironmentActiveValueCommand, Result>
+{
+    public ValueTask<Result> Handle(SetEnvironmentActiveValueCommand command, CancellationToken cancellationToken)
+    {
+        var existing = store.GetKeys(command.Tenant).FirstOrDefault(k => string.Equals(k.Key, command.Key, StringComparison.Ordinal));
+        if (existing is null)
+        {
+            return ValueTask.FromResult(Result.Failure(Error.NotFound(
+                "Environment.UnknownKey", $"No environment key named '{command.Key}'.")));
+        }
+
+        var updated = existing with { ActiveValue = command.ActiveValue };
+        if (updated.Resolve() is null)
+        {
+            return ValueTask.FromResult(Result.Failure(Error.Validation(
+                "Environment.UnknownActiveValue", $"'{command.ActiveValue}' does not name any of the key's values.")));
+        }
+
+        store.Put(command.Tenant, updated);
+        persistence.Save(command.Tenant, updated);
+        return ValueTask.FromResult(Result.Success());
+    }
+}
+
+/// <summary>Deletes an environment key from the tenant that owns it.</summary>
+public sealed class DeleteEnvironmentKeyHandler(IEnvironmentStore store, IEnvironmentPersistence persistence)
+    : ICommandHandler<DeleteEnvironmentKeyCommand, Result>
+{
+    public ValueTask<Result> Handle(DeleteEnvironmentKeyCommand command, CancellationToken cancellationToken)
+    {
+        // Remove reports whether THIS tenant owned the key, so a delete aimed at another tenant's key
+        // is a 404 rather than a silent success that suggests it worked.
+        if (!store.Remove(command.Tenant, command.Key))
+        {
+            return ValueTask.FromResult(Result.Failure(Error.NotFound(
+                "Environment.UnknownKey", $"No environment key named '{command.Key}'.")));
+        }
+
+        persistence.Remove(command.Tenant, command.Key);
+        return ValueTask.FromResult(Result.Success());
+    }
+}
+
+/// <summary>Deletes every environment key owned by the tenant.</summary>
+public sealed class ResetEnvironmentsHandler(IEnvironmentStore store, IEnvironmentPersistence persistence)
+    : ICommandHandler<ResetEnvironmentsCommand, Result>
+{
+    public ValueTask<Result> Handle(ResetEnvironmentsCommand command, CancellationToken cancellationToken)
+    {
+        store.Clear(command.Tenant);
+        persistence.Clear(command.Tenant);
+        return ValueTask.FromResult(Result.Success());
+    }
+}

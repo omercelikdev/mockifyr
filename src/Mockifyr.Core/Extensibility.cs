@@ -168,6 +168,46 @@ public sealed class NullStubPersistence : IStubPersistence
     public void Clear(TenantId tenant) { }
 }
 
+/// <summary>
+/// Durable persistence for environment keys (G17), mirroring <see cref="IStubPersistence"/>: writes go
+/// through it alongside the in-memory store, and <see cref="IEnvironmentsLoader"/> reloads on startup.
+/// The default is a no-op, so a purely in-memory host keeps working unchanged.
+/// </summary>
+public interface IEnvironmentPersistence : IExtension
+{
+    /// <summary>The provider name surfaced by diagnostics.</summary>
+    string ProviderName => GetType().Name;
+
+    /// <summary>Persists a key for a tenant.</summary>
+    void Save(TenantId tenant, EnvironmentKey key);
+
+    /// <summary>Removes a persisted key.</summary>
+    void Remove(TenantId tenant, string key);
+
+    /// <summary>Removes every persisted key for a tenant.</summary>
+    void Clear(TenantId tenant);
+}
+
+/// <summary>The default no-op environment persistence: nothing survives a restart.</summary>
+public sealed class NullEnvironmentPersistence : IEnvironmentPersistence
+{
+    /// <inheritdoc />
+    public void Save(TenantId tenant, EnvironmentKey key) { }
+
+    /// <inheritdoc />
+    public void Remove(TenantId tenant, string key) { }
+
+    /// <inheritdoc />
+    public void Clear(TenantId tenant) { }
+}
+
+/// <summary>Reads persisted environment keys back at startup, the counterpart of <see cref="IEnvironmentPersistence"/>.</summary>
+public interface IEnvironmentsLoader : IExtension
+{
+    /// <summary>Loads every persisted key, grouped by the tenant that owns it.</summary>
+    IReadOnlyDictionary<TenantId, IReadOnlyList<EnvironmentKey>> LoadAll();
+}
+
 /// <summary>Filters or short-circuits requests before matching.</summary>
 public interface IRequestFilter : IExtension
 {

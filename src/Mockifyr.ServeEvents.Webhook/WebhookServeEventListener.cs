@@ -56,20 +56,20 @@ public sealed class WebhookServeEventListener : IServeEventListener
         var originalRequest = serveEvent.Request;
         try
         {
-            var url = Render(webhook.Url, originalRequest);
+            var url = Render(webhook.Url, originalRequest, serveEvent.TenantId);
             using var request = new HttpRequestMessage(new HttpMethod(webhook.Method), url);
 
             byte[]? renderedBody = null;
             if (webhook.Body is { } body)
             {
-                renderedBody = RenderBody(body, originalRequest);
+                renderedBody = RenderBody(body, originalRequest, serveEvent.TenantId);
                 request.Content = new ByteArrayContent(renderedBody);
             }
 
             var renderedHeaders = new List<KeyValuePair<string, string>>();
             foreach (var (name, value) in webhook.Headers)
             {
-                var rendered = Render(value, originalRequest);
+                var rendered = Render(value, originalRequest, serveEvent.TenantId);
                 renderedHeaders.Add(new(name, rendered));
                 if (ContentHeaders.Contains(name))
                 {
@@ -108,10 +108,11 @@ public sealed class WebhookServeEventListener : IServeEventListener
             (DateTimeOffset.UtcNow - serveEvent.Timestamp).Ticks * 100,
             data));
 
-    // Templates a webhook field against originalRequest; a null renderer leaves it literal (G3a).
-    private string Render(string value, CanonicalRequest originalRequest) =>
-        _renderer is null ? value : _renderer.Render(value, originalRequest);
+    // Templates a webhook field against originalRequest; a null renderer leaves it literal (G3a). The
+    // tenant is threaded through so environment keys resolve against the owning tenant (G17).
+    private string Render(string value, CanonicalRequest originalRequest, TenantId tenant) =>
+        _renderer is null ? value : _renderer.Render(value, originalRequest, tenant);
 
-    private byte[] RenderBody(byte[] body, CanonicalRequest originalRequest) =>
-        _renderer is null ? body : Encoding.UTF8.GetBytes(Render(Encoding.UTF8.GetString(body), originalRequest));
+    private byte[] RenderBody(byte[] body, CanonicalRequest originalRequest, TenantId tenant) =>
+        _renderer is null ? body : Encoding.UTF8.GetBytes(Render(Encoding.UTF8.GetString(body), originalRequest, tenant));
 }

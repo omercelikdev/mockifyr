@@ -5,9 +5,9 @@ import { Camera, Circle, Play, Square } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
-import { resolveUrl, useEnvironments } from '@/lib/environments'
+import { previewEnvironment } from '@/lib/environments'
 import {
-  fetchRecordingStatus, snapshotRecording, startRecording, stopRecording, type CapturedStub,
+  fetchEnvironments, fetchRecordingStatus, snapshotRecording, startRecording, stopRecording, type CapturedStub,
 } from '@/lib/api'
 import { MethodChip } from '@/components/ui/badges'
 import { Button } from '@/components/ui/button'
@@ -28,10 +28,14 @@ export function RecordingsPage() {
   const { tenant } = useUi()
   const queryClient = useQueryClient()
   const [target, setTarget] = useState('https://api.example.com')
-  // Environments (#157): {{name}} in the target resolves when recording starts; a live preview
-  // shows the resolution, unknown variables are flagged.
-  const environments = useEnvironments()
-  const targetResolution = resolveUrl(target, environments)
+  // Environments (#165): {{key}} in the target resolves when recording STARTS. Unlike a stub, this
+  // value is consumed immediately rather than stored, so resolving it client-side is correct — there
+  // is no saved artifact to freeze a stale value into.
+  const { data: environmentData } = useQuery({
+    queryKey: ['environments', tenant],
+    queryFn: () => fetchEnvironments(tenant),
+  })
+  const targetResolution = previewEnvironment(target, environmentData?.environments ?? [])
   const [captured, setCaptured] = useState<CapturedStub[]>([])
   const [selected, setSelected] = useState<Selections>({})
   const [search, setSearch] = useState('')

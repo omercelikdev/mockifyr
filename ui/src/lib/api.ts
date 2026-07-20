@@ -1,4 +1,5 @@
 import { TENANT_HEADER } from '@/lib/tenants'
+import type { EnvironmentKey } from '@/lib/environments'
 
 // A stub row as the dashboard needs it — a flat projection of a mapping.
 export type Protocol = 'http' | 'grpc' | 'graphql' | 'websocket'
@@ -528,5 +529,64 @@ async function gitOp(path: string, tenant: string, body?: string): Promise<GitSy
     }
   } catch {
     return { ok: false, error: 'network', message: 'No host reachable.' }
+  }
+}
+
+// ---- environments (#165, #166) ------------------------------------------------------------------
+// Every call goes through adminFetch, which stamps the X-Mockifyr-Tenant header — so the tenant a key
+// is written to, read from, or deleted in is always the one the dashboard is currently showing.
+
+/** Loads the tenant's environment keys (GET /__admin/environments). */
+export async function fetchEnvironments(tenant: string): Promise<{ environments: EnvironmentKey[]; mock: boolean }> {
+  try {
+    const res = await adminFetch('/environments', tenant)
+    if (!res.ok) throw new Error(String(res.status))
+    const body = (await res.json()) as { environments?: EnvironmentKey[] }
+    return { environments: body.environments ?? [], mock: false }
+  } catch {
+    // No host: environments are server state, so there is nothing meaningful to fake. An empty list
+    // plus the mock flag is honest — the page tells the user it is not connected.
+    return { environments: [], mock: true }
+  }
+}
+
+/** Creates or replaces a key (PUT /__admin/environments/{key}). Returns the server's error code, if any. */
+export async function putEnvironmentKey(
+  tenant: string,
+  key: EnvironmentKey,
+): Promise<{ ok: boolean; error?: string; message?: string }> {
+  try {
+    const res = await adminFetch(`/environments/${encodeURIComponent(key.key)}`, tenant, {
+      method: 'PUT',
+      body: JSON.stringify({ activeValue: key.activeValue, values: key.values }),
+    })
+    if (res.ok) return { ok: true }
+    const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string }
+    return { ok: false, error: body.error, message: body.message }
+  } catch {
+    return { ok: false, error: 'Network' }
+  }
+}
+
+/** Selects which value is active for a key (PUT /__admin/environments/{key}/active). */
+export async function setEnvironmentActiveValue(tenant: string, key: string, activeValue: string): Promise<boolean> {
+  try {
+    const res = await adminFetch(`/environments/${encodeURIComponent(key)}/active`, tenant, {
+      method: 'PUT',
+      body: JSON.stringify({ activeValue }),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+/** Deletes a key (DELETE /__admin/environments/{key}). */
+export async function deleteEnvironmentKey(tenant: string, key: string): Promise<boolean> {
+  try {
+    const res = await adminFetch(`/environments/${encodeURIComponent(key)}`, tenant, { method: 'DELETE' })
+    return res.ok
+  } catch {
+    return false
   }
 }

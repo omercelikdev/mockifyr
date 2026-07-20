@@ -49,3 +49,25 @@ public sealed record SetScenarioStateCommand(string Name, string State, TenantId
 
 /// <summary>Resets every scenario to <c>Started</c>.</summary>
 public sealed record ResetScenariosCommand(TenantId Tenant) : ICommand<Result>;
+
+// Environment keys (G17, issues #165/#166). Every operation carries the tenant: environments are
+// tenant-owned, and cross-tenant access must be impossible at the API level, not merely hidden in
+// the dashboard.
+
+/// <summary>Lists the tenant's environment keys with their values and which one is active.</summary>
+public sealed record GetEnvironmentsQuery(TenantId Tenant) : IQuery<Result<IReadOnlyList<EnvironmentKey>>>;
+
+/// <summary>
+/// Creates or replaces an environment key (<c>PUT /__admin/environments/{key}</c>). Rejects a key that
+/// is malformed or collides with a built-in templating helper.
+/// </summary>
+public sealed record PutEnvironmentKeyCommand(EnvironmentKey Key, TenantId Tenant) : ICommand<Result>;
+
+/// <summary>Selects which value is active for a key (<c>PUT /__admin/environments/{key}/active</c>).</summary>
+public sealed record SetEnvironmentActiveValueCommand(string Key, string ActiveValue, TenantId Tenant) : ICommand<Result>;
+
+/// <summary>Deletes an environment key (<c>DELETE /__admin/environments/{key}</c>).</summary>
+public sealed record DeleteEnvironmentKeyCommand(string Key, TenantId Tenant) : ICommand<Result>;
+
+/// <summary>Deletes every environment key owned by the tenant.</summary>
+public sealed record ResetEnvironmentsCommand(TenantId Tenant) : ICommand<Result>;

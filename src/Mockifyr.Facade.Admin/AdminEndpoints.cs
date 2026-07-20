@@ -290,6 +290,58 @@ public static class AdminEndpoints
             return Results.Ok();
         });
 
+        // Environments (G17, issues #165/#166): tenant-scoped key/value config resolved into stubs at
+        // serve time. Every route derives its tenant from TenantOf(request) and passes it to the
+        // handler, so isolation is enforced here at the API — not merely by filtering in the dashboard.
+        admin.MapGet("/environments", async (HttpRequest request, ISender sender) =>
+        {
+            var result = await sender.Send(new GetEnvironmentsQuery(TenantOf(request)));
+            return Results.Json(new { environments = result.Value.Select(EnvironmentJson) });
+        });
+
+        admin.MapPut("/environments/{key}", async (string key, HttpRequest request, ISender sender) =>
+        {
+            EnvironmentKey parsed;
+            try
+            {
+                parsed = ReadEnvironmentKey(key, await ReadBody(request));
+            }
+            catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidOperationException)
+            {
+                return EnvironmentFailure(Mediant.Results.Error.Validation(
+                    "Environment.InvalidBody", "The environment key JSON is malformed."));
+            }
+
+            var result = await sender.Send(new PutEnvironmentKeyCommand(parsed, TenantOf(request)));
+            return result.IsSuccess ? Results.Json(EnvironmentJson(parsed)) : EnvironmentFailure(result.Error);
+        });
+
+        admin.MapPut("/environments/{key}/active", async (string key, HttpRequest request, ISender sender) =>
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(await ReadBody(request));
+            var active = doc.RootElement.TryGetProperty("activeValue", out var a) ? a.GetString() : null;
+            if (active is null)
+            {
+                return EnvironmentFailure(Mediant.Results.Error.Validation(
+                    "Environment.InvalidBody", "Expected an 'activeValue' field."));
+            }
+
+            var result = await sender.Send(new SetEnvironmentActiveValueCommand(key, active, TenantOf(request)));
+            return result.IsSuccess ? Results.Ok() : EnvironmentFailure(result.Error);
+        });
+
+        admin.MapDelete("/environments/{key}", async (string key, HttpRequest request, ISender sender) =>
+        {
+            var result = await sender.Send(new DeleteEnvironmentKeyCommand(key, TenantOf(request)));
+            return result.IsSuccess ? Results.Ok() : EnvironmentFailure(result.Error);
+        });
+
+        admin.MapPost("/environments/reset", async (HttpRequest request, ISender sender) =>
+        {
+            await sender.Send(new ResetEnvironmentsCommand(TenantOf(request)));
+            return Results.Ok();
+        });
+
         // Record mode (G12d): the record-through-proxy admin API (verified by the differential suite). While
         // a session is live, the mock-serving fallback proxies every request to the target and captures a
         // generated stub.
@@ -472,6 +524,47 @@ public static class AdminEndpoints
     // pinned/persistence) are 409, invalid input or a rejected remote tree is 422, remote-auth
     // failures are 502 — deliberately NOT 401, which the dashboard reserves for the host's own
     // admin auth (it would pop the login gate).
+    // Environment key JSON: { "activeValue": "dev", "values": [ { "name": "dev", "value": "…" }, … ] }.
+    // The key itself comes from the route, so the body cannot disagree with the URL about which key
+    // is being written.
+    private static EnvironmentKey ReadEnvironmentKey(string key, string body)
+    {
+        using var doc = System.Text.Json.JsonDocument.Parse(body);
+        var root = doc.RootElement;
+
+        var values = new List<EnvironmentValue>();
+        if (root.TryGetProperty("values", out var array) && array.ValueKind == System.Text.Json.JsonValueKind.Array)
+        {
+            foreach (var item in array.EnumerateArray())
+            {
+                var name = item.TryGetProperty("name", out var n) ? n.GetString() : null;
+                var value = item.TryGetProperty("value", out var v) ? v.GetString() : null;
+                if (name is not null && value is not null)
+                {
+                    values.Add(new EnvironmentValue(name, value));
+                }
+            }
+        }
+
+        var active = root.TryGetProperty("activeValue", out var a) ? a.GetString() : null;
+        return new EnvironmentKey(key, active ?? values.FirstOrDefault()?.Name ?? string.Empty, values);
+    }
+
+    private static object EnvironmentJson(EnvironmentKey key) => new
+    {
+        key = key.Key,
+        activeValue = key.ActiveValue,
+        resolved = key.Resolve(),
+        values = key.Values.Select(v => new { name = v.Name, value = v.Value }),
+    };
+
+    private static IResult EnvironmentFailure(Mediant.Results.Error error) =>
+        Results.Json(new { error = error.Code, message = error.Description }, statusCode: error.Code switch
+        {
+            "Environment.UnknownKey" => StatusCodes.Status404NotFound,
+            _ => StatusCodes.Status400BadRequest,
+        });
+
     private static IResult GitFailure(Mediant.Results.Error error) =>
         Results.Json(new { error = error.Code, message = error.Description }, statusCode: error.Code switch
         {

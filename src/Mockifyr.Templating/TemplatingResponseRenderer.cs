@@ -27,22 +27,34 @@ public sealed class TemplatingResponseRenderer : IResponseRenderer
     // TextEncoder = null disables HTML escaping so output is emitted raw (non-escaping).
     private readonly IHandlebars _handlebars;
     private readonly bool _globalTemplating;
+    private readonly IEnvironmentResolver? _environments;
 
     /// <summary>
     /// <paramref name="globalTemplating"/> mirrors the reference host's
     /// <c>--global-response-templating</c>: every response renders through the engine regardless of
     /// the per-stub <c>transformers</c> list (#148, verified by the differential suite). Off, the
     /// per-stub opt-in behavior is unchanged.
+    /// <paramref name="environments"/> resolves <c>{{key}}</c> environment references (G17); null
+    /// disables the pass entirely, which is what a facade with no environment store configured wants.
     /// </summary>
-    public TemplatingResponseRenderer(IEnumerable<TemplateHelperExtension>? extraHelpers = null, bool globalTemplating = false)
+    public TemplatingResponseRenderer(
+        IEnumerable<TemplateHelperExtension>? extraHelpers = null,
+        bool globalTemplating = false,
+        IEnvironmentResolver? environments = null)
     {
         _handlebars = HandlebarsFactory.Create(extraHelpers);
         _globalTemplating = globalTemplating;
+        _environments = environments;
     }
 
     /// <inheritdoc />
     public CanonicalResponse Render(ResponseDefinition definition, RenderContext context)
     {
+        // Environment substitution runs FIRST, and deliberately ahead of the transformer guard below:
+        // a stub that never opted into `response-template` still gets its {{key}} references resolved.
+        // Putting this after the guard would silently skip the majority of stubs (G17, issue #165).
+        definition = ApplyEnvironment(definition, context.Tenant);
+
         if (!_globalTemplating && !definition.Transformers.Contains(ResponseTemplateTransformer))
         {
             return new CanonicalResponse
@@ -80,6 +92,48 @@ public sealed class TemplatingResponseRenderer : IResponseRenderer
             Fault = definition.Fault,
             Proxy = definition.Proxy,
         };
+    }
+
+    /// <summary>
+    /// Rewrites the definition's body, headers and proxy target with the tenant's active environment
+    /// values. Returns the definition unchanged when the tenant has no keys, so the ordinary path pays
+    /// only a dictionary probe.
+    /// <para>
+    /// The proxy target is included because it is the field environments exist for — and it is
+    /// otherwise never templated: both branches of <see cref="Render"/> copy <c>Proxy</c> verbatim, so
+    /// without this a <c>{{baseUrl}}</c> proxy target would reach the outbound client as literal text.
+    /// </para>
+    /// </summary>
+    private ResponseDefinition ApplyEnvironment(ResponseDefinition definition, TenantId tenant)
+    {
+        if (_environments is not { } environments || !environments.HasKeys(tenant))
+        {
+            return definition;
+        }
+
+        bool Lookup(string key, out string value) => environments.TryResolve(tenant, key, out value);
+
+        var body = definition.Body;
+        if (body is { Length: > 0 })
+        {
+            var raw = Encoding.UTF8.GetString(body);
+            var substituted = EnvironmentSubstitution.Apply(raw, Lookup);
+            if (!ReferenceEquals(raw, substituted))
+            {
+                body = Encoding.UTF8.GetBytes(substituted);
+            }
+        }
+
+        var headers = definition.Headers
+            .SelectMany(group => group.Select(value =>
+                new KeyValuePair<string, string>(group.Key, EnvironmentSubstitution.Apply(value, Lookup))))
+            .ToLookup(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+
+        var proxy = definition.Proxy is { } directive
+            ? directive with { BaseUrl = EnvironmentSubstitution.Apply(directive.BaseUrl, Lookup) }
+            : null;
+
+        return definition with { Body = body, Headers = headers, Proxy = proxy };
     }
 
     private string RenderTemplate(string template, object model) => _handlebars.Compile(template)(model);

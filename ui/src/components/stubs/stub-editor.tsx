@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useForm, useFieldArray, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
@@ -6,9 +7,9 @@ import { Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
-import { importMappings, saveStub, type Stub } from '@/lib/api'
+import { fetchEnvironments, importMappings, saveStub, type Stub } from '@/lib/api'
 import { BODY_OPS, BODY_SUB_OPS, emptyStub, FAULTS, fromMapping, MATCH_OPS, stubSchema, suggestName, toJson, URL_MATCH, type StubForm } from '@/lib/stub-schema'
-import { resolveUrl, useEnvironments, type EnvironmentState } from '@/lib/environments'
+import { previewEnvironment, type EnvironmentKey } from '@/lib/environments'
 import { Sheet, SheetContent, SheetHeader } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input, Label, NativeSelect, Textarea } from '@/components/ui/field'
@@ -26,12 +27,12 @@ function seedFrom(stub: Stub | null, prefillUrl?: string): StubForm {
 }
 
 /**
- * Live resolution preview for a URL field that may reference environments (#157): shows what
- * {{name}} variables resolve to right now, and flags unknown ones. Nothing renders for a URL
- * without environment-style variables.
+ * Live preview for a field that may reference environments (#165). Shows what the SERVER will
+ * substitute at serve time and flags references naming no key. This is display only — the value
+ * stored in the mapping is always the raw {{key}} expression.
  */
-function EnvPreview({ url, environments, t }: { url: string; environments: EnvironmentState; t: (k: string, o?: Record<string, unknown>) => string }) {
-  const { resolved, unknown, changed } = resolveUrl(url ?? '', environments)
+function EnvPreview({ url, environments, t }: { url: string; environments: EnvironmentKey[]; t: (k: string, o?: Record<string, unknown>) => string }) {
+  const { resolved, unknown, changed } = previewEnvironment(url ?? '', environments)
   if (!changed && unknown.length === 0) return null
   return (
     <div className="mt-1 space-y-0.5">
@@ -84,7 +85,13 @@ export function StubEditorForm({ editing, initialTab = 'form', prefillUrl, activ
 }) {
   const { t } = useTranslation()
   const { tenant } = useUi()
-  const environments = useEnvironments()
+  // The tenant's keys, for the live preview only. Same query key as the environments page, so an
+  // edit there is reflected here without a reload.
+  const { data: environmentData } = useQuery({
+    queryKey: ['environments', tenant],
+    queryFn: () => fetchEnvironments(tenant),
+  })
+  const environments = environmentData?.environments ?? []
   const [tab, setTab] = useState(initialTab)
   const [rawJson, setRawJson] = useState('')
   const [saving, setSaving] = useState(false)
@@ -125,15 +132,15 @@ export function StubEditorForm({ editing, initialTab = 'form', prefillUrl, activ
   async function persist() {
     let json = rawJson
     if (tab === 'form') {
-      // Environments (#157) resolve at save time, so the stored mapping carries plain, portable
-      // URLs — a {{name}} left in the mapping would collide with server-side Handlebars templating.
+      // Environment references are stored VERBATIM (#165). They used to be resolved here, which
+      // froze today's value into the mapping; the engine now substitutes at serve time, so changing
+      // a key's active value changes what this stub serves without touching it again.
       const values = { ...getValues() }
       for (const field of ['webhookUrl', 'proxyBaseUrl'] as const) {
-        const { resolved, unknown } = resolveUrl(values[field], environments)
-        values[field] = resolved
-        // Unresolved variables are flagged, never silently sent: they stay literal in the mapping
-        // (Handlebars may legitimately own them), but the operator is told.
-        for (const name of unknown) toast.warning(t('env.unknown', { name }))
+        // Still warn about a reference that names no key: it would reach the server as literal text.
+        for (const name of previewEnvironment(values[field] ?? '', environments).unknown) {
+          toast.warning(t('env.unknown', { name }))
+        }
       }
       json = toJson(values)
     }
