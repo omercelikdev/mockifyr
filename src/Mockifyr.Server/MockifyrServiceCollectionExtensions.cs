@@ -66,7 +66,9 @@ public static class MockifyrServiceCollectionExtensions
         // factory runs at resolution time, after every registration, so ordering does not matter.
         services.AddSingleton<IServeEventListener>(sp =>
             new WebhookServeEventListener(
-                client: null,
+                // Outbound TLS trust (#172): both outbound paths share one policy, so a host trusted
+                // for proxying is trusted for callbacks too.
+                client: (sp.GetService<OutboundTlsPolicy>() ?? OutboundTlsPolicy.Default).CreateClient(),
                 sp.GetRequiredService<IServeEventTemplateRenderer>(),
                 sp.GetService<WebhookOptions>()?.HostFallback ?? true));
         foreach (var listener in extensions.ServeEventListeners)
@@ -96,7 +98,8 @@ public static class MockifyrServiceCollectionExtensions
 
         // Outbound edge (G12d): the proxy responder + recorder for proxy directives and record mode,
         // and the shared live-recording state the admin control endpoints and the fallback both see.
-        services.AddSingleton<ProxyResponder>(_ => new ProxyResponder());
+        services.AddSingleton<ProxyResponder>(sp =>
+            new ProxyResponder((sp.GetService<OutboundTlsPolicy>() ?? OutboundTlsPolicy.Default).CreateClient()));
         services.AddSingleton<StubRecorder>(_ => new StubRecorder());
         services.AddSingleton<RecordingSession>();
 

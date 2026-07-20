@@ -69,3 +69,51 @@ came over TLS. Validated over a real socket against the oracle's own HTTPS liste
   client **without** one fails the handshake.
 - **Regression cases:** `G11cMutualTlsTests.ClientCertificate_PresentedAndTrusted_ServesTheStub` and
   `NoClientCertificate_IsRejected` (2 self-tests; no Docker).
+
+## Outbound certificate trust — `--trust-proxy-target` / `--trust-all-proxy-targets` (#172)
+
+- **Group / item:** post-G11 defect fix. **No oracle diff**: certificate trust is an environment
+  property, not a wire semantic, so this is validated by reproduction against a self-signed HTTPS
+  target from inside the published container image, plus unit coverage of the policy decisions.
+- **The gap.** Every pre-existing TLS flag (`--https-port`, `--https-keystore`,
+  `--https-truststore`, `--https-require-client-auth`) configures the **listener** — traffic coming
+  in. Nothing configured the **client** side: both outbound paths built a plain `new HttpClient()`.
+  So an endpoint served by an internal corporate CA was unreachable, and there was no supported way
+  to reach it. The host machine trusts such a CA through its keychain; a Linux container does not —
+  which is exactly why the same call succeeds from Postman and fails from a containerised Mockifyr.
+- **The surface is WireMock's, deliberately.** `--trust-proxy-target <host>` (repeatable) and
+  `--trust-all-proxy-targets` are real WireMock CLI options; adopting the names avoids inventing a
+  parallel vocabulary. WireMock scopes them to browser proxying — Mockifyr applies them to **both**
+  outbound paths (callbacks and `proxyBaseUrl`), because the identical wall is hit on each and a
+  single concept split across two flag families would be worse than the small deviation.
+- **Learned: trust is keyed on the address requested, not the certificate presented.** The validation
+  callback reads the host from `request.RequestUri`, never from the certificate's subject. Keying on
+  the certificate would invert the guarantee — anything able to present a certificate naming
+  `dev.corp` would be trusted, rather than the endpoint the operator actually addressed.
+- **Verified per-host isolation.** With `--trust-proxy-target some.other.host`, a call to the
+  self-signed target still fails (`rejected by the provided RemoteCertificateValidationCallback`).
+  Trusting one endpoint grants nothing to another, and no wildcard/suffix matching is implied —
+  `sub.dev.corp` is not covered by `dev.corp`.
+- **Learned: a repeated flag is not repeatable for free.** .NET's command-line configuration provider
+  collapses a repeated key to its **last** value, so `--trust-proxy-target a --trust-proxy-target b`
+  would have silently trusted only `b`. The raw `args` are scanned alongside the parsed configuration;
+  a comma/semicolon-separated list is accepted too.
+- **Default unchanged, and the deviation is loud.** With no flag the stock handler is used — not a
+  custom callback that happens to return the same answer — so the default path is .NET's own
+  validation. A host that does relax trust prints a line saying so at startup.
+
+## Learned: a transport error's reason lives in the *inner* exception (#172)
+
+The webhook journal recorded only `exception.Message`. For TLS that outer message is literally
+`The SSL connection could not be established, see inner exception.` — a sentence referring to
+information the operator was never shown. The inner exception carries the diagnosis:
+
+```
+The SSL connection could not be established, see inner exception.
+  -> The remote certificate is invalid according to the validation procedure:
+     RemoteCertificateNameMismatch, RemoteCertificateChainErrors
+```
+
+The chain is now flattened into the journal line (repeated messages collapsed). This is why the
+original report could only say "SSL error" — the product had discarded its own explanation. Regression
+cases live in `OutboundTlsTrustTests`.

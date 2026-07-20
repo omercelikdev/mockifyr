@@ -85,6 +85,8 @@ Everything is a CLI flag. The common ones:
 | `--postgres <connstr>` · `--redis <connstr>` · `--litedb <path>` | durable persistence backend |
 | `--change-feed` | keep multiple instances coherent |
 | `--webhook-host-fallback false` | deliver callbacks to exactly the address written, never retrying via the host gateway |
+| `--trust-proxy-target <host>` | trust that host's certificate on outbound calls (repeatable) |
+| `--trust-all-proxy-targets` | trust every outbound certificate |
 
 The hot path is always in-memory; a durable backend is opt-in and writes through.
 
@@ -97,6 +99,21 @@ via `host.docker.internal`, and both attempts appear in the request journal. Tar
 `host.docker.internal` yourself works too, and `--webhook-host-fallback false` turns the retry off.
 On Linux, `host.docker.internal` only exists if the container is started with
 `--add-host=host.docker.internal:host-gateway`.
+
+### Callbacks and proxies to an internal HTTPS endpoint
+
+An endpoint served by your organisation's internal CA is trusted by your machine's keychain but not
+by the container, so an outbound call to it fails where Postman succeeds. The journal names the
+reason (`RemoteCertificateChainErrors`, a name mismatch, an expiry). To allow it, trust that endpoint
+by name — the same flags WireMock uses, applied to callbacks and proxying alike:
+
+```bash
+docker run … mockifyr --trust-proxy-target api.dev.mycorp.intra
+```
+
+Trusting one host grants nothing to any other. `--trust-all-proxy-targets` disables verification for
+every target; the host prints a warning at startup when either flag is in effect. Without them,
+certificates are verified normally.
 
 ## Documentation
 

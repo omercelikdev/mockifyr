@@ -83,7 +83,7 @@ public sealed class WebhookServeEventListener : IServeEventListener
         {
             // A template that fails to render dies before any request exists, so there is nothing to
             // report but the error itself.
-            Append(serveEvent, SubEvent.ErrorType, new WebhookErrorData(exception.Message));
+            Append(serveEvent, SubEvent.ErrorType, new WebhookErrorData(ContainerHostFallback.Describe(exception)));
             return;
         }
 
@@ -108,7 +108,7 @@ public sealed class WebhookServeEventListener : IServeEventListener
 
         // Both attempts are journaled, so the retry is visible rather than magic.
         Append(serveEvent, SubEvent.ErrorType, new WebhookErrorData(
-            $"{failure.Message} Retrying via {ContainerHostFallback.HostGateway} (#170)."));
+            $"{ContainerHostFallback.Describe(failure)} Retrying via {ContainerHostFallback.HostGateway} (#170)."));
 
         var retryFailure = await AttemptAsync(webhook, retryUrl, renderedHeaders, renderedBody, serveEvent, cancellationToken)
             .ConfigureAwait(false);

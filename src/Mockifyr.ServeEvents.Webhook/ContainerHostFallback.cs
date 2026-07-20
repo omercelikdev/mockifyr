@@ -106,7 +106,7 @@ internal static class ContainerHostFallback
     /// </param>
     public static string Explain(string originalUrl, Exception failure, bool fallbackAttempted)
     {
-        var message = failure.Message;
+        var message = Describe(failure);
         if (!IsInContainer || RetryTargetFor(originalUrl) is null)
         {
             return message;
@@ -125,6 +125,29 @@ internal static class ContainerHostFallback
               $"itself, not your machine. Target {HostGateway} (or the host's address) to reach a " +
               "service running outside the container."
             : message;
+    }
+
+    /// <summary>
+    /// Flattens an exception chain into one line (#172). Transport failures put the reason in an
+    /// <em>inner</em> exception: a TLS failure's outer message is the self-defeating "The SSL
+    /// connection could not be established, see inner exception", while the inner one names the
+    /// actual cause ("RemoteCertificateChainErrors", "RemoteCertificateNameMismatch", an expiry, a
+    /// protocol mismatch). Journalling only the outer message discarded precisely the part an
+    /// operator needs.
+    /// </summary>
+    public static string Describe(Exception exception)
+    {
+        var messages = new List<string>();
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            // Chains often restate the same text; keep the first of each so the line stays readable.
+            if (!messages.Contains(current.Message, StringComparer.Ordinal))
+            {
+                messages.Add(current.Message);
+            }
+        }
+
+        return string.Join(" -> ", messages);
     }
 
     private static string Host(string url) =>
