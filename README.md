@@ -84,19 +84,20 @@ Everything is a CLI flag. The common ones:
 | `--admin-user <u>` · `--admin-pass <p>` | require HTTP Basic auth on the admin API (`/__admin/*`); the dashboard shows a login screen |
 | `--postgres <connstr>` · `--redis <connstr>` · `--litedb <path>` | durable persistence backend |
 | `--change-feed` | keep multiple instances coherent |
-| `--webhook-host-fallback false` | deliver callbacks to exactly the address written, never retrying via the host gateway |
+| `--outbound-host-fallback false` | deliver callbacks and proxies to exactly the address written, never retrying via the host gateway |
 | `--trust-proxy-target <host>` | trust that host's certificate on outbound calls (repeatable) |
 | `--trust-all-proxy-targets` | trust every outbound certificate |
 
 The hot path is always in-memory; a durable backend is opt-in and writes through.
 
-### Callbacks to your own machine
+### Callbacks and proxies to your own machine
 
-Running in Docker, `localhost` inside the container means *the container* — so a callback aimed at
-`http://localhost:5004` cannot reach a service on your machine, even though the same URL works from
-Postman. Mockifyr handles this: a loopback callback whose connection is **refused** is retried once
-via `host.docker.internal`, and both attempts appear in the request journal. Targeting
-`host.docker.internal` yourself works too, and `--webhook-host-fallback false` turns the retry off.
+Running in Docker, `localhost` inside the container means *the container* — so a callback or proxy
+aimed at `http://localhost:5004` cannot reach a service on your machine, even though the same URL
+works from Postman. Mockifyr handles this: a loopback target whose connection is **refused** is
+retried once via `host.docker.internal` (a callback records both attempts in the journal; a proxy that
+still cannot be reached answers 502 with the reason). Targeting `host.docker.internal` yourself works
+too, and `--outbound-host-fallback false` turns the retry off (`--webhook-host-fallback` is a kept alias).
 On Linux, `host.docker.internal` only exists if the container is started with
 `--add-host=host.docker.internal:host-gateway`.
 

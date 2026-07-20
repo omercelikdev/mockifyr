@@ -3,12 +3,29 @@ using Mockifyr.Core;
 namespace Mockifyr.Outbound;
 
 /// <summary>
+/// Raised when a proxy forward cannot be delivered. Carries the flattened cause so the transport can
+/// surface it, and a flag marking the container-localhost diagnosis (#176) — the one case where the
+/// facade turns the failure into an explanatory 502 rather than an opaque 500.
+/// </summary>
+public sealed class ProxyDeliveryException(string message, bool containerDiagnosis) : Exception(message)
+{
+    /// <summary>True when the failure is the container-localhost trap and the message explains it.</summary>
+    public bool ContainerDiagnosis { get; } = containerDiagnosis;
+}
+
+/// <summary>
 /// Applies a <see cref="ProxyDirective"/> (G8): forwards the matched request to the upstream at
 /// <c>proxyBaseUrl</c> (preserving the path + query, method, headers, and body) and returns the
 /// upstream's response. This is outbound I/O, so it lives at the facade edge — the pure engine only
 /// records the directive. The transport HTTP facade (G12) reuses this same responder over the wire.
+/// <para>
+/// <paramref name="hostFallback"/> extends the callback fix (#170) to proxying (#176): a loopback
+/// target whose connection is <em>refused</em> while containerised is retried once via the host
+/// gateway, because inside a container <c>localhost</c> is the container itself. On by default; a plain
+/// <see cref="HttpClient"/> and the retry are both skipped when a service really does answer.
+/// </para>
 /// </summary>
-public sealed class ProxyResponder(HttpClient? client = null)
+public sealed class ProxyResponder(HttpClient? client = null, bool hostFallback = true)
 {
     // The Host header must track the upstream URL (set by HttpClient), not the original mock host.
     private static readonly HashSet<string> DropForwardHeaders =
@@ -23,7 +40,46 @@ public sealed class ProxyResponder(HttpClient? client = null)
         var forwardPath = proxy.UrlPrefixToRemove is { Length: > 0 } prefix && request.Url.StartsWith(prefix, StringComparison.Ordinal)
             ? request.Url[prefix.Length..]
             : request.Url;
-        using var message = new HttpRequestMessage(new HttpMethod(request.Method), proxy.BaseUrl.TrimEnd('/') + forwardPath);
+
+        var target = proxy.BaseUrl.TrimEnd('/') + forwardPath;
+        try
+        {
+            return await SendAsync(proxy, request, target, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not ProxyDeliveryException)
+        {
+            // The container-localhost trap (#176), mirroring the callback fix: a refused loopback target
+            // inside a container means nothing is listening on the container itself, so the operator
+            // almost certainly meant a service on their machine. Retry once via the host gateway.
+            var retry = hostFallback ? ContainerHostFallback.RetryTargetFor(target) : null;
+            if (retry is null || !ContainerHostFallback.IsConnectionRefused(exception))
+            {
+                throw new ProxyDeliveryException(
+                    ContainerHostFallback.Explain(target, exception, fallbackAttempted: false),
+                    containerDiagnosis: false);
+            }
+
+            try
+            {
+                return await SendAsync(proxy, request, retry, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception retryException) when (retryException is not ProxyDeliveryException)
+            {
+                // The retry's own error kind is irrelevant; what earns the diagnosis is that the
+                // original loopback attempt was refused. See ContainerHostFallback.Explain.
+                throw new ProxyDeliveryException(
+                    ContainerHostFallback.Explain(target, retryException, fallbackAttempted: true),
+                    containerDiagnosis: true);
+            }
+        }
+    }
+
+    // A fresh HttpRequestMessage per attempt: a message cannot be reused once sent, and the retry
+    // targets a different URL. The request body and headers are reusable, so this is cheap.
+    private async Task<CanonicalResponse> SendAsync(
+        ProxyDirective proxy, CanonicalRequest request, string target, CancellationToken cancellationToken)
+    {
+        using var message = new HttpRequestMessage(new HttpMethod(request.Method), target);
 
         if (request.Body is { Length: > 0 } body)
         {

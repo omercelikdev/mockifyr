@@ -71,7 +71,7 @@ public static class MockifyrServiceCollectionExtensions
         // Serve-event listeners: the built-in webhook plus any user extensions.
         services.AddSingleton<IServeEventTemplateRenderer>(sp =>
             new WebhookTemplateRenderer(sp.GetRequiredService<IEnvironmentResolver>()));
-        // WebhookOptions is resolved optionally: a host that registers one (MockifyrHost, from the
+        // OutboundOptions is resolved optionally: a host that registers one (MockifyrHost, from the
         // --webhook-host-fallback flag) is honoured, and one that does not keeps the defaults. The
         // factory runs at resolution time, after every registration, so ordering does not matter.
         services.AddSingleton<IServeEventListener>(sp =>
@@ -82,7 +82,7 @@ public static class MockifyrServiceCollectionExtensions
                 // to the next call without a restart.
                 client: OutboundClient(sp),
                 sp.GetRequiredService<IServeEventTemplateRenderer>(),
-                sp.GetService<WebhookOptions>()?.HostFallback ?? true));
+                sp.GetService<Mockifyr.Outbound.OutboundOptions>()?.HostFallback ?? true));
         foreach (var listener in extensions.ServeEventListeners)
         {
             services.AddSingleton<IServeEventListener>(listener);
@@ -110,7 +110,9 @@ public static class MockifyrServiceCollectionExtensions
 
         // Outbound edge (G12d): the proxy responder + recorder for proxy directives and record mode,
         // and the shared live-recording state the admin control endpoints and the fallback both see.
-        services.AddSingleton<ProxyResponder>(sp => new ProxyResponder(OutboundClient(sp)));
+        services.AddSingleton<ProxyResponder>(sp => new ProxyResponder(
+            OutboundClient(sp),
+            sp.GetService<Mockifyr.Outbound.OutboundOptions>()?.HostFallback ?? true));
         services.AddSingleton<StubRecorder>(_ => new StubRecorder());
         services.AddSingleton<RecordingSession>();
 

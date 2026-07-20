@@ -1,6 +1,6 @@
 using System.Net.Sockets;
 
-namespace Mockifyr.ServeEvents.Webhook;
+namespace Mockifyr.Outbound;
 
 /// <summary>
 /// Resolves the "callback to localhost fails inside a container" trap (#170).
@@ -19,10 +19,10 @@ namespace Mockifyr.ServeEvents.Webhook;
 /// The fallback can only turn a hard failure into a success, never the reverse.
 /// </para>
 /// </summary>
-internal static class ContainerHostFallback
+public static class ContainerHostFallback
 {
     /// <summary>The Docker/Podman Desktop DNS alias for the host machine.</summary>
-    internal const string HostGateway = "host.docker.internal";
+    public const string HostGateway = "host.docker.internal";
 
     private static readonly Lazy<bool> InContainer = new(DetectContainer);
 
@@ -155,11 +155,11 @@ internal static class ContainerHostFallback
 }
 
 /// <summary>
-/// Host-level webhook settings. Resolved optionally by the listener registration, so a host that
-/// never registers one keeps the defaults — and so the flag can be applied without re-registering
-/// <see cref="IServeEventListener"/>, which would add a second listener and deliver every webhook twice.
+/// Host-level outbound settings, shared by both outbound paths — callbacks and proxying (#170, #176).
+/// Resolved optionally so a host that never registers one keeps the defaults, and so the flag applies
+/// without re-registering the listener (which would add a second one and deliver every webhook twice).
 /// </summary>
 /// <param name="HostFallback">
-/// Whether a refused loopback callback is retried via the host gateway while containerised (#170).
+/// Whether a refused loopback target is retried via the host gateway while containerised.
 /// </param>
-public sealed record WebhookOptions(bool HostFallback = true);
+public sealed record OutboundOptions(bool HostFallback = true);
