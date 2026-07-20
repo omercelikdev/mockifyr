@@ -2,10 +2,13 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ArrowDownToLine, ArrowUpFromLine, Boxes, Check, Database, GitBranch, KeyRound, Moon, Palette, ShieldCheck, Sun } from 'lucide-react'
+import { ArrowDownToLine, ArrowUpFromLine, Boxes, Check, Database, GitBranch, KeyRound, Lock, Moon, Palette, Plus, ShieldCheck, Sun, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
-import { fetchGitStatus, fetchHealth, gitConfigure, gitPull, gitPush, gitSetCredentials, persistenceLabel } from '@/lib/api'
+import {
+  distrustHost, fetchGitStatus, fetchHealth, fetchOutboundTrust, gitConfigure, gitPull, gitPush,
+  gitSetCredentials, persistenceLabel, trustHost,
+} from '@/lib/api'
 import { LOCALES } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -56,6 +59,10 @@ export function SettingsPage() {
 
         {/* Git sync (ADR 0007): status + explicit push/pull against the host's configured remote */}
         <GitCard />
+
+        {/* Outbound certificate trust (#174): manageable here so a new internal endpoint does not
+            need a restart; pinned read-only when a --trust-* flag was passed. */}
+        <OutboundTrustCard />
 
         {/* Transport (host-config, read-only) */}
         <Card icon={ShieldCheck} title={t('settings.transport')}>
@@ -270,6 +277,95 @@ function Chip({ tone, children }: { tone: 'success' | 'warning' | 'info' | 'dang
     danger: 'border-danger-border bg-danger-bg text-danger',
   }
   return <span className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11.5px] font-medium', tones[tone])}>{children}</span>
+}
+
+/**
+ * Outbound certificate trust (#174). An endpoint served by an internal CA is trusted by the operator's
+ * machine but not by the container, so a callback or proxy to it fails where Postman succeeds. Adding
+ * the host here takes effect on the next call — no restart.
+ *
+ * Two modes, mirroring the Git card: a host started with a --trust-* flag is read-only here.
+ * "Trust every target" is deliberately absent — disabling verification wholesale stays a startup
+ * decision rather than something one click can do.
+ */
+function OutboundTrustCard() {
+  const { t } = useTranslation()
+  const { tenant } = useUi()
+  const queryClient = useQueryClient()
+  const { data: trust } = useQuery({ queryKey: ['outboundTrust'], queryFn: () => fetchOutboundTrust(tenant) })
+  const [host, setHost] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const refresh = () => void queryClient.invalidateQueries({ queryKey: ['outboundTrust'] })
+
+  // Unreachable host (sample mode): show nothing, like the Git card.
+  if (!trust) return null
+
+  async function add() {
+    const value = host.trim()
+    if (!value) return
+    setBusy(true)
+    const result = await trustHost(tenant, value)
+    setBusy(false)
+    if ('error' in result) { toast.error(result.message); return }
+    setHost('')
+    toast.success(t('trust.added', { host: value }))
+    refresh()
+  }
+
+  async function remove(value: string) {
+    const result = await distrustHost(tenant, value)
+    if ('error' in result) { toast.error(result.message); return }
+    toast.success(t('trust.removed', { host: value }))
+    refresh()
+  }
+
+  return (
+    <Card icon={Lock} title={t('settings.outboundTrust')}>
+      <p className="mb-3 text-sm text-muted-foreground">{t('settings.outboundTrustHint')}</p>
+
+      {trust.trustAll && (
+        <p className="mb-3 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
+          {t('trust.allWarning')}
+        </p>
+      )}
+      {trust.pinned && !trust.trustAll && (
+        <p className="mb-3 text-xs text-faint">{t('trust.pinnedByFlags')}</p>
+      )}
+      {!trust.pinned && !trust.persistent && (
+        <p className="mb-3 text-xs text-faint">{t('trust.notPersistent')}</p>
+      )}
+
+      {trust.hosts.length > 0 ? (
+        <ul className="mb-3 space-y-1.5">
+          {trust.hosts.map((h) => (
+            <li key={h} className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-1.5">
+              <span className="break-all font-mono text-[12.5px]">{h}</span>
+              {!trust.pinned && (
+                <Button variant="ghost" size="iconSm" aria-label={t('trust.remove')} onClick={() => void remove(h)}>
+                  <Trash2 />
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        !trust.trustAll && <p className="mb-3 text-sm text-muted-foreground">{t('trust.empty')}</p>
+      )}
+
+      {!trust.pinned && (
+        <div className="flex gap-2">
+          <Input
+            value={host} onChange={(e) => setHost(e.target.value)} placeholder="api.dev.mycorp.intra"
+            className="font-mono" onKeyDown={(e) => { if (e.key === 'Enter') void add() }}
+          />
+          <Button variant="primary" onClick={() => void add()} disabled={!host.trim() || busy}>
+            <Plus />{t('trust.add')}
+          </Button>
+        </div>
+      )}
+    </Card>
+  )
 }
 
 function Card({ icon: Icon, title, children }: { icon: React.ComponentType<{ className?: string }>; title: string; children: React.ReactNode }) {
