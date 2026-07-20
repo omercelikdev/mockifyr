@@ -56,6 +56,16 @@ public static class MockifyrHost
             rootDir = gitWorkDir;
         }
 
+        // Outbound certificate trust (#172), mirroring WireMock's --trust-proxy-target /
+        // --trust-all-proxy-targets. Registered before anything resolves an outbound client, and only
+        // when something is actually trusted, so the default path keeps the stock handler.
+        var outboundTls = OutboundTlsPolicy.From(builder.Configuration, args);
+        if (!outboundTls.IsDefault)
+        {
+            builder.Services.AddSingleton(outboundTls);
+            Console.WriteLine($"mockifyr: {outboundTls.Describe()}");
+        }
+
         // The container-localhost callback fallback (#170) is on by default; this turns it off for a
         // host that must deliver to exactly the address as written. Registered as options rather than
         // by re-registering the listener, which would add a SECOND listener and double every delivery.

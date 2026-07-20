@@ -125,7 +125,10 @@ public sealed class G3WebhookHostFallbackTests
         }
         else
         {
-            Assert.Equal(retryFailure.Message, explained);
+            // Outside a container no diagnosis is added — but the chain is still flattened (#172),
+            // so this is the described message rather than the outer exception's own text.
+            Assert.Equal(ContainerHostFallback.Describe(retryFailure), explained);
+            Assert.Contains("Network is unreachable", explained);
         }
     }
 
