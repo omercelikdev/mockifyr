@@ -70,7 +70,22 @@ export const TEMPLATING_HELPERS: HelperCategory[] = [
     helpers: [
       { name: 'randomValue (UUID)', syntax: "{{randomValue type='UUID'}}", desc: 'A random UUID.' },
       { name: 'randomInt', syntax: '{{randomInt lower=1 upper=100}}', desc: 'A random integer in a range.' },
-      { name: 'faker', syntax: "{{random 'Name.fullName'}}", desc: 'A fake value from the Faker catalog (names, addresses, etc.).', example: "{{random 'Internet.email'}}" },
+      { name: 'faker', syntax: "{{random 'Name.fullName'}}", desc: 'A fake value from the Faker catalog — see the Faker category for every provider.' },
+    ],
+  },
+  {
+    // Every provider below is proven against the WireMock faker extension (Datafaker) in
+    // tests/Mockifyr.Differential.Tests/G15aFakerTests.cs. Expressions are case-insensitive.
+    key: 'faker', label: 'Faker (dummy data)',
+    helpers: [
+      { name: 'Name', syntax: "{{random 'Name.firstName'}}", desc: 'firstName · lastName · fullName · name · username · prefix', example: "{{random 'Name.fullName'}}", output: 'Elena Schuppe' },
+      { name: 'Internet', syntax: "{{random 'Internet.emailAddress'}}", desc: 'emailAddress · url · uuid · domainName · ipV4Address · macAddress', example: "{{random 'Internet.emailAddress'}}", output: 'kiana_ohara@yahoo.com' },
+      { name: 'Geography', syntax: "{{random 'Address.city'}}", desc: 'city · country · countryCode · state · stateAbbr · zipCode', example: "{{random 'Address.countryCode'}}", output: 'TR' },
+      { name: 'Coordinates', syntax: "{{random 'Address.latitude'}}", desc: 'latitude · longitude — signed decimals, invariant culture.', example: "{{random 'Address.latitude'}}", output: '-38.204417' },
+      { name: 'Address', syntax: "{{random 'Address.fullAddress'}}", desc: 'streetAddress · streetName · buildingNumber · secondaryAddress · fullAddress', example: "{{random 'Address.fullAddress'}}", output: '7104 Wilkinson Ways, Port Alanis, MT 68222' },
+      { name: 'Phone', syntax: "{{random 'PhoneNumber.phoneNumber'}}", desc: 'phoneNumber · cellPhone', example: "{{random 'PhoneNumber.cellPhone'}}", output: '(534) 431-6789' },
+      { name: 'Company & commerce', syntax: "{{random 'Company.name'}}", desc: 'Company.name · Commerce.productName' },
+      { name: 'Lorem & number', syntax: "{{random 'Lorem.sentence'}}", desc: 'Lorem.word · Lorem.sentence · Number.digit' },
     ],
   },
   {

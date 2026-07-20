@@ -12,9 +12,21 @@ oracle and will use alternative validation. Each slice states its method.
   (Datafaker's .NET counterpart). A broad subset of the common providers is supported —
   `Name.firstName/lastName/fullName/name/username/prefix`,
   `Internet.emailAddress/url/uuid/domainName/ipV4Address/macAddress`,
-  `Address.city/country/zipCode/state/streetAddress`, `Number.digit`, `Company.name`,
-  `Commerce.productName`, `Lorem.word/sentence`, `PhoneNumber.phoneNumber`. An **unknown expression**
-  yields WireMock's own error string (`[ERROR: Unable to evaluate the expression <expr>]`).
+  `Address.city/country/countryCode/zipCode/state/stateAbbr/streetAddress/streetName/buildingNumber/`
+  `secondaryAddress/fullAddress/latitude/longitude`, `Number.digit`, `Company.name`,
+  `Commerce.productName`, `Lorem.word/sentence`, `PhoneNumber.phoneNumber/cellPhone`. An **unknown
+  expression** yields WireMock's own error string (`[ERROR: Unable to evaluate the expression <expr>]`).
+- **Learned: `Internet.url` is scheme-less.** Datafaker renders `www.<word>.<tld>` with **no**
+  `https://` prefix, whereas Bogus's `Internet.Url()` prepends one. The provider is therefore composed
+  by hand (`www.{DomainWord()}.{DomainSuffix()}`) to hold the oracle contract. This divergence sat
+  undetected because `Internet.url` was registered but had no field in the regression case — pinning
+  the previously untested providers (`url`, `country`, `Company.name`, `PhoneNumber.phoneNumber`,
+  `Name.name`) is what surfaced it.
+- **Learned: dotted helper names are not dispatchable.** Handlebars.Net parses `{{geo.city}}` as a
+  **model path**, not a helper invocation, so a helper registered under the name `geo.city` renders
+  **empty** (only the bracket-escaped `{{[geo.city]}}` reaches it). Faker categories are therefore
+  addressed exclusively through the string argument (`{{random 'Address.city'}}`), which is also what
+  WireMock does — a `{{geo.city}}`-style surface would be a non-parity invention.
 - **How it's validated (the racy-feature method).** Faker output is non-deterministic, so it can't be
   byte-diffed. Instead the same stub is served by both sides and, over 15 iterations, each generated
   field must satisfy a **format contract** (e.g. email regex, a 5(-4)-digit zip, a single digit, a
@@ -25,8 +37,10 @@ oracle and will use alternative validation. Each slice states its method.
   loose enough for both engines yet tight enough to catch a wrong provider.
 - **Deferred (tracked):** the remaining long tail of Datafaker providers beyond this subset (added on
   demand); argument-taking expressions (`Number.numberBetween` etc.); locale selection.
-- **Regression case:** `G15aFakerTests.FakerHelper_StructurallyMatchesTheOracle` (24 fields:
-  9 core + a `Number.digit`/`Internet.uuid` pair + the G15e long-tail).
+- **Regression case:** `G15aFakerTests.FakerHelper_StructurallyMatchesTheOracle` (30 fields: 9 core,
+  the G15e long-tail, the geo/address/phone set, and the previously unpinned providers). The extractor
+  is anchored to the `|` delimiter — an unanchored `name=[…]` search matched inside `username=[…]` and
+  compared the wrong provider's output.
 
 ## JWT / `jwt` helper (G15b)
 
