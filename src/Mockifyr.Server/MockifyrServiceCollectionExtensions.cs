@@ -61,8 +61,14 @@ public static class MockifyrServiceCollectionExtensions
         // Serve-event listeners: the built-in webhook plus any user extensions.
         services.AddSingleton<IServeEventTemplateRenderer>(sp =>
             new WebhookTemplateRenderer(sp.GetRequiredService<IEnvironmentResolver>()));
+        // WebhookOptions is resolved optionally: a host that registers one (MockifyrHost, from the
+        // --webhook-host-fallback flag) is honoured, and one that does not keeps the defaults. The
+        // factory runs at resolution time, after every registration, so ordering does not matter.
         services.AddSingleton<IServeEventListener>(sp =>
-            new WebhookServeEventListener(client: null, sp.GetRequiredService<IServeEventTemplateRenderer>()));
+            new WebhookServeEventListener(
+                client: null,
+                sp.GetRequiredService<IServeEventTemplateRenderer>(),
+                sp.GetService<WebhookOptions>()?.HostFallback ?? true));
         foreach (var listener in extensions.ServeEventListeners)
         {
             services.AddSingleton<IServeEventListener>(listener);

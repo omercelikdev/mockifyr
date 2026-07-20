@@ -56,6 +56,14 @@ public static class MockifyrHost
             rootDir = gitWorkDir;
         }
 
+        // The container-localhost callback fallback (#170) is on by default; this turns it off for a
+        // host that must deliver to exactly the address as written. Registered as options rather than
+        // by re-registering the listener, which would add a SECOND listener and double every delivery.
+        if (!builder.Configuration.GetValue("webhook-host-fallback", true))
+        {
+            builder.Services.AddSingleton(new ServeEvents.Webhook.WebhookOptions(HostFallback: false));
+        }
+
         var grpcEnabled = false;
         if (!string.IsNullOrWhiteSpace(rootDir))
         {
