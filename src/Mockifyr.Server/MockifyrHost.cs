@@ -65,12 +65,16 @@ public static class MockifyrHost
             Console.WriteLine($"mockifyr: {outboundTls.Describe()}");
         }
 
-        // The container-localhost callback fallback (#170) is on by default; this turns it off for a
-        // host that must deliver to exactly the address as written. Registered as options rather than
-        // by re-registering the listener, which would add a SECOND listener and double every delivery.
-        if (!builder.Configuration.GetValue("webhook-host-fallback", true))
+        // The container-localhost fallback (#170, #176) is on by default; this turns it off for a host
+        // that must reach exactly the address as written, on both outbound paths — callbacks and
+        // proxying. --webhook-host-fallback is kept as an alias for the name it shipped under in
+        // v0.8.1. Registered as options rather than by re-registering the listener, which would add a
+        // SECOND listener and double every delivery.
+        var hostFallback = builder.Configuration.GetValue<bool?>("outbound-host-fallback")
+            ?? builder.Configuration.GetValue("webhook-host-fallback", true);
+        if (!hostFallback)
         {
-            builder.Services.AddSingleton(new ServeEvents.Webhook.WebhookOptions(HostFallback: false));
+            builder.Services.AddSingleton(new Outbound.OutboundOptions(HostFallback: false));
         }
 
         // The runtime trust store (#174). Registered after rootDir is resolved because that is where

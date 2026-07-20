@@ -39,3 +39,35 @@ Verified WireMock proxy behaviors against the oracle (`wiremock/wiremock:3.10.0`
   it stays unimplemented. (WireMock does this via a global proxy setting / transformer, not the stub
   response.) Kept as a documented negative result rather than a silent divergence.
 - **Regression case:** `G8ProxyTests.Proxy_ReturnsUpstreamResponse` (now incl. the additional-headers case).
+
+## Proxy to loopback from inside a container (#176)
+
+- **Group / item:** post-G8 defect fix, the proxy counterpart of the callback fix (#170). **No oracle**
+  — the trap is environmental, so it is validated by reproduction against the published image plus unit
+  coverage of the retry logic.
+- **The trap.** A stub with `proxyBaseUrl: http://localhost:PORT` forwarded from inside a container
+  cannot reach a service on the host: `localhost` is the container's own loopback. Reproduced against
+  `ghcr.io/omercelikdev/mockifyr:0.9.0` — the request never left the container, the host target
+  received nothing, and the client got an opaque **HTTP 500 with an empty body**. Targeting
+  `host.docker.internal` instead delivered 200.
+- **Same fallback as callbacks, one shared implementation.** `ContainerHostFallback` moved from the
+  webhook project into `Mockifyr.Outbound` (the outbound-I/O edge) and is now used by both
+  `WebhookServeEventListener` and `ProxyResponder` — the acceptance criterion was explicitly "shared,
+  not duplicated." A refused loopback proxy is retried once via the host gateway; only `ECONNREFUSED`
+  triggers it; the URL is tried as written first, so a service really listening in the container answers
+  the first attempt and the fallback never runs.
+- **Learned: a proxy failure has no journal, so it must speak through the response.** Unlike a callback
+  (which records sub-events), a proxy failure is a live HTTP response. An unhandled exception produced a
+  bare 500. The container-localhost case now returns **502 Bad Gateway** with the flattened cause — 502
+  being exactly "a gateway could not reach upstream". This is scoped to the container diagnosis: every
+  other proxy failure propagates unchanged, so the differential oracle (which never proxies to a refused
+  loopback, and never runs Mockifyr *in* a container) is untouched.
+- **Learned: "off" means pre-#176 exactly.** With `--outbound-host-fallback false` a refused loopback
+  proxy reverts to the plain 500 — no retry, no 502, no diagnosis. The flag disables the feature
+  wholesale rather than keeping the diagnostics; the operator opted out of both.
+- **Flag generalised.** `--webhook-host-fallback` (v0.8.1) described only half the behaviour once proxy
+  joined. The setting is now `--outbound-host-fallback`, with `--webhook-host-fallback` kept as a
+  documented alias so a v0.8.1 adopter is not broken. Both were verified to disable the retry in a
+  container.
+- **Regression cases:** `G8ProxyHostFallbackTests` (retry triggers, non-triggers, off switch, non-loopback
+  untouched, flattened cause). Shares the decision logic tested by `G3WebhookHostFallbackTests`.

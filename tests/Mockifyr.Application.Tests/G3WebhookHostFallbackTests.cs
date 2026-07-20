@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Mockifyr.Core;
 using Mockifyr.Server;
 using Mockifyr.ServeEvents.Webhook;
+using Mockifyr.Outbound;
 using Mockifyr.Templating;
 
 namespace Mockifyr.Application.Tests;

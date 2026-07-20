@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Mockifyr.Server;
 using Mockifyr.ServeEvents.Webhook;
+using Mockifyr.Outbound;
 
 namespace Mockifyr.Application.Tests;
 

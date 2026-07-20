@@ -145,7 +145,9 @@ token the harness rewrites per side. Driven by `WebhookScenarios` + `G3WebhookTe
 - **Off switch:** `--webhook-host-fallback false`. Applied as `WebhookOptions` in DI rather than by
   re-registering `IServeEventListener` — listeners are resolved with `GetServices`, so a second
   registration would have delivered every webhook **twice**.
-- **Deferred (tracked):** proxy targets (`proxyBaseUrl`) have the identical trap and do **not** get
-  this fallback; the issue is scoped to callbacks.
+- **Now shared with proxying (#176).** Proxy targets (`proxyBaseUrl`) had the identical trap; the
+  fallback was extended to them and `ContainerHostFallback` moved to `Mockifyr.Outbound` so both paths
+  use one implementation. See docs/parity/g8-proxy.md. The disable flag generalised to
+  `--outbound-host-fallback` (with `--webhook-host-fallback` kept as an alias).
 - **Regression cases:** `G3WebhookHostFallbackTests` (retry triggers, non-triggers, the off switch,
   the failed-retry message, and that a successful first attempt never retries).
