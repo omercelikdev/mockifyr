@@ -342,6 +342,35 @@ public static class AdminEndpoints
             return Results.Ok();
         });
 
+        // Outbound certificate trust (#174). Host-level, not tenant-scoped: the outbound HttpClient is
+        // shared, so trust cannot belong to one tenant. Writes are refused (409) on a flag-pinned host,
+        // mirroring Git sync's two-mode design.
+        admin.MapGet("/outbound-trust", async (ISender sender) =>
+            Results.Json(OutboundTrustJson((await sender.Send(new OutboundTrustQuery())).Value)));
+
+        admin.MapPost("/outbound-trust/hosts", async (HttpRequest request, ISender sender) =>
+        {
+            string? host;
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(await ReadBody(request));
+                host = doc.RootElement.TryGetProperty("host", out var h) ? h.GetString() : null;
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                host = null;
+            }
+
+            var result = await sender.Send(new TrustHostCommand(host ?? string.Empty));
+            return result.IsSuccess ? Results.Json(OutboundTrustJson(result.Value)) : TrustFailure(result.Error);
+        });
+
+        admin.MapDelete("/outbound-trust/hosts/{host}", async (string host, ISender sender) =>
+        {
+            var result = await sender.Send(new DistrustHostCommand(host));
+            return result.IsSuccess ? Results.Json(OutboundTrustJson(result.Value)) : TrustFailure(result.Error);
+        });
+
         // Record mode (G12d): the record-through-proxy admin API (verified by the differential suite). While
         // a session is live, the mock-serving fallback proxies every request to the target and captures a
         // generated stub.
@@ -557,6 +586,25 @@ public static class AdminEndpoints
         resolved = key.Resolve(),
         values = key.Values.Select(v => new { name = v.Name, value = v.Value }),
     };
+
+    private static object OutboundTrustJson(OutboundTrustStatus status) => new
+    {
+        hosts = status.Hosts,
+        trustAll = status.TrustAll,
+        pinned = status.Pinned,
+        persistent = status.Persistent,
+    };
+
+    private static IResult TrustFailure(Mediant.Results.Error error) =>
+        Results.Json(new { error = error.Code, message = error.Description }, statusCode: error.Code switch
+        {
+            // Pinned is a conflict, not a bad request: the caller asked for something coherent that
+            // this host's startup configuration forbids — the same shape Git sync uses.
+            "Trust.FlagPinned" => StatusCodes.Status409Conflict,
+            "Trust.UnknownHost" => StatusCodes.Status404NotFound,
+            "Trust.Unavailable" => StatusCodes.Status501NotImplemented,
+            _ => StatusCodes.Status400BadRequest,
+        });
 
     private static IResult EnvironmentFailure(Mediant.Results.Error error) =>
         Results.Json(new { error = error.Code, message = error.Description }, statusCode: error.Code switch

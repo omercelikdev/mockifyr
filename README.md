@@ -115,6 +115,12 @@ Trusting one host grants nothing to any other. `--trust-all-proxy-targets` disab
 every target; the host prints a warning at startup when either flag is in effect. Without them,
 certificates are verified normally.
 
+You can also manage trusted hosts from **Settings → Outbound certificate trust** in the dashboard,
+which takes effect on the next call with no restart and survives one. Passing a `--trust-*` flag
+pins the configuration instead and the dashboard shows it read-only — the same two-mode design as
+Git sync. `--trust-all-proxy-targets` stays flag-only: the dashboard can trust individual hosts but
+cannot turn verification off.
+
 ## Documentation
 
 - Architecture & design — [ARCHITECTURE.md](ARCHITECTURE.md)

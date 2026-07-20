@@ -17,6 +17,12 @@ namespace Mockifyr.Server;
 /// </summary>
 public static class MockifyrServiceCollectionExtensions
 {
+    // The outbound HttpClient both callbacks and proxying use. When a trust store is wired it supplies
+    // a client whose validation reads the store live; otherwise a stock client with .NET's own
+    // validation — not a custom callback that happens to agree with it.
+    private static HttpClient OutboundClient(IServiceProvider sp) =>
+        sp.GetService<OutboundTrustStore>() is { } store ? store.CreateClient() : new HttpClient();
+
     public static IServiceCollection AddMockifyr(
         this IServiceCollection services, Action<MockifyrExtensions>? configure = null)
     {
@@ -44,6 +50,10 @@ public static class MockifyrServiceCollectionExtensions
         // top when --git-remote is set and it wins the resolution.
         services.AddSingleton<IGitSync, NotConfiguredGitSync>();
 
+        // Outbound certificate trust (#174): unmanaged by default; MockifyrHost registers the real
+        // store on top (it needs a state directory) and wins the resolution.
+        services.AddSingleton<IOutboundTrust, NoOutboundTrust>();
+
         // Custom matcher registry (G10), populated with the user's named matchers.
         var registry = new InMemoryMatcherRegistry();
         foreach (var (name, matcher) in extensions.Matchers)
@@ -66,9 +76,11 @@ public static class MockifyrServiceCollectionExtensions
         // factory runs at resolution time, after every registration, so ordering does not matter.
         services.AddSingleton<IServeEventListener>(sp =>
             new WebhookServeEventListener(
-                // Outbound TLS trust (#172): both outbound paths share one policy, so a host trusted
-                // for proxying is trusted for callbacks too.
-                client: (sp.GetService<OutboundTlsPolicy>() ?? OutboundTlsPolicy.Default).CreateClient(),
+                // Outbound TLS trust (#172, #174): both outbound paths share one store, so a host
+                // trusted for proxying is trusted for callbacks too — and because the validation
+                // callback reads the store per handshake, a host trusted from the dashboard applies
+                // to the next call without a restart.
+                client: OutboundClient(sp),
                 sp.GetRequiredService<IServeEventTemplateRenderer>(),
                 sp.GetService<WebhookOptions>()?.HostFallback ?? true));
         foreach (var listener in extensions.ServeEventListeners)
@@ -98,8 +110,7 @@ public static class MockifyrServiceCollectionExtensions
 
         // Outbound edge (G12d): the proxy responder + recorder for proxy directives and record mode,
         // and the shared live-recording state the admin control endpoints and the fallback both see.
-        services.AddSingleton<ProxyResponder>(sp =>
-            new ProxyResponder((sp.GetService<OutboundTlsPolicy>() ?? OutboundTlsPolicy.Default).CreateClient()));
+        services.AddSingleton<ProxyResponder>(sp => new ProxyResponder(OutboundClient(sp)));
         services.AddSingleton<StubRecorder>(_ => new StubRecorder());
         services.AddSingleton<RecordingSession>();
 

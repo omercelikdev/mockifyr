@@ -117,3 +117,43 @@ The SSL connection could not be established, see inner exception.
 The chain is now flattened into the journal line (repeated messages collapsed). This is why the
 original report could only say "SSL error" — the product had discarded its own explanation. Regression
 cases live in `OutboundTlsTrustTests`.
+
+## Managing outbound trust from the dashboard (#174)
+
+- **Group / item:** follow-up to #172. **No oracle** — WireMock has no dashboard, so this is validated
+  by unit coverage of the store plus an end-to-end run against a containerised host and a real
+  self-signed HTTPS target.
+- **Why it was needed.** #172 made trust a *startup flag*, so reaching a newly discovered internal
+  endpoint cost a container restart — and the flag had to be threaded through whatever launches the
+  container. Trust is now managed at runtime from Settings.
+- **Two modes, mirroring Git sync (ADR 0007).** A host started with `--trust-proxy-target` /
+  `--trust-all-proxy-targets` is **pinned**: the dashboard shows the list read-only and the API
+  refuses writes with `Trust.FlagPinned` → **409**, the same shape as `Git.FlagPinned`. Without a
+  flag, hosts are added and removed from Settings.
+- **Learned: a pinned host must ignore the stored file.** An earlier unpinned run leaves
+  `outbound-trust.json` behind. Merging it would let a leftover setting quietly widen what a
+  flag-pinned host accepts — so when a flag is present it is the *whole* configuration and the file
+  is not read. Pinned by regression test and by the end-to-end run.
+- **Learned: mutability belongs in the store, not the client.** The `HttpClient` is built once; its
+  validation callback consults the store on **every handshake**. That is what makes "no restart" true
+  without rebuilding clients or tearing down the connection pool. Verified against a running
+  container: the same process refused the callback, then delivered it after the host was trusted
+  through the API, then refused it again after the host was removed.
+- **Connection-pool caveat.** Adding trust applies immediately — a failed handshake is never pooled.
+  Removing trust applies to *new* connections; an already-established pooled connection to that host
+  is not torn down.
+- **Persistence is explicit, unlike Git sync.** Git gets restart survival free from `.git/config`;
+  trusted hosts have no such store, so they are written to `<root-dir>/outbound-trust.json`. A host
+  with no root directory reports `persistent: false` rather than implying durability it lacks — the
+  shipped Docker image bakes `--root-dir /work`, so a container always persists. An unreadable file
+  starts the host with **nothing** trusted: failing closed loses a setting, failing open loses the
+  guarantee.
+- **Host-level, deliberately not tenant-scoped.** The outbound `HttpClient` is shared across tenants,
+  so trust cannot belong to one of them — a tenant trusting a host would change what every other
+  tenant's callbacks and proxies accept. It lives in Settings, not on a tenant page. This is the
+  opposite call from environments (G17), and for the opposite reason.
+- **`--trust-all-proxy-targets` is flag-only.** Disabling verification wholesale stays a startup
+  decision; the dashboard can add individual hosts but cannot turn verification off. A host running
+  with it shows a warning banner instead of an editable list.
+- **Regression cases:** `OutboundTrustStoreTests` (runtime add/remove, restart survival, host
+  validation, pinned read-only, pinned-ignores-stored-file, unreadable-file recovery).

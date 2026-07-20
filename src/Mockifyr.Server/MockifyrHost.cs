@@ -62,7 +62,6 @@ public static class MockifyrHost
         var outboundTls = OutboundTlsPolicy.From(builder.Configuration, args);
         if (!outboundTls.IsDefault)
         {
-            builder.Services.AddSingleton(outboundTls);
             Console.WriteLine($"mockifyr: {outboundTls.Describe()}");
         }
 
@@ -73,6 +72,13 @@ public static class MockifyrHost
         {
             builder.Services.AddSingleton(new ServeEvents.Webhook.WebhookOptions(HostFallback: false));
         }
+
+        // The runtime trust store (#174). Registered after rootDir is resolved because that is where
+        // dashboard-added hosts persist; without one they are runtime-only, which the status reports
+        // rather than hides. A flag-pinned host keeps the flag as the whole configuration.
+        var trustStore = new OutboundTrustStore(outboundTls, string.IsNullOrWhiteSpace(rootDir) ? null : rootDir);
+        builder.Services.AddSingleton(trustStore);
+        builder.Services.AddSingleton<Application.IOutboundTrust>(trustStore);
 
         var grpcEnabled = false;
         if (!string.IsNullOrWhiteSpace(rootDir))

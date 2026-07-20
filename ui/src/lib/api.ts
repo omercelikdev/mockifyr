@@ -590,3 +590,44 @@ export async function deleteEnvironmentKey(tenant: string, key: string): Promise
     return false
   }
 }
+
+// ---- outbound certificate trust (#174) ----------------------------------------------------------
+// Host-level, not tenant-scoped: the outbound HttpClient is shared, so trust cannot belong to one
+// tenant. The tenant argument only rides along because adminFetch stamps the header for every call.
+
+export interface OutboundTrust {
+  hosts: string[]
+  /** Verification disabled for every target (flag-only; never settable from here). */
+  trustAll: boolean
+  /** Pinned by a --trust-* startup flag, so the dashboard shows it read-only. */
+  pinned: boolean
+  /** Whether changes survive a restart — false on a host with no root directory. */
+  persistent: boolean
+}
+
+export async function fetchOutboundTrust(tenant: string): Promise<OutboundTrust | null> {
+  try {
+    const res = await adminFetch('/outbound-trust', tenant)
+    if (!res.ok) return null
+    return (await res.json()) as OutboundTrust
+  } catch {
+    // Null hides the card entirely in sample mode, the same way the Git card behaves.
+    return null
+  }
+}
+
+async function trustOp(path: string, tenant: string, init: RequestInit): Promise<OutboundTrust | { error: string; message: string }> {
+  try {
+    const res = await adminFetch(path, tenant, init)
+    const body = await res.json().catch(() => ({}))
+    return res.ok ? (body as OutboundTrust) : (body as { error: string; message: string })
+  } catch {
+    return { error: 'Network', message: 'The host is unreachable.' }
+  }
+}
+
+export const trustHost = (tenant: string, host: string) =>
+  trustOp('/outbound-trust/hosts', tenant, { method: 'POST', body: JSON.stringify({ host }) })
+
+export const distrustHost = (tenant: string, host: string) =>
+  trustOp(`/outbound-trust/hosts/${encodeURIComponent(host)}`, tenant, { method: 'DELETE' })
