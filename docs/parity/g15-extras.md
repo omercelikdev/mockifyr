@@ -37,6 +37,15 @@ oracle and will use alternative validation. Each slice states its method.
   loose enough for both engines yet tight enough to catch a wrong provider.
 - **Deferred (tracked):** the remaining long tail of Datafaker providers beyond this subset (added on
   demand); argument-taking expressions (`Number.numberBetween` etc.); locale selection.
+- **Learned: a sampled contract needs a derived character set, not a guessed one.** Contracts are
+  asserted against *random draws*, so a character that appears in a rare catalog entry passes locally
+  and fails later. Two escaped a 15-draw run and only surfaced afterwards, both in the country catalog
+  that `Address.fullAddress` embeds: **parentheses** ("British Indian Ocean Territory (Chagos
+  Archipelago)") and an **ampersand** ("Svalbard & Jan Mayen Islands"). The fix is methodological —
+  the permitted set for every provider was derived by sampling each one **300k times** and collecting
+  the non-alphanumeric characters actually emitted, rather than widening the regex one failure at a
+  time. The iteration count is also raised to 60. When adding a provider, derive its set the same way:
+  a contract that only ever saw the common values is not evidence.
 - **Regression case:** `G15aFakerTests.FakerHelper_StructurallyMatchesTheOracle` (30 fields: 9 core,
   the G15e long-tail, the geo/address/phone set, and the previously unpinned providers). The extractor
   is anchored to the `|` delimiter — an unanchored `name=[…]` search matched inside `username=[…]` and

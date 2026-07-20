@@ -82,12 +82,17 @@ public sealed class G15aFakerTests : IAsyncLifetime
         new("longitude", new Regex(@"^-?\d{1,3}(\.\d+)?$", RegexOptions.Compiled)),
         new("streetName", new Regex(@"^[\p{L}\d'.,\-# ]+$", RegexOptions.Compiled)),
         new("buildingNumber", new Regex(@"^[\p{L}\d\- /]+$", RegexOptions.Compiled)),
-        new("fullAddress", new Regex(@"^[\p{L}\d'.,\-#/ ]+$", RegexOptions.Compiled)),
+        // fullAddress embeds a country name, so it must permit everything `country` does — including
+        // the parentheses and ampersand of "British Indian Ocean Territory (Chagos Archipelago)" and
+        // "Svalbard & Jan Mayen Islands". Both were rare enough to pass a 15-draw sample and fail later.
+        new("fullAddress", new Regex(@"^[\p{L}\d'.,&\-#/() ]+$", RegexOptions.Compiled)),
         new("cellPhone", new Regex(@"^[\d\p{L}()+\-. x/]+$", RegexOptions.Compiled)),
         // Previously registered but untested providers — pinned here so the catalog is fully covered.
-        // Country names carry digits and parentheses in both catalogs ("Antarctica (the territory
-        // South of 60 deg S)"), so the contract only pins "no control/delimiter characters".
-        new("country", new Regex(@"^[\p{L}\d'.,\-() ]+$", RegexOptions.Compiled)),
+        // Country names carry digits, parentheses and ampersands in both catalogs ("Antarctica (the
+        // territory South of 60 deg S)", "Svalbard & Jan Mayen Islands"), so the contract only pins
+        // "no control/delimiter characters". The permitted set was derived by exhaustively sampling
+        // every provider 300k times, not from a handful of draws — see docs/parity/g15-extras.md.
+        new("country", new Regex(@"^[\p{L}\d'.,&\-() ]+$", RegexOptions.Compiled)),
         new("company", new Regex(@"^[\p{L}\d'.,\-&/ ]+$", RegexOptions.Compiled)),
         // Datafaker's Internet.url is scheme-less ("www.foo.co"); see docs/parity/g15-message-extras.md.
         new("url", new Regex(@"^www\.[\p{L}\d\-]+\.\p{L}+$", RegexOptions.Compiled)),
@@ -103,7 +108,10 @@ public sealed class G15aFakerTests : IAsyncLifetime
         await LoadAsync(mockifyrClient);
 
         var failures = new List<string>();
-        for (var iteration = 0; iteration < 15; iteration++)
+        // Contracts are asserted against random draws, so the iteration count is what decides whether a
+        // rare value (a parenthesised country, an apostrophised street) is ever seen. 15 was too few —
+        // it let a fullAddress contract that rejects parentheses pass locally and fail in CI.
+        for (var iteration = 0; iteration < 60; iteration++)
         {
             var oracle = await _oracle.Client.GetStringAsync("/faker");
             var mockifyr = await mockifyrClient.GetStringAsync("/faker");
