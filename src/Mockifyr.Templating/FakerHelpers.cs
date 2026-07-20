@@ -1,3 +1,4 @@
+using System.Globalization;
 using Bogus;
 using HandlebarsDotNet;
 
@@ -26,22 +27,35 @@ internal static class FakerHelpers
         ["Name.username"] = f => f.Internet.UserName(),
         ["Name.prefix"] = f => f.Name.Prefix(),
         ["Internet.emailAddress"] = f => f.Internet.Email(),
-        ["Internet.url"] = f => f.Internet.Url(),
+        // Datafaker renders a scheme-less "www.<word>-<word>.<tld>"; Bogus's Url() prepends "https://",
+        // so it is composed by hand to keep the oracle contract. See docs/parity/g15-message-extras.md.
+        ["Internet.url"] = f => $"www.{f.Internet.DomainWord()}.{f.Internet.DomainSuffix()}",
         ["Internet.uuid"] = f => f.Random.Guid().ToString(),
         ["Internet.domainName"] = f => f.Internet.DomainName(),
         ["Internet.ipV4Address"] = f => f.Internet.Ip(),
         ["Internet.macAddress"] = f => f.Internet.Mac(),
         ["Address.city"] = f => f.Address.City(),
         ["Address.country"] = f => f.Address.Country(),
+        ["Address.countryCode"] = f => f.Address.CountryCode(),
         ["Address.zipCode"] = f => f.Address.ZipCode(),
         ["Address.state"] = f => f.Address.State(),
+        ["Address.stateAbbr"] = f => f.Address.StateAbbr(),
         ["Address.streetAddress"] = f => f.Address.StreetAddress(),
+        ["Address.streetName"] = f => f.Address.StreetName(),
+        ["Address.buildingNumber"] = f => f.Address.BuildingNumber(),
+        ["Address.secondaryAddress"] = f => f.Address.SecondaryAddress(),
+        ["Address.fullAddress"] = f => f.Address.FullAddress(),
+        // Coordinates are doubles in Bogus; Datafaker renders them as plain decimals, so the culture
+        // must be pinned or a comma separator would leak in on a non-invariant host.
+        ["Address.latitude"] = f => f.Address.Latitude().ToString("F6", CultureInfo.InvariantCulture),
+        ["Address.longitude"] = f => f.Address.Longitude().ToString("F6", CultureInfo.InvariantCulture),
         ["Number.digit"] = f => f.Random.Int(0, 9).ToString(),
         ["Company.name"] = f => f.Company.CompanyName(),
         ["Commerce.productName"] = f => f.Commerce.ProductName(),
         ["Lorem.word"] = f => f.Lorem.Word(),
         ["Lorem.sentence"] = f => f.Lorem.Sentence(),
         ["PhoneNumber.phoneNumber"] = f => f.Phone.PhoneNumber(),
+        ["PhoneNumber.cellPhone"] = f => f.Phone.PhoneNumber(),
     };
 
     private static object Evaluate(string expression) =>

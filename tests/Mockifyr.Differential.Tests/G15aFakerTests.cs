@@ -26,7 +26,15 @@ public sealed class G15aFakerTests : IAsyncLifetime
         "domain=[{{random 'Internet.domainName'}}]|ipv4=[{{random 'Internet.ipV4Address'}}]|" +
         "mac=[{{random 'Internet.macAddress'}}]|state=[{{random 'Address.state'}}]|" +
         "street=[{{random 'Address.streetAddress'}}]|product=[{{random 'Commerce.productName'}}]|" +
-        "sentence=[{{random 'Lorem.sentence'}}]";
+        "sentence=[{{random 'Lorem.sentence'}}]|" +
+        // Geo/address/phone providers requested by issue #164: the categories exist in Datafaker, so
+        // they are exposed under the same `{{random 'Class.method'}}` syntax rather than reinvented.
+        "countryCode=[{{random 'Address.countryCode'}}]|latitude=[{{random 'Address.latitude'}}]|" +
+        "longitude=[{{random 'Address.longitude'}}]|streetName=[{{random 'Address.streetName'}}]|" +
+        "buildingNumber=[{{random 'Address.buildingNumber'}}]|fullAddress=[{{random 'Address.fullAddress'}}]|" +
+        "cellPhone=[{{random 'PhoneNumber.cellPhone'}}]|country=[{{random 'Address.country'}}]|" +
+        "company=[{{random 'Company.name'}}]|url=[{{random 'Internet.url'}}]|" +
+        "phone=[{{random 'PhoneNumber.phoneNumber'}}]|name=[{{random 'Name.name'}}]";
 
     private static readonly string MappingJson =
         "{\"request\":{\"method\":\"GET\",\"urlPath\":\"/faker\"}," +
@@ -67,6 +75,24 @@ public sealed class G15aFakerTests : IAsyncLifetime
         new("street", new Regex(@"^[\p{L}\d'.,\-# ]+$", RegexOptions.Compiled)),
         new("product", new Regex(@"^[\p{L} ]+$", RegexOptions.Compiled)),
         new("sentence", new Regex(@"^[\p{L} ,.'-]+$", RegexOptions.Compiled)),
+        // Geo/address/phone (#164). Coordinates are the tight ones: a wrong provider (a zip code, a
+        // city name) cannot satisfy a signed decimal, and latitude is bounded to two integer digits.
+        new("countryCode", new Regex(@"^[A-Za-z]{2}$", RegexOptions.Compiled)),
+        new("latitude", new Regex(@"^-?\d{1,2}(\.\d+)?$", RegexOptions.Compiled)),
+        new("longitude", new Regex(@"^-?\d{1,3}(\.\d+)?$", RegexOptions.Compiled)),
+        new("streetName", new Regex(@"^[\p{L}\d'.,\-# ]+$", RegexOptions.Compiled)),
+        new("buildingNumber", new Regex(@"^[\p{L}\d\- /]+$", RegexOptions.Compiled)),
+        new("fullAddress", new Regex(@"^[\p{L}\d'.,\-#/ ]+$", RegexOptions.Compiled)),
+        new("cellPhone", new Regex(@"^[\d\p{L}()+\-. x/]+$", RegexOptions.Compiled)),
+        // Previously registered but untested providers — pinned here so the catalog is fully covered.
+        // Country names carry digits and parentheses in both catalogs ("Antarctica (the territory
+        // South of 60 deg S)"), so the contract only pins "no control/delimiter characters".
+        new("country", new Regex(@"^[\p{L}\d'.,\-() ]+$", RegexOptions.Compiled)),
+        new("company", new Regex(@"^[\p{L}\d'.,\-&/ ]+$", RegexOptions.Compiled)),
+        // Datafaker's Internet.url is scheme-less ("www.foo.co"); see docs/parity/g15-message-extras.md.
+        new("url", new Regex(@"^www\.[\p{L}\d\-]+\.\p{L}+$", RegexOptions.Compiled)),
+        new("phone", new Regex(@"^[\d\p{L}()+\-. x/]+$", RegexOptions.Compiled)),
+        new("name", new Regex(@"^[\p{L}'.\- ]+$", RegexOptions.Compiled)),
     ];
 
     [Fact]
@@ -111,7 +137,9 @@ public sealed class G15aFakerTests : IAsyncLifetime
 
     private static string Extract(string body, string field)
     {
-        var match = Regex.Match(body, Regex.Escape(field) + @"=\[(.*?)\]");
+        // Anchored to a field delimiter: an unanchored search for "name=[" would otherwise match
+        // inside "username=[...]" and silently compare the wrong provider's output.
+        var match = Regex.Match(body, @"(?:^|\|)" + Regex.Escape(field) + @"=\[(.*?)\]");
         return match.Success ? match.Groups[1].Value : "<absent>";
     }
 }
