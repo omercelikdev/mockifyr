@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Mockifyr">
+  <title>Mockifyr</title>
+  <rect width="512" height="512" rx="114" fill="#ffffff"/>
+  <g transform="translate(122.06 188.5) scale(2.143)">
+    <g fill="none" stroke="#111111" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 5 L42 31.5 L5 58"/>
+      <path d="M120 5 L83 31.5 L120 58"/>
+      <path d="M42 31.5 L62.5 46 L83 31.5"/>
+    </g>
+    <circle cx="62.5" cy="15" r="7" fill="#0a4ecf"/>
+  </g>
+</svg>

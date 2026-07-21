@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="brand/mark/mockifyr-mark-white.svg">
+  <img src="brand/mark/mockifyr-mark-duo.svg" alt="" width="148">
+</picture>
+
 # Mockifyr
 
 [![CI](https://github.com/omercelikdev/mockifyr/actions/workflows/ci.yml/badge.svg)](https://github.com/omercelikdev/mockifyr/actions/workflows/ci.yml)

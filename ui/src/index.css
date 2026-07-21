@@ -25,6 +25,11 @@
 
   --primary: #18181b;        /* accent — actions · active · CTA (swap to re-skin) */
   --primary-foreground: #ffffff;
+
+  /* Brand blue — the logo's eye, and the only place brand colour appears. Deliberately kept out of the
+     UI ramp: the palette stays zinc-monochrome, and this blue never competes with --info, which is a
+     near-identical informational state colour. */
+  --brand: #0a4ecf;
   --accent: #f1f1f3;         /* soft fill: nav hover/active, secondary */
   --accent-foreground: #18181b;
 
@@ -59,6 +64,8 @@
 
   --primary: #fafafa;
   --primary-foreground: #18181b;
+
+  --brand: #5a8dff;          /* lifted so it holds against the dark page */
   --accent: #202026;
   --accent-foreground: #fafafa;
 

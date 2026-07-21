@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { useUi } from '@/components/providers'
 import { clearAdminAuth, fetchJournal, fetchScenarios, fetchStubs, hasAdminAuth } from '@/lib/api'
 import { LOCALES } from '@/lib/i18n'
+import { BrandMark } from '@/components/ui/brand-mark'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { TenantSwitcher } from './tenant-switcher'
 import {
@@ -68,14 +69,14 @@ export function AppSidebar() {
             </IconButton>
             <div className="pt-2">
               <IconButton label={t('brand.name')} to="/">
-                <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground shadow-sm">M</span>
+                <BrandMark className="w-7" />
               </IconButton>
             </div>
           </div>
         ) : (
           <div className="flex shrink-0 items-center gap-1 px-2 pb-1 pt-[18px]">
             <NavLink to="/" className="flex h-11 flex-1 items-center gap-2.5 rounded-lg px-2 transition-colors hover:bg-muted">
-              <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground shadow-sm">M</span>
+              <BrandMark className="w-10 shrink-0" />
               <span className="min-w-0">
                 <span className="block truncate text-sm font-semibold leading-tight">{t('brand.name')}</span>
                 <span className="block truncate text-xs leading-tight text-muted-foreground">{t('brand.sub')}</span>
