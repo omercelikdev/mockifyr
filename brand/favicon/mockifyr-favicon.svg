@@ -1,15 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Mockifyr">
   <title>Mockifyr</title>
-  <!-- Optical size for 16px, not the master mark scaled down. The skeleton is identical, but the stroke
-       goes 10 → 13 and the mark fills 91% of the tile instead of 64%, so the line lands on ~1.5px at
-       tab size instead of the sub-pixel 0.84px that rendered as grey haze. -->
-  <rect width="64" height="64" rx="14" fill="#ffffff"/>
-  <g transform="translate(3 17.05) scale(0.4531)">
-    <g fill="none" stroke="#111111" stroke-width="13" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M6.5 6.5 L43.5 33 L6.5 59.5"/>
-      <path d="M121.5 6.5 L84.5 33 L121.5 59.5"/>
-      <path d="M43.5 33 L64 47.5 L84.5 33"/>
+  <!-- Optical size for 16px, not the master mark scaled down: same skeleton, but stroke 10 → 14 and the
+       mark fills 94% of the box, which puts the line on ~1.6px at tab scale instead of a sub-pixel 0.84px
+       that rendered as grey haze. Stroke stays under 60% of the body notch's length so the three shapes
+       still separate. No tile — a tab strip already has a background, and a white square reads as a white
+       square on every tab that is not active. Transparent instead means the ink has to carry itself, so
+       it follows the browser's theme rather than assuming a light one. -->
+  <style>
+    .ink { stroke: #111111 }
+    .eye { fill: #0a4ecf }
+    @media (prefers-color-scheme: dark) {
+      .ink { stroke: #ffffff }
+      .eye { fill: #5a8dff }
+    }
+  </style>
+  <g transform="translate(2 16.4) scale(0.4651)">
+    <g class="ink" fill="none" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M7 7 L44 33.5 L7 60"/>
+      <path d="M122 7 L85 33.5 L122 60"/>
+      <path d="M44 33.5 L64.5 48 L85 33.5"/>
     </g>
-    <circle cx="64" cy="16.5" r="8.5" fill="#0a4ecf"/>
+    <circle class="eye" cx="64.5" cy="17" r="9"/>
   </g>
 </svg>

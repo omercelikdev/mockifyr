@@ -37,12 +37,19 @@ small sizes. Keep the counters open and the silhouette survives down to 16px.
 mark/      mark only — black (light bg) · white (dark bg) · duo (two-tone)
 lockup/    horizontal logo, mark + wordmark — light / dark
 app-icon/  512px rounded-square app icon — blue / black / white tile
-favicon/   64px browser tab icon — ink on a white tile
+favicon/   64px browser tab icon — transparent, theme-aware
 ```
 
-The favicon is deliberately the plainest of the set. A tab strip is a dense row of other people's
-icons, and a saturated blue tile competes there; ink on white reads as the mark rather than as a
-colour, and the tile keeps the mark legible against dark browser chrome.
+The favicon is the one file that deliberately breaks the geometry above, and it has to. Scaling a
+line drawing down past roughly 24px does not preserve it: at tab size the master stroke lands under
+one pixel and renders as grey haze next to neighbours that are bold shapes filling their whole box.
+So the favicon is redrawn at its own optical size — same skeleton, stroke `14` instead of `10`, and
+94% fill instead of 64%. Stroke still stays under 60% of the body notch's length, which is what keeps
+the three shapes from welding together.
+
+It carries no tile. A tab strip already has a background, and a white square reads as a white square
+on every tab that is not the active one. With nothing behind it the ink has to carry itself, so the
+file switches colour on `prefers-color-scheme` rather than assuming a light browser.
 
 ## Which file to use
 
