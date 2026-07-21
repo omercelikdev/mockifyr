@@ -20,4 +20,9 @@ repository are nominative and descriptive only, for two purposes:
      scenarios against real WireMock as a reference oracle. The oracle code lives
      in the test/harness projects and is not part of the distributed product.
 
+The "Mockifyr" name and the logo files under brand/ are trademarks of this project. Apache-2.0
+grants a copyright and patent licence but no trademark licence (see LICENSE, section 6): you may
+fork and redistribute the code, but not use the name or the logo in a way that suggests the result
+is Mockifyr or is endorsed by it.
+
 All other product names, logos, and brands are property of their respective owners.
