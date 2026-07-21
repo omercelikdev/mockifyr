@@ -16,7 +16,7 @@ engine: something goes out, a stand-in comes back.
 | Ink | `#111111` | The mark on light backgrounds. |
 | Brand blue | `#0a4ecf` | Eye + accent on light backgrounds. 7.0:1 against white. |
 | Light blue | `#5a8dff` | Eye on dark backgrounds. 6.3:1 against `#0a0a0c`. |
-| Icon blue | `#bcd0ff` | Eye on the brand-blue tile, where `#5a8dff` has too little separation. |
+| Icon blue | `#bcd0ff` | Eye on the brand-blue app-icon tile, where `#5a8dff` has too little separation. |
 
 The eye always switches with the surface behind it — that is deliberate, not an inconsistency.
 
@@ -37,8 +37,12 @@ small sizes. Keep the counters open and the silhouette survives down to 16px.
 mark/      mark only — black (light bg) · white (dark bg) · duo (two-tone)
 lockup/    horizontal logo, mark + wordmark — light / dark
 app-icon/  512px rounded-square app icon — blue / black / white tile
-favicon/   64px browser tab icon on the brand-blue tile
+favicon/   64px browser tab icon — ink on a white tile
 ```
+
+The favicon is deliberately the plainest of the set. A tab strip is a dense row of other people's
+icons, and a saturated blue tile competes there; ink on white reads as the mark rather than as a
+colour, and the tile keeps the mark legible against dark browser chrome.
 
 ## Which file to use
 

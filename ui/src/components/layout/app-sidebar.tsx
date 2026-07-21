@@ -76,7 +76,7 @@ export function AppSidebar() {
         ) : (
           <div className="flex shrink-0 items-center gap-1 px-2 pb-1 pt-[18px]">
             <NavLink to="/" className="flex h-11 flex-1 items-center gap-2.5 rounded-lg px-2 transition-colors hover:bg-muted">
-              <BrandMark className="w-[50px] shrink-0" />
+              <BrandMark className="w-10 shrink-0" />
               <span className="min-w-0">
                 <span className="block truncate text-sm font-semibold leading-tight">{t('brand.name')}</span>
                 <span className="block truncate text-xs leading-tight text-muted-foreground">{t('brand.sub')}</span>
