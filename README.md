@@ -1,6 +1,6 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="brand/mark/mockifyr-mark-white.svg">
-  <img src="brand/mark/mockifyr-mark-duo.svg" alt="" width="148">
+  <img src="brand/mark/mockifyr-mark-black.svg" alt="" width="148">
 </picture>
 
 # Mockifyr
@@ -14,6 +14,9 @@
 response engine with first-class multi-tenancy, pluggable persistence, and thin facades — in-process
 library · HTTP server · admin REST · gRPC · GraphQL · WebSocket. Clean-room codebase with its own IP
 and no third-party mock-engine dependencies.
+
+📖 **[Documentation → mockifyr.omercelik.dev](https://mockifyr.omercelik.dev)** — guides, the full CLI
+and admin API reference, and [known limitations](https://mockifyr.omercelik.dev/limitations/).
 
 ## Quick start
 
@@ -74,11 +77,16 @@ docker run -p 8080:8080 -v "$PWD/mappings:/work/mappings" --entrypoint dotnet \
   ghcr.io/omercelikdev/mockifyr:latest Mockifyr.Server.dll --port 8080 --root-dir /work
 ```
 
-Or embed the engine directly in-process with the `Mockifyr.Facade.Library` package — no HTTP at all.
+Or embed the engine directly in-process with `Mockifyr.Facade.Library` — no HTTP at all. It is not
+published to NuGet yet; reference the project from a checkout of this repository.
 
 ## Configuration
 
-Everything is a CLI flag. The common ones:
+Everything is a CLI flag — there is no config file. Because the host builds its configuration with the
+standard .NET builder, **every flag is also readable as an environment variable of the same name**,
+which is why `-e admin-user=alice` works on `docker run`; arguments win when both are present.
+
+The common flags, with the [full reference](https://mockifyr.omercelik.dev/cli/) on the docs site:
 
 | Flag | Effect |
 |------|--------|
@@ -125,12 +133,27 @@ You can also manage trusted hosts from **Settings → Outbound certificate trust
 which takes effect on the next call with no restart and survives one. Passing a `--trust-*` flag
 pins the configuration instead and the dashboard shows it read-only — the same two-mode design as
 Git sync. `--trust-all-proxy-targets` stays flag-only: the dashboard can trust individual hosts but
-cannot turn verification off.
+cannot turn verification off. Full detail:
+[HTTPS, HTTP/2 and mTLS](https://mockifyr.omercelik.dev/https-and-mtls/).
 
 ## Documentation
 
+**Using Mockifyr — [mockifyr.omercelik.dev](https://mockifyr.omercelik.dev)**
+
+- [Getting started](https://mockifyr.omercelik.dev/getting-started/) · [the dashboard](https://mockifyr.omercelik.dev/the-dashboard/)
+- Stubs — [request matching](https://mockifyr.omercelik.dev/request-matching/) · [responses](https://mockifyr.omercelik.dev/responses/) · [templating](https://mockifyr.omercelik.dev/templating/)
+- Behaviour — [scenarios](https://mockifyr.omercelik.dev/scenarios/) · [delays and faults](https://mockifyr.omercelik.dev/delays-and-faults/) · [proxying](https://mockifyr.omercelik.dev/proxying/) · [record and playback](https://mockifyr.omercelik.dev/record-and-playback/) · [webhooks](https://mockifyr.omercelik.dev/webhooks/)
+- Platform — [multi-tenancy](https://mockifyr.omercelik.dev/multi-tenancy/) · [environments](https://mockifyr.omercelik.dev/environments/) · [persistence](https://mockifyr.omercelik.dev/persistence/) · [HTTPS and mTLS](https://mockifyr.omercelik.dev/https-and-mtls/)
+- Reference — [CLI](https://mockifyr.omercelik.dev/cli/) · [admin API](https://mockifyr.omercelik.dev/admin-api/) · [extending](https://mockifyr.omercelik.dev/extending/)
+- [Migrating from WireMock](https://mockifyr.omercelik.dev/migrating-from-wiremock/), and the
+  [known limitations](https://mockifyr.omercelik.dev/limitations/) worth reading first
+
+**Working on Mockifyr — in this repository**
+
 - Architecture & design — [ARCHITECTURE.md](ARCHITECTURE.md)
 - Roadmap — [docs/roadmap.md](docs/roadmap.md) · decisions — [docs/decisions/](docs/decisions/)
+- Learned WireMock behaviour, per feature group — [docs/parity/](docs/parity/)
+- Brand assets and their usage rules — [brand/](brand/)
 - This is an AI-driven repository; how work is done here — [CLAUDE.md](CLAUDE.md)
 
 ## Contributing
