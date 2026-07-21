@@ -24,8 +24,12 @@ The eye always switches with the surface behind it — that is deliberate, not a
 
 The mark is drawn on a tight `0 0 125 63` viewBox: the artwork's ink, including the round stroke
 caps, touches all four edges exactly. Consumers add their own padding, and the mark centres
-correctly in any container without eyeballing. Stroke width is `13` with round caps and joins
-throughout; that ratio is what keeps the silhouette readable down to 16px.
+correctly in any container without eyeballing.
+
+Stroke width is `10` with round caps and joins throughout. That ratio is load-bearing, and it is
+set by the shortest segment, not the longest: the body notch is a ~25-unit stroke, so anything much
+heavier stops reading as a line and turns into a lump that welds the three shapes into one mass at
+small sizes. Keep the counters open and the silhouette survives down to 16px.
 
 ## Files
 
