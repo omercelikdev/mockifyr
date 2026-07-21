@@ -38,7 +38,24 @@ mark/      mark only — black (light bg) · white (dark bg) · duo (two-tone)
 lockup/    horizontal logo, mark + wordmark — light / dark
 app-icon/  512px rounded-square app icon — blue / black / white tile
 favicon/   64px browser tab icon — transparent, theme-aware
+social-preview.png   1280x640 share card for the repository's link preview
 ```
+
+## The share card
+
+`social-preview.png` is what a chat client or social platform shows when someone pastes a link to this
+repository. GitHub generates a generic card from the repo name and description when none is set, so
+this replaces that.
+
+**It has to be uploaded by hand** — there is no API for it. Repository **Settings → General → Social
+preview → Upload an image**. Once uploaded it applies to every link to the repository.
+
+The docs site carries its own copy of the same card at `/og.png`, wired up through `og:image`, because
+a link to the site and a link to the repository are scraped independently.
+
+The card's wordmark is set in a system family rather than Sora, deliberately: it is rasterised once at
+author time, so a font missing on the rendering machine would substitute silently — the same trap the
+lockups carry a warning about below.
 
 The favicon is the one file that deliberately breaks the geometry above, and it has to. Scaling a
 line drawing down past roughly 24px does not preserve it: at tab size the master stroke lands under
