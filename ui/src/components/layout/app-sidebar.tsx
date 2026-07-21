@@ -69,7 +69,7 @@ export function AppSidebar() {
             </IconButton>
             <div className="pt-2">
               <IconButton label={t('brand.name')} to="/">
-                <BrandMark className="w-9" />
+                <BrandMark className="w-7" />
               </IconButton>
             </div>
           </div>
