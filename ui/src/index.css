@@ -27,11 +27,9 @@
   --primary-foreground: #ffffff;
 
   /* Brand blue — the logo's eye, and the only place brand colour appears. Deliberately kept out of the
-     UI ramp: the palette stays zinc-monochrome, and this blue never competes with --info. The
-     -on-primary variant is the one that holds against the --primary tile the mark sits on, so it flips
-     the opposite way to the theme. Re-skinning --primary? Re-check this pair too. */
+     UI ramp: the palette stays zinc-monochrome, and this blue never competes with --info, which is a
+     near-identical informational state colour. */
   --brand: #0a4ecf;
-  --brand-on-primary: #5a8dff;
   --accent: #f1f1f3;         /* soft fill: nav hover/active, secondary */
   --accent-foreground: #18181b;
 
@@ -67,8 +65,7 @@
   --primary: #fafafa;
   --primary-foreground: #18181b;
 
-  --brand: #5a8dff;             /* lifted so it holds against the dark page */
-  --brand-on-primary: #0a4ecf;  /* the tile is near-white here, so the eye goes back to deep blue */
+  --brand: #5a8dff;          /* lifted so it holds against the dark page */
   --accent: #202026;
   --accent-foreground: #fafafa;
 
