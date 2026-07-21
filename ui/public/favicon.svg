@@ -1,12 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Mockifyr">
   <title>Mockifyr</title>
+  <!-- Optical size for 16px, not the master mark scaled down. The skeleton is identical, but the stroke
+       goes 10 → 13 and the mark fills 91% of the tile instead of 64%, so the line lands on ~1.5px at
+       tab size instead of the sub-pixel 0.84px that rendered as grey haze. -->
   <rect width="64" height="64" rx="14" fill="#ffffff"/>
-  <g transform="translate(11.5 21.668) scale(0.328)">
-    <g fill="none" stroke="#111111" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M5 5 L42 31.5 L5 58"/>
-      <path d="M120 5 L83 31.5 L120 58"/>
-      <path d="M42 31.5 L62.5 46 L83 31.5"/>
+  <g transform="translate(3 17.05) scale(0.4531)">
+    <g fill="none" stroke="#111111" stroke-width="13" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6.5 6.5 L43.5 33 L6.5 59.5"/>
+      <path d="M121.5 6.5 L84.5 33 L121.5 59.5"/>
+      <path d="M43.5 33 L64 47.5 L84.5 33"/>
     </g>
-    <circle cx="62.5" cy="15" r="7" fill="#0a4ecf"/>
+    <circle cx="64" cy="16.5" r="8.5" fill="#0a4ecf"/>
   </g>
 </svg>
